@@ -1,0 +1,16 @@
+{
+  "name": "deliberation-room",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Offline jury deliberation app for a closed LAN",
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "seed": "npm run seed -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

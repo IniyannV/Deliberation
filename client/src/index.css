@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Self-hosted fonts: nothing is fetched from the internet. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/atkinson-hyperlegible-latin-400-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/atkinson-hyperlegible-latin-700-italic.woff2") format("woff2");
+}
+
+/* Calm, low-contrast-glare palette. Utilities read these variables, so
+   overriding them under .dark switches the whole app. */
+@theme {
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-bg: #f4f3ef;
+  --color-surface: #fbfaf7;
+  --color-surface-2: #ecebe5;
+  --color-line: #d9d6cc;
+  --color-ink: #26292c;
+  --color-muted: #5f656b;
+  --color-accent: #3f6b64;
+  --color-accent-strong: #345a54;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #dfe9e6;
+  --color-warn: #8a5f26;
+  --color-warn-soft: #f3e9d6;
+  --color-danger: #974545;
+  --color-danger-soft: #f2e1df;
+  --color-ok: #4b6f45;
+  --color-ok-soft: #e2ecdf;
+
+  /* Timeline event types */
+  --color-testimony: #56708f;
+  --color-physical: #9c6548;
+  --color-document: #6c7a3c;
+}
+
+.dark {
+  --color-bg: #161819;
+  --color-surface: #1e2123;
+  --color-surface-2: #272b2e;
+  --color-line: #373c40;
+  --color-ink: #e2e0da;
+  --color-muted: #a0a6ab;
+  --color-accent: #86b0a8;
+  --color-accent-strong: #9cc2ba;
+  --color-accent-ink: #12201d;
+  --color-accent-soft: #24332f;
+  --color-warn: #d6b07a;
+  --color-warn-soft: #3a3020;
+  --color-danger: #d99a92;
+  --color-danger-soft: #3d2826;
+  --color-ok: #a3c79a;
+  --color-ok-soft: #26331f;
+
+  --color-testimony: #8ea6c4;
+  --color-physical: #cf9878;
+  --color-document: #aab875;
+}
+
+@layer base {
+  html {
+    font-size: 112.5%; /* 18px base: large, readable type */
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-bg text-ink font-sans leading-relaxed;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* No aggressive motion for fatigued users. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+/* react-pdf text layer sits on top of the canvas; keep selection subtle. */
+.react-pdf__Page {
+  margin: 0 auto 1rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}

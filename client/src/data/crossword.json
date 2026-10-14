@@ -1,0 +1,104 @@
+{
+  "title": "Quiet Places",
+  "author": "Deliberation Room",
+  "rows": 11,
+  "cols": 11,
+  "entries": [
+    {
+      "number": 1,
+      "dir": "down",
+      "row": 0,
+      "col": 3,
+      "answer": "CANOE",
+      "clue": "Boat moved with a paddle"
+    },
+    {
+      "number": 2,
+      "dir": "down",
+      "row": 0,
+      "col": 6,
+      "answer": "PEBBLE",
+      "clue": "Small, smooth stone"
+    },
+    {
+      "number": 3,
+      "dir": "down",
+      "row": 1,
+      "col": 0,
+      "answer": "ORCHARD",
+      "clue": "Grove of fruit trees"
+    },
+    {
+      "number": 4,
+      "dir": "across",
+      "row": 1,
+      "col": 2,
+      "answer": "GARDEN",
+      "clue": "Place to grow tomatoes and roses"
+    },
+    {
+      "number": 5,
+      "dir": "across",
+      "row": 4,
+      "col": 0,
+      "answer": "HONEY",
+      "clue": "Sweet product of a hive"
+    },
+    {
+      "number": 6,
+      "dir": "down",
+      "row": 4,
+      "col": 9,
+      "answer": "NOVEL",
+      "clue": "Long work of fiction"
+    },
+    {
+      "number": 7,
+      "dir": "across",
+      "row": 5,
+      "col": 5,
+      "answer": "MEADOW",
+      "clue": "Grassy field full of wildflowers"
+    },
+    {
+      "number": 7,
+      "dir": "down",
+      "row": 5,
+      "col": 5,
+      "answer": "MAPLE",
+      "clue": "Tree whose sap becomes syrup"
+    },
+    {
+      "number": 8,
+      "dir": "down",
+      "row": 5,
+      "col": 7,
+      "answer": "AUTUMN",
+      "clue": "Season of falling leaves"
+    },
+    {
+      "number": 9,
+      "dir": "down",
+      "row": 6,
+      "col": 2,
+      "answer": "OTTER",
+      "clue": "Playful river mammal that floats on its back"
+    },
+    {
+      "number": 10,
+      "dir": "across",
+      "row": 7,
+      "col": 2,
+      "answer": "TEAPOT",
+      "clue": "Vessel with a spout for brewing"
+    },
+    {
+      "number": 11,
+      "dir": "across",
+      "row": 9,
+      "col": 0,
+      "answer": "BREEZE",
+      "clue": "Gentle wind"
+    }
+  ]
+}
