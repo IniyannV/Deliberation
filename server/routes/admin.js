@@ -4,8 +4,9 @@ import { ROLES, destroyUserSessions, hashPin, randomPin, requireRole } from '../
 import { auditAs, readAudit, toCsv, verifyChain } from '../services/audit.js';
 import { emit, disconnectUser } from '../realtime.js';
 import { getPresence } from '../sockets/index.js';
+import { withSummary } from '../lib/auditText.js';
 import { HttpError, bad, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { REQUEST_STATUSES, canAdvance, publicRequest } from '../lib/requests.js';
+import { REQUEST_STATUSES, addRequestMessage, canAdvance, publicRequest } from '../lib/requests.js';
 
 const router = Router();
 router.use(requireRole(ROLES.BAILIFF));
@@ -119,6 +120,12 @@ router.patch('/requests/:id', async (req, res) => {
   res.json({ request: publicRequest(r) });
 });
 
+router.post('/requests/:id/messages', async (req, res) => {
+  const r = db.data.requests.find((x) => x.id === req.params.id);
+  if (!r) throw new HttpError(404, 'Request not found');
+  res.status(201).json({ request: await addRequestMessage(r, req.user, req.role, req.body?.text) });
+});
+
 /* ── Family updates (bailiff → one seat, text only) ───────────────── */
 
 router.get('/updates', (_req, res) => {
@@ -149,7 +156,7 @@ router.get('/audit', (req, res) => {
   const action = req.query.action ? String(req.query.action) : '';
   const filtered = action ? all.filter((e) => e.action.startsWith(action)) : all;
   const limit = Math.min(Number(req.query.limit) || 200, 1000);
-  res.json({ entries: filtered.slice(-limit).reverse(), total: filtered.length, chain: verifyChain(all) });
+  res.json({ entries: filtered.slice(-limit).reverse().map(withSummary), total: filtered.length, chain: verifyChain(all) });
 });
 
 router.get('/audit.csv', (req, res) => {
@@ -157,7 +164,7 @@ router.get('/audit.csv', (req, res) => {
   const stamp = nowIso().replace(/[:.]/g, '-');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="audit-log-${stamp}.csv"`);
-  res.send(toCsv(readAudit()));
+  res.send(toCsv(readAudit().map(withSummary)));
 });
 
 export default router;

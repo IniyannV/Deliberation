@@ -6,6 +6,7 @@ import { REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, PageHeader, Segmented, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { RequestSummary, STATUS_TONE } from '../../features/requests/RequestsPage'
+import RequestThread from '../../features/requests/RequestThread'
 
 const ICON = { break: 'coffee', meal: 'utensils', supplies: 'box', judge_question: 'question' }
 const NEXT = { pending: ['acknowledged', 'Acknowledge'], acknowledged: ['fulfilled', 'Mark fulfilled'] }
@@ -46,7 +47,7 @@ export default function Requests() {
     <div>
       <PageHeader
         title="Request queue"
-        subtitle="Live requests from the jury room. Each status change is recorded in the audit log."
+        subtitle="Live requests from the jury room. Reply to a juror on any request. Status changes and messages are recorded in the audit log (message text is not)."
         actions={<>
           <Button size="sm" variant={soundOn ? 'secondary' : 'ghost'} icon="volume" onClick={() => setSound(!soundOn)} aria-pressed={soundOn}>
             Sound {soundOn ? 'on' : 'off'}
@@ -56,7 +57,7 @@ export default function Requests() {
       />
 
       {list.length ? (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3" data-tour="admin-queue">
           {list.map((r) => (
             <li key={r.id}>
               <Card className={cx('flex items-start gap-5 p-5 transition-colors duration-1000', flash && r.id === newest && r.status === 'pending' ? 'border-warn bg-warn-soft' : '', r.status === 'fulfilled' && 'opacity-60')}>
@@ -73,6 +74,7 @@ export default function Requests() {
                   <p className="mt-2 text-sm text-muted">
                     {r.history.map((h) => `${STATUS_LABEL[h.status]} ${fmtTime(h.at)}`).join(' → ')} · {timeAgo(r.createdAt)}
                   </p>
+                  <RequestThread request={r} viewer="bailiff" />
                 </div>
                 {NEXT[r.status] && (
                   <Button variant={r.status === 'pending' ? 'primary' : 'secondary'} onClick={() => advance(r)}>{NEXT[r.status][1]}</Button>

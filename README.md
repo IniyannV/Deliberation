@@ -30,16 +30,19 @@ Open that address on each juror device, the projector and the bailiff station.
 | `npm run dev` | Express API on :4000 plus Vite on :5173 (hot reload, proxied API/sockets). The strict CSP is enforced in `npm start`, not on the Vite dev server. |
 | `npm run build` | Production build of the client (`client/dist`) |
 | `npm start` | Production: one port, serves `client/dist`, REST API and socket.io, bound to `0.0.0.0` |
-| `npm run seed` | **Stop the server first.** Rebuilds `server/data/db.json`, regenerates demo exhibits and placeholder audio, prints new PINs. The previous audit log is archived, never deleted. |
+| `npm run seed` | **Stop the server first.** Rebuilds `server/data/db.json`, regenerates the demo exhibits, prints new PINs and saves them to `server/data/demo-credentials.txt` (git-ignored). The previous audit log is archived, never deleted. |
 
 Set `PORT` to change the port (`PORT=8080 npm start`).
+
+**Trying the demo?** Sign in as seat `1` (the foreperson), then choose
+**Guided tour** in the sidebar. The bailiff (`B1`) has its own tour.
 
 ## Who signs in where
 
 | Role | Sign in with | Lands on |
 |---|---|---|
-| Juror | seat number (1–12) + PIN | `/juror`: evidence, timeline, voting, requests, messages, wellbeing |
-| Foreperson | their seat number + PIN | same as juror, plus poll/ballot controls, judge questions, room-display control |
+| Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, timeline, voting, requests, messages from home |
+| Foreperson | seat `1` in the demo | same as juror, plus poll/ballot controls, judge questions, room-display control |
 | Room display | `DISPLAY` + PIN | `/display`: full-screen projector view (read-only) |
 | Bailiff / Clerk | `B1` + PIN | `/admin`: request queue, evidence upload, seats & PINs, family updates, menu, audit log |
 
@@ -56,21 +59,32 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
    `server/scripts/lib/case-content.js` first to set the caption, case number
    and counts (charges) for ballots.
 2. In **Admin → Evidence**, remove the demo exhibits and upload the admitted
-   exhibits: PDF, PNG/JPEG/WebP/GIF, or `.txt` transcripts. Transcript lines
-   that start with `Q:`, `A:` or `NAME:` become speaker turns. Files are
-   type-checked by content, and SVG/HTML are refused.
+   exhibits: PDF, PNG/JPEG/WebP/GIF, `.txt` transcripts, or `.json`
+   interactive maps and charts. Transcript lines that start with `Q:`, `A:` or
+   `NAME:` become speaker turns. Files are type-checked by content, and
+   SVG/HTML are refused.
 3. Configure the meal menu and supplies in **Admin → Menu & supplies**.
-4. Drop licensed audio into `server/media/` (see below).
 
-## Audiobooks and music
+Each count's **elements, definitions and burden of proof** (shown to jurors
+beside every ballot) live in `case-content.js` too. For a real trial, copy them
+from the judge's written instructions.
 
-The wellbeing hub plays every audio file in **`server/media/`**. `npm run seed`
-only creates short generated placeholder tones. **No copyrighted audio is
-included.** To add licensed audiobooks or music, copy `.mp3/.m4a/.ogg/.wav/.flac`
-files into `server/media/` and optionally describe them in
-`server/media/catalog.json`. See `server/media/README.md` for details.
-Calming noise (white, pink, brown, rain) is generated in the browser with the
-Web Audio API and needs no files.
+## Interactive exhibits
+
+Maps and charts are uploaded as JSON and drawn as SVG in the browser, with no
+map tiles and no network access. The server rebuilds every spec field by field
+(`server/lib/interactive.js`, which documents the format), so an exhibit can
+only contain shapes, numbers and plain text.
+
+- **Map** (`"kind": "map"`): areas, roads, layers you can toggle, and places,
+  routes and coverage circles you can click. Places can link to other exhibits
+  by number. With `milesPerUnit` set, jurors can measure distances.
+- **Chart** (`"kind": "chart"`): `"bar"` (values with notes) or `"events"`
+  (things that happened over time, by row, up to three categories), with hover
+  details and a table view.
+
+The seed includes J-1 (map), P-7 (bar chart) and D-3 (events chart). See
+`server/scripts/lib/interactive-exhibits.js` for complete examples.
 
 ## Privacy design
 
@@ -78,15 +92,22 @@ Web Audio API and needs no files.
   separately from *what* was chosen, and never stores the two together. Open
   vote state lives only in memory, and only the final tally is written to disk.
   See the comment at the top of `server/services/voting.js`. Restarting the
-  server mid-ballot voids that ballot, so it must be re-run.
+  server mid-ballot voids that ballot, so it must be re-run. The room display
+  never receives a running count for a secret ballot, only the final result.
 - **Audit log** (`server/data/audit.log.jsonl`): append-only and hash-chained, so
   edits are detected and shown in the admin UI. Exportable as CSV. It records
   logins, requests and status changes, family updates and evidence changes, with
-  actor and ISO timestamp. It never records deliberation content: no timeline
-  text, poll or ballot activity, judge-question text or message bodies. `meta`
-  fields pass through an allowlist.
+  actor and ISO timestamp, shown in plain English. It never records
+  deliberation content: no timeline text, image notes, poll or ballot activity,
+  judge-question text, or the text of family updates and request messages.
+  `meta` fields pass through an allowlist.
 - **Family updates** are one-way: text-only, one seat each, logged with the
   bailiff ID. Jurors can mark them read. No reply UI or endpoint exists.
+- **Request messages** are a separate juror ↔ bailiff thread on each request
+  (for example, a menu substitution). Only the juror who made the request and
+  the bailiff can read or post to it.
+- **Image notes** (right-click a photo) are shared with the jury and never
+  visible to court staff.
 - Court staff see only whether a device is connected, never deliberation activity.
 
 ## Offline guarantees
@@ -106,16 +127,16 @@ Web Audio API and needs no files.
 
 ```
 client/                 React + Vite (SWC), Tailwind, zustand, react-router
-  src/features/         evidence · timeline · voting · requests · bulletin · wellbeing
+  src/features/         evidence (incl. map/chart viewers) · timeline · voting · requests · bulletin · tour
   src/pages/            login, juror home, display, admin/*
   src/store/            auth, live (socket-synced state), ui (theme, toasts)
 server/
   index.js              Express + socket.io on one port, CSP, LAN banner
   auth.js               PIN hashing, sessions (httpOnly cookie), role guards
-  routes/               auth, exhibits, media, juror, admin
-  sockets/              connection auth + timeline/links/polls/ballots/display
+  routes/               auth, exhibits, juror, admin
+  sockets/              connection auth + timeline/links/notes/polls/ballots/display
   services/             audit.js (append-only log), voting.js (anonymous voting)
-  scripts/seed.js       demo case, generated PDFs/PNGs/WAVs
-  data/                 db.json (lowdb), uploads, audit log (git-ignored)
-  media/                audio for the wellbeing hub
+  lib/interactive.js    validator for map/chart exhibits
+  scripts/seed.js       demo case, generated PDFs/PNGs, map and charts
+  data/                 db.json (lowdb), uploads, audit log, demo PINs (git-ignored)
 ```

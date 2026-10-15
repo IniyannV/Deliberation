@@ -4,10 +4,57 @@ export const CASE = {
   caption: 'People v. Dana Whitlock',
   caseNumber: '26-CR-0418',
   court: 'Millbrook County Superior Court, Part 3',
+  // Shown to jurors beside each ballot. In a real trial, paste the judge's written instructions here.
+  burden:
+    'The People must prove every element of a count beyond a reasonable doubt. If they have not proven any one element, you must find the defendant not guilty of that count. You must also be convinced that it was the defendant who committed the acts.',
   counts: [
-    { id: 'c1', label: 'Count 1: Burglary in the Third Degree' },
-    { id: 'c2', label: 'Count 2: Grand Larceny in the Fourth Degree' },
-    { id: 'c3', label: 'Count 3: Criminal Mischief in the Fourth Degree' },
+    {
+      id: 'c1',
+      label: 'Count 1: Burglary in the Third Degree',
+      statute: 'Millbrook Penal Code § 140.20',
+      summary: 'A person is guilty of burglary in the third degree when they knowingly enter or remain unlawfully in a building with intent to commit a crime inside it.',
+      elements: [
+        "The defendant entered or remained in a building: Callan's Hardware, 412 Ferris Street.",
+        'The entry or remaining was unlawful: the defendant had no license or privilege to be there at that time.',
+        'The defendant knew that the entry or remaining was unlawful.',
+        'When entering or remaining, the defendant intended to commit a crime inside (here, theft).',
+      ],
+      definitions: [
+        { term: 'Enter or remain unlawfully', text: 'To be in a building without permission from the owner or anyone authorized to give it. A former employee has no permission outside working hours.' },
+        { term: 'Intent', text: 'A conscious aim or objective. You may infer intent from what a person did and the surrounding circumstances.' },
+      ],
+    },
+    {
+      id: 'c2',
+      label: 'Count 2: Grand Larceny in the Fourth Degree',
+      statute: 'Millbrook Penal Code § 155.30',
+      summary: 'A person is guilty of grand larceny in the fourth degree when they steal property and the value of the property exceeds $1,000.',
+      elements: [
+        'The defendant wrongfully took, obtained or withheld property.',
+        "The property belonged to someone else: Callan's Hardware.",
+        'The defendant did so with intent to deprive the owner of the property or to keep it for themselves or another person.',
+        'The value of the property taken exceeded $1,000.',
+      ],
+      definitions: [
+        { term: 'Value', text: 'The market value of the property at the time and place of the theft. Repair costs for damage are not counted toward the value of property taken.' },
+        { term: 'Deprive', text: 'To withhold property permanently, or for so long that most of its value or benefit is lost to the owner.' },
+      ],
+    },
+    {
+      id: 'c3',
+      label: 'Count 3: Criminal Mischief in the Fourth Degree',
+      statute: 'Millbrook Penal Code § 145.00',
+      summary: 'A person is guilty of criminal mischief in the fourth degree when, having no right to do so nor any reasonable ground to believe they have such a right, they intentionally damage the property of another person.',
+      elements: [
+        "The defendant damaged property: the rear service door of Callan's Hardware.",
+        'The property belonged to someone else.',
+        'The defendant acted intentionally, not by accident.',
+        'The defendant had no right to damage the property and no reasonable ground to believe they had that right.',
+      ],
+      definitions: [
+        { term: 'Damage', text: 'Any physical harm that impairs the value or usefulness of the property, such as pry marks that break a lock or frame.' },
+      ],
+    },
   ],
 };
 

@@ -42,7 +42,7 @@ export default function Jurors() {
   return (
     <div>
       <PageHeader title="Juror seats" subtitle="Assign PINs, choose the foreperson, and excuse seats. PINs are stored only as hashes. A new PIN is shown once." />
-      <Card>
+      <Card data-tour="admin-seats">
         <table className="w-full text-left">
           <thead className="border-b border-line text-sm text-muted">
             <tr><th className="px-5 py-3">Seat</th><th className="py-3">Status</th><th className="py-3">Role</th><th /></tr>

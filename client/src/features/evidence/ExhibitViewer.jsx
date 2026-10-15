@@ -1,25 +1,15 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy } from 'react'
 import { exhibitFileUrl } from '../../lib/api'
-import { Segmented, Spinner } from '../../components/ui'
+import { Spinner } from '../../components/ui'
 import { useLive } from '../../store/live'
+import { toast } from '../../store/ui'
 import { useExhibit } from './useExhibit'
 import TranscriptView from './TranscriptView'
+import ImageViewer from './ImageViewer'
 
 const PdfViewer = lazy(() => import('./PdfViewer'))
-
-function ImageViewer({ url, title }) {
-  const [mode, setMode] = useState('fit')
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex justify-end border-b border-line px-3 py-1.5">
-        <Segmented label="Image size" value={mode} onChange={setMode} options={[{ value: 'fit', label: 'Fit' }, { value: 'full', label: 'Actual size' }]} />
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto bg-surface-2 p-4 scrollbar-thin">
-        <img src={url} alt={title} className={mode === 'fit' ? 'mx-auto max-h-full max-w-full object-contain' : 'max-w-none'} />
-      </div>
-    </div>
-  )
-}
+const MapViewer = lazy(() => import('./MapViewer'))
+const ChartViewer = lazy(() => import('./ChartViewer'))
 
 /** Renders any exhibit type in a full-height panel. */
 export default function ExhibitViewer({ exhibitId, focusLine, onOpenExhibit }) {
@@ -29,8 +19,19 @@ export default function ExhibitViewer({ exhibitId, focusLine, onOpenExhibit }) {
   if (error) return <p className="p-6 text-danger">{error}</p>
   if (!exhibit) return <Spinner label="Opening exhibit…" />
   const title = `${exhibit.number}: ${exhibit.title}`
-  if (exhibit.type === 'pdf') return <Suspense fallback={<Spinner />}><PdfViewer url={exhibitFileUrl(exhibit.id)} title={title} /></Suspense>
-  if (exhibit.type === 'image') return <ImageViewer url={exhibitFileUrl(exhibit.id)} title={title} />
+
+  // Interactive exhibits refer to other exhibits by number ("P-2").
+  const openByNumber = (n) => {
+    const target = exhibits.find((e) => e.number.toLowerCase() === n.toLowerCase())
+    if (target) onOpenExhibit?.(target.id)
+    else toast(`Exhibit ${n} isn't in the locker.`, { tone: 'warn' })
+  }
+
+  const lazyView = (node) => <Suspense fallback={<Spinner />}>{node}</Suspense>
+  if (exhibit.type === 'pdf') return lazyView(<PdfViewer url={exhibitFileUrl(exhibit.id)} title={title} />)
+  if (exhibit.type === 'image') return <ImageViewer exhibit={exhibit} url={exhibitFileUrl(exhibit.id)} title={title} />
+  if (exhibit.type === 'map') return lazyView(<MapViewer spec={exhibit.spec} onOpenExhibitNumber={openByNumber} />)
+  if (exhibit.type === 'chart') return lazyView(<ChartViewer spec={exhibit.spec} />)
   return (
     <div className="h-full overflow-y-auto p-4 scrollbar-thin">
       <TranscriptView

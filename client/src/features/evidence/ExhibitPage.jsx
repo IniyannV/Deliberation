@@ -15,6 +15,8 @@ export default function ExhibitPage() {
 
   if (!exhibit) return loaded ? <p className="text-muted">This exhibit is no longer available. <Link className="text-accent underline" to="/juror/evidence">Back to the locker</Link></p> : <Spinner />
 
+  // Maps and charts need the room, so their details go in one line under the title.
+  const interactive = exhibit.type === 'map' || exhibit.type === 'chart'
   const reviewHref = exhibit.type === 'transcript' ? `/juror/review?t=${exhibit.id}` : `/juror/review?ex=${exhibit.id}`
 
   return (
@@ -29,11 +31,17 @@ export default function ExhibitPage() {
         </div>
         <Button icon="columns" onClick={() => navigate(reviewHref)}>Open side by side</Button>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_18rem] gap-5">
+      {interactive && (
+        <p className="-mt-2 mb-3 text-muted">
+          {TYPE_LABEL[exhibit.type]} · {PARTY_LABEL[exhibit.party]} · Admitted {fmtCalendarDate(exhibit.dateAdmitted)}
+          {exhibit.description && <> · {exhibit.description}</>}
+        </p>
+      )}
+      <div className={`grid min-h-0 flex-1 gap-5 ${interactive ? 'grid-cols-1' : 'grid-cols-[1fr_18rem]'}`}>
         <Card className="min-h-0 overflow-hidden">
           <ExhibitViewer exhibitId={exhibit.id} focusLine={Number(params.get('line')) || undefined} onOpenExhibit={(eid) => navigate(`/juror/evidence/${eid}`)} />
         </Card>
-        <Card className="h-fit p-5">
+        {!interactive && <Card className="h-fit p-5">
           <dl className="flex flex-col gap-3">
             {[
               ['Type', TYPE_LABEL[exhibit.type]],
@@ -53,7 +61,7 @@ export default function ExhibitPage() {
               </div>
             )}
           </dl>
-        </Card>
+        </Card>}
       </div>
     </div>
   )

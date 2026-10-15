@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
+import { load, store } from '../../lib/storage'
 import { EVENT_TYPES, fmtDateTime } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, IconButton, Modal, PageHeader, Segmented, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -47,6 +48,37 @@ function EventDetail({ ev, exhibitsById, onEdit, onDelete, onClose }) {
   )
 }
 
+/** Right-click menu for a timeline card. */
+function CardMenu({ menu, onEdit, onDelete, onClose }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    ref.current?.querySelector('button')?.focus()
+    const close = (e) => { if (!ref.current?.contains(e.target)) onClose() }
+    const key = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', key)
+    window.addEventListener('scroll', onClose, true)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', key)
+      window.removeEventListener('scroll', onClose, true)
+    }
+  }, [onClose])
+  const x = Math.min(menu.x, window.innerWidth - 240)
+  const y = Math.min(menu.y, window.innerHeight - 150)
+  return (
+    <div ref={ref} role="menu" aria-label={`Options for ${menu.ev.label}`} className="fixed z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl" style={{ left: x, top: y }}>
+      <p className="truncate border-b border-line px-4 py-2 text-sm text-muted">{menu.ev.label}</p>
+      <button type="button" role="menuitem" onClick={onEdit} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 focus:bg-surface-2 focus:outline-none">
+        <Icon name="edit" size={18} /> Edit event
+      </button>
+      <button type="button" role="menuitem" onClick={onDelete} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-danger hover:bg-danger-soft focus:bg-danger-soft focus:outline-none">
+        <Icon name="trash" size={18} /> Delete event…
+      </button>
+    </div>
+  )
+}
+
 export default function TimelinePage() {
   const timeline = useLive((s) => s.timeline)
   const exhibits = useLive((s) => s.exhibits)
@@ -54,9 +86,11 @@ export default function TimelinePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [zoom, setZoom] = useState(1)
+  const [mode, setMode] = useState(() => load('timelineMode', 'lanes'))
   const [selectedId, setSelectedId] = useState(null)
-  const [editor, setEditor] = useState(null) // { initial } | null
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editor, setEditor] = useState(null) // { initial, defaultAt } | null
+  const [menu, setMenu] = useState(null) // { ev, x, y } | null
+  const [deleting, setDeleting] = useState(null) // event to confirm
 
   const exhibitsById = Object.fromEntries(exhibits.map((e) => [e.id, e]))
   const selected = timeline.find((e) => e.id === selectedId)
@@ -80,21 +114,22 @@ export default function TimelinePage() {
 
   async function remove() {
     try {
-      await emit('timeline:delete', { id: selectedId })
-      setSelectedId(null)
+      await emit('timeline:delete', { id: deleting.id })
+      if (selectedId === deleting.id) setSelectedId(null)
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
-    setConfirmDelete(false)
+    setDeleting(null)
   }
 
+  const changeMode = (m) => { setMode(m); store('timelineMode', m) }
   const zoomNum = zoom === 'fit' ? 1 : zoom
 
   return (
     <div>
       <PageHeader
         title="Timeline"
-        subtitle="A shared timeline for the whole jury. Changes appear on every screen and the room display. Drag a card sideways to change its time."
+        subtitle="A shared timeline for the whole jury. Changes appear on every screen and the room display."
         actions={<Button variant="primary" icon="plus" onClick={() => setEditor({ initial: null })}>Add event</Button>}
       />
 
@@ -106,17 +141,32 @@ export default function TimelinePage() {
             </li>
           ))}
         </ul>
-        <div className="flex items-center gap-2">
-          <Segmented label="Zoom" value={zoom === 'fit' ? 'fit' : 'manual'} onChange={(v) => setZoom(v === 'fit' ? 'fit' : 1)} options={[{ value: 'fit', label: 'Fit to screen' }, { value: 'manual', label: 'Detailed' }]} />
-          <IconButton icon="minus" label="Zoom out" onClick={() => setZoom(Math.max(0.3, +(zoomNum - 0.25).toFixed(2)))} />
+        <div className="flex flex-wrap items-center gap-2" data-tour="timeline-controls">
+          <Segmented label="Layout" value={mode} onChange={changeMode} options={[{ value: 'lanes', label: 'Three lanes' }, { value: 'single', label: 'One line' }]} />
+          <Segmented label="Zoom" value={zoom === 'fit' ? 'fit' : 'manual'} onChange={(v) => setZoom(v === 'fit' ? 'fit' : 1)} options={[{ value: 'fit', label: 'Compact' }, { value: 'manual', label: 'Detailed' }]} />
+          <IconButton icon="minus" label="Zoom out" onClick={() => setZoom(Math.max(0, +(zoomNum - 0.25).toFixed(2)))} />
           <IconButton icon="plus" label="Zoom in" onClick={() => setZoom(Math.min(3, +(zoomNum + 0.25).toFixed(2)))} />
         </div>
       </div>
 
       {timeline.length ? (
-        <Card className="mb-6 py-2">
-          <Timeline events={timeline} zoom={zoom} selectedId={selectedId} onSelect={(ev) => setSelectedId(ev.id === selectedId ? null : ev.id)} onMove={move} />
-        </Card>
+        <>
+          <Card className="mb-2 py-2" data-tour="timeline-board">
+            <Timeline
+              events={timeline}
+              zoom={zoom}
+              mode={mode}
+              selectedId={selectedId}
+              onSelect={(ev) => setSelectedId(ev.id === selectedId ? null : ev.id)}
+              onMove={move}
+              onCreateAt={(at) => setEditor({ initial: null, defaultAt: at })}
+              onCardMenu={(ev, x, y) => setMenu({ ev, x, y })}
+            />
+          </Card>
+          <p className="mb-6 text-sm text-muted">
+            Drag a card sideways to change its time · Double-click empty space to add an event there · Right-click a card to edit or delete it
+          </p>
+        </>
       ) : (
         <div className="mb-6">
           <EmptyState icon="timeline" title="The timeline is empty">
@@ -130,8 +180,17 @@ export default function TimelinePage() {
           ev={selected}
           exhibitsById={exhibitsById}
           onEdit={() => setEditor({ initial: selected })}
-          onDelete={() => setConfirmDelete(true)}
+          onDelete={() => setDeleting(selected)}
           onClose={() => setSelectedId(null)}
+        />
+      )}
+
+      {menu && (
+        <CardMenu
+          menu={menu}
+          onClose={() => setMenu(null)}
+          onEdit={() => { setEditor({ initial: menu.ev }); setMenu(null) }}
+          onDelete={() => { setDeleting(menu.ev); setMenu(null) }}
         />
       )}
 
@@ -139,22 +198,22 @@ export default function TimelinePage() {
         <EventEditor
           open
           initial={editor.initial}
-          defaultAt={latest || undefined}
+          defaultAt={editor.defaultAt ?? (latest || undefined)}
           onClose={() => setEditor(null)}
           onSaved={(ev) => setSelectedId(ev.id)}
         />
       )}
 
       <Modal
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
         title="Delete this event?"
         footer={<>
-          <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Keep it</Button>
+          <Button variant="ghost" onClick={() => setDeleting(null)}>Keep it</Button>
           <Button variant="danger" onClick={remove}>Delete for everyone</Button>
         </>}
       >
-        <p>“{selected?.label}” will be removed from the timeline on every juror’s screen.</p>
+        <p>“{deleting?.label}” will be removed from the timeline on every juror’s screen.</p>
       </Modal>
     </div>
   )

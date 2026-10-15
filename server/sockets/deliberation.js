@@ -2,7 +2,7 @@ import { db, save } from '../db.js';
 import { ROLES } from '../auth.js';
 import { HttpError, bad, int, isoDateTime, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
 import {
-  castVote, closePoll, openBallot, openPoll, publicVote, voidBallot,
+  castVote, closePoll, displayVote, openBallot, openPoll, publicVote, voidBallot,
 } from '../services/voting.js';
 
 /*
@@ -12,7 +12,7 @@ import {
  */
 
 const EVENT_TYPES = ['testimony', 'physical', 'document'];
-const DISPLAY_VIEWS = ['timeline', 'votes', 'calm'];
+const DISPLAY_VIEWS = ['timeline', 'votes', 'idle'];
 
 const toJurorsAndDisplay = (io, event, payload) => io.to(['jurors', 'display']).emit(event, payload);
 
@@ -60,7 +60,8 @@ async function timelineChanged(io) {
 }
 
 async function votesChanged(io, vote) {
-  toJurorsAndDisplay(io, 'vote:changed', publicVote(vote));
+  io.to('jurors').emit('vote:changed', publicVote(vote));
+  io.to('display').emit('vote:changed', displayVote(vote));
 }
 
 export const deliberationHandlers = {
@@ -134,7 +135,43 @@ export const deliberationHandlers = {
     },
   },
 
-  /* ── Temperature polls ── */
+  /* ── Image notes (shared with the jury, never logged) ── */
+  'note:create': {
+    roles: [ROLES.JUROR],
+    async handler({ io }, p) {
+      if (!db.data.exhibits.some((e) => e.id === p.exhibitId && e.type === 'image')) throw bad('Notes can only be added to image exhibits');
+      const coord = (v, field) => {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0 || n > 1) throw bad(`${field} is off the image`);
+        return Math.round(n * 10000) / 10000;
+      };
+      const note = { id: newId('note'), exhibitId: p.exhibitId, x: coord(p.x, 'Position'), y: coord(p.y, 'Position'), text: str(p.text, { min: 1, max: 500, field: 'Note' }), createdAt: nowIso() };
+      db.data.imageNotes.push(note);
+      await save();
+      io.to('jurors').emit('notes:changed', db.data.imageNotes);
+      return { note };
+    },
+  },
+  'note:update': {
+    roles: [ROLES.JUROR],
+    async handler({ io }, p) {
+      const note = db.data.imageNotes.find((n) => n.id === p.id);
+      if (!note) throw new HttpError(404, 'That note was removed');
+      note.text = str(p.text, { min: 1, max: 500, field: 'Note' });
+      await save();
+      io.to('jurors').emit('notes:changed', db.data.imageNotes);
+    },
+  },
+  'note:delete': {
+    roles: [ROLES.JUROR],
+    async handler({ io }, p) {
+      db.data.imageNotes = db.data.imageNotes.filter((n) => n.id !== p.id);
+      await save();
+      io.to('jurors').emit('notes:changed', db.data.imageNotes);
+    },
+  },
+
+  /* ── Polls ── */
   'poll:open': {
     roles: [ROLES.FOREPERSON],
     async handler({ io }, p) {

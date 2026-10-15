@@ -47,7 +47,22 @@ const paths = {
   volume: 'M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6',
   refresh: 'M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4',
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+  map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+  chart: 'M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3',
+  pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  store: 'M4 10l1.5-5h13L20 10M4 10h16M4 10a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0M5 10v10h14V10M10 20v-5h4v5',
+  warehouse: 'M3 20V9l9-5 9 5v11M7 20v-8h10v8M7 15h10',
+  tower: 'M12 10v11M8 21l4-11 4 11M8.5 6.5a5 5 0 0 1 7 0M5.5 3.5a9 9 0 0 1 13 0M12 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  police: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
+  ruler: 'M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2',
+  note: 'M5 4h14v11l-5 5H5zM14 20v-5h5M8 9h8M8 13h5',
+  layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
+  table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
+  send: 'M4 12l16-8-6 16-3-7z',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5l-2 5-5 2 2-5z',
 }
+
+export const ICON_PATHS = paths
 
 export function Icon({ name, size = 20, className = '', strokeWidth = 1.8, title }) {
   return (

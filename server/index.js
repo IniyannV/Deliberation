@@ -15,7 +15,6 @@ import { setIo } from './realtime.js';
 import { registerSockets } from './sockets/index.js';
 import authRoutes from './routes/auth.js';
 import exhibitRoutes from './routes/exhibits.js';
-import mediaRoutes from './routes/media.js';
 import jurorRoutes from './routes/juror.js';
 import adminRoutes from './routes/admin.js';
 
@@ -37,7 +36,6 @@ app.use(authenticate);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/exhibits', exhibitRoutes);
-app.use('/api/media', mediaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', jurorRoutes);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));

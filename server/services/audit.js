@@ -64,11 +64,13 @@ export function verifyChain(entries = readAudit()) {
 }
 
 const csvCell = (v) => {
-  const s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+  let s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+  if (/^[=+\-@\t]/.test(s)) s = `'${s}`; // never let a spreadsheet treat a cell as a formula
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 export function toCsv(entries) {
-  const cols = ['seq', 'ts', 'actor', 'role', 'action', 'target', 'meta', 'prevHash', 'hash'];
+  // `summary` and `actorName` are computed for readability; the hash covers only the stored fields.
+  const cols = ['seq', 'ts', 'actorName', 'summary', 'actor', 'role', 'action', 'target', 'meta', 'prevHash', 'hash'];
   return [cols.join(','), ...entries.map((e) => cols.map((c) => csvCell(e[c])).join(','))].join('\n') + '\n';
 }

@@ -13,7 +13,19 @@ const FILTERS = [
   ['seat', 'Seat changes'],
 ]
 
-const fmtTs = (iso) => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' })
+const CATEGORY = {
+  auth: { label: 'Sign-in', icon: 'logout', tone: 'neutral' },
+  request: { label: 'Request', icon: 'bell', tone: 'warn' },
+  update: { label: 'Family update', icon: 'mail', tone: 'accent' },
+  exhibit: { label: 'Evidence', icon: 'folder', tone: 'accent' },
+  seat: { label: 'Seat', icon: 'users', tone: 'neutral' },
+  catalog: { label: 'Menu', icon: 'utensils', tone: 'neutral' },
+  audit: { label: 'Audit', icon: 'shield', tone: 'neutral' },
+  seed: { label: 'System', icon: 'refresh', tone: 'neutral' },
+}
+
+const fmtDay = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+const fmtClock = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
 
 export default function Audit() {
   const queue = useLive((s) => s.queue)
@@ -25,11 +37,19 @@ export default function Audit() {
     api(`/admin/audit?limit=500${filter ? `&action=${filter}` : ''}`).then(setData).catch((e) => setError(e.message))
   }, [filter, queue])
 
+  // Group entries under a heading per day.
+  const groups = []
+  for (const e of data?.entries ?? []) {
+    const day = fmtDay(e.ts)
+    if (groups.at(-1)?.day !== day) groups.push({ day, entries: [] })
+    groups.at(-1).entries.push(e)
+  }
+
   return (
     <div>
       <PageHeader
         title="Audit log"
-        subtitle="Append-only record of sign-ins, requests, status changes, family updates and evidence uploads. Deliberation content (timeline, votes, notes) is never logged."
+        subtitle="Append-only record of sign-ins, requests, status changes, family updates and evidence uploads. Deliberation content (timeline, votes, notes, message text) is never logged."
         actions={
           <a href="/api/admin/audit.csv" download className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 font-semibold hover:bg-surface-2">
             <Icon name="download" /> Export CSV
@@ -47,25 +67,35 @@ export default function Audit() {
             : <Badge tone="danger"><Icon name="shield" size={14} /> Log altered at entry #{data.chain.brokenAt}</Badge>}
         </div>
       )}
-      <Card className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-line text-muted">
-            <tr><th className="px-4 py-3">#</th><th className="py-3 pr-4">Time</th><th className="py-3 pr-4">Actor</th><th className="py-3 pr-4">Action</th><th className="py-3 pr-4">Details</th></tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {data?.entries.map((e) => (
-              <tr key={e.seq}>
-                <td className="px-4 py-2 text-muted tabular-nums">{e.seq}</td>
-                <td className="py-2 pr-4 whitespace-nowrap tabular-nums" title={e.ts}>{fmtTs(e.ts)}</td>
-                <td className="py-2 pr-4">{e.actor} <span className="text-muted">({e.role})</span></td>
-                <td className="py-2 pr-4 font-mono">{e.action}</td>
-                <td className="py-2 pr-4 text-muted">{Object.entries(e.meta).map(([k, v]) => `${k}: ${v}`).join(' · ')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-      {data && <p className="mt-3 text-sm text-muted">Showing the latest {data.entries.length} of {data.total}. The CSV export includes every entry with its hash chain.</p>}
+
+      <div className="flex flex-col gap-6" data-tour="audit-list">
+        {groups.map((g) => (
+          <section key={g.day}>
+            <h2 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">{g.day}</h2>
+            <Card>
+              <ul className="divide-y divide-line">
+                {g.entries.map((e) => {
+                  const cat = CATEGORY[e.action.split('.')[0]] ?? CATEGORY.audit
+                  const failed = e.action === 'auth.login_failed'
+                  return (
+                    <li key={e.seq} className="flex items-start gap-4 px-5 py-3">
+                      <span className="w-24 shrink-0 pt-0.5 text-sm text-muted tabular-nums" title={e.ts}>{fmtClock(e.ts)}</span>
+                      <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${failed ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted'}`}><Icon name={cat.icon} size={16} /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className={failed ? 'font-semibold text-danger' : 'font-semibold'}>{e.summary}</p>
+                        <p className="text-xs text-muted">
+                          {cat.label} · by {e.actorName} · entry #{e.seq} · <span className="font-mono">{e.action}</span>
+                        </p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+          </section>
+        ))}
+      </div>
+      {data && <p className="mt-3 text-sm text-muted">Showing the latest {data.entries.length} of {data.total}. The CSV export includes every entry, its plain-English summary and its hash chain.</p>}
     </div>
   )
 }

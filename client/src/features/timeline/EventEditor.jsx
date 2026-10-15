@@ -6,16 +6,33 @@ import { Icon } from '../../components/icons'
 import { useExhibit } from '../evidence/useExhibit'
 import { TYPE_STYLE } from './Timeline'
 
-function ExcerptPreview({ transcriptId, fromLine, toLine }) {
+function ExcerptPreview({ transcriptId, fromLine, toLine, max = 4 }) {
   const { exhibit } = useExhibit(transcriptId)
   if (!exhibit?.lines) return null
-  const lines = exhibit.lines.filter((l) => l.n >= fromLine && l.n <= toLine).slice(0, 4)
+  const lines = exhibit.lines.filter((l) => l.n >= fromLine && l.n <= toLine)
   return (
     <blockquote className="mt-1 border-l-2 border-line pl-3 text-sm text-muted">
-      {lines.map((l) => <p key={l.n}>{l.speaker && <b>{l.speaker}: </b>}{l.text}</p>)}
-      {toLine - fromLine >= 4 && <p>…</p>}
+      {lines.slice(0, max).map((l) => (
+        <p key={l.n}><span className="mr-2 font-mono text-xs">{l.n}</span>{l.speaker && <b>{l.speaker}: </b>}{l.text}</p>
+      ))}
+      {lines.length > max && <p>… {lines.length - max} more line{lines.length - max === 1 ? '' : 's'}</p>}
     </blockquote>
   )
+}
+
+/** Checks a pending excerpt against the chosen transcript. Returns { error } or { fromLine, toLine }. */
+function checkExcerpt(excerpt, transcript) {
+  if (!excerpt.transcriptId) return { error: '' }
+  if (!transcript?.lines) return { error: '' } // still loading
+  const max = transcript.lines.length
+  if (excerpt.fromLine === '') return { error: '' }
+  const fromLine = Number(excerpt.fromLine)
+  if (!Number.isInteger(fromLine) || fromLine < 1 || fromLine > max) return { error: `${transcript.number} has lines 1 to ${max}. Line ${excerpt.fromLine} doesn't exist.` }
+  if (excerpt.toLine === '') return { fromLine, toLine: fromLine }
+  const toLine = Number(excerpt.toLine)
+  if (!Number.isInteger(toLine) || toLine > max) return { error: `${transcript.number} ends at line ${max}.` }
+  if (toLine < fromLine) return { error: 'The “to” line must come after the “from” line.' }
+  return { fromLine, toLine }
 }
 
 /** Create or edit a timeline event. `initial` may be an existing event or a draft. */
@@ -31,6 +48,9 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
     attachments: initial?.attachments ?? [],
   }))
   const [excerpt, setExcerpt] = useState({ transcriptId: '', fromLine: '', toLine: '' })
+  const { exhibit: pendingTranscript } = useExhibit(excerpt.transcriptId || null)
+  const pending = checkExcerpt(excerpt, pendingTranscript)
+  const pendingValid = pending.fromLine !== undefined
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -47,12 +67,12 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
     }))
 
   const addExcerpt = () => {
-    const fromLine = Number(excerpt.fromLine)
-    const toLine = Number(excerpt.toLine || excerpt.fromLine)
-    if (!excerpt.transcriptId || !fromLine) return
-    setForm((f) => ({ ...f, attachments: [...f.attachments, { kind: 'excerpt', transcriptId: excerpt.transcriptId, fromLine, toLine: Math.max(fromLine, toLine) }] }))
+    if (!pendingValid) return
+    const { fromLine, toLine } = pending
+    setForm((f) => ({ ...f, attachments: [...f.attachments, { kind: 'excerpt', transcriptId: excerpt.transcriptId, fromLine, toLine }] }))
     setExcerpt({ transcriptId: '', fromLine: '', toLine: '' })
   }
+  const lineCount = pendingTranscript?.lines?.length
 
   async function save(e) {
     e.preventDefault()
@@ -145,10 +165,20 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
               <option value="">Choose a transcript…</option>
               {exhibits.filter((x) => x.type === 'transcript').map((x) => <option key={x.id} value={x.id}>{x.number}: {x.title}</option>)}
             </Select>
-            <Input type="number" min={1} value={excerpt.fromLine} onChange={(e) => setExcerpt({ ...excerpt, fromLine: e.target.value })} placeholder="From line" className="w-32" aria-label="From line" />
-            <Input type="number" min={1} value={excerpt.toLine} onChange={(e) => setExcerpt({ ...excerpt, toLine: e.target.value })} placeholder="To line" className="w-32" aria-label="To line" />
-            <Button icon="plus" onClick={addExcerpt} disabled={!excerpt.transcriptId || !excerpt.fromLine}>Add</Button>
+            <Input type="number" min={1} max={lineCount} value={excerpt.fromLine} onChange={(e) => setExcerpt({ ...excerpt, fromLine: e.target.value })} placeholder="From line" className="w-32" aria-label="From line" disabled={!excerpt.transcriptId} />
+            <Input type="number" min={Number(excerpt.fromLine) || 1} max={lineCount} value={excerpt.toLine} onChange={(e) => setExcerpt({ ...excerpt, toLine: e.target.value })} placeholder="To (optional)" className="w-36" aria-label="To line" disabled={!excerpt.transcriptId} />
+            <Button icon="plus" onClick={addExcerpt} disabled={!pendingValid}>Add excerpt</Button>
           </div>
+          {excerpt.transcriptId && lineCount && !excerpt.fromLine && (
+            <p className="text-sm text-muted">{pendingTranscript.number} has {lineCount} lines. Enter the first line to quote; leave “to” empty for a single line.</p>
+          )}
+          {pending.error && <p role="alert" className="text-sm font-semibold text-danger">{pending.error}</p>}
+          {pendingValid && (
+            <div className="rounded-lg border border-dashed border-accent/50 bg-accent-soft/40 p-3">
+              <p className="text-sm font-semibold text-accent">Preview: {pendingTranscript.number}, line{pending.toLine !== pending.fromLine ? `s ${pending.fromLine}–${pending.toLine}` : ` ${pending.fromLine}`}</p>
+              <ExcerptPreview transcriptId={excerpt.transcriptId} fromLine={pending.fromLine} toLine={pending.toLine} max={12} />
+            </div>
+          )}
         </fieldset>
 
         <ErrorText>{error}</ErrorText>

@@ -21,4 +21,3 @@ export async function api(path, { method = 'GET', body, form } = {}) {
 }
 
 export const exhibitFileUrl = (id) => `/api/exhibits/${id}/file`
-export const mediaUrl = (file) => `/api/media/${encodeURIComponent(file)}`

@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
-import { cx } from './ui'
+import { Button, cx } from './ui'
 import { useAuth } from '../store/auth'
 import { useLive } from '../store/live'
 import { useUi } from '../store/ui'
+import { tourOffered, useTour } from '../features/tour/Tour'
+import { store } from '../lib/storage'
 
 /**
  * Persistent left sidebar plus a scrolling content area.
@@ -14,6 +17,10 @@ export default function AppShell({ nav, wide = false }) {
   const connected = useLive((s) => s.connected)
   const { theme, toggleTheme } = useUi()
   const navigate = useNavigate()
+  const startTour = useTour((s) => s.start)
+  const tourActive = useTour((s) => s.active)
+  const [offer, setOffer] = useState(() => !tourOffered())
+  const dismissOffer = () => { setOffer(false); store('tourOffered', true) }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -28,7 +35,7 @@ export default function AppShell({ nav, wide = false }) {
           )}
         </div>
 
-        <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
+        <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin" data-tour="sidebar">
           <ul className="flex flex-col gap-0.5">
             {nav.map((item) =>
               item.section ? (
@@ -62,6 +69,14 @@ export default function AppShell({ nav, wide = false }) {
         </nav>
 
         <div className="border-t border-line p-4">
+          <button
+            type="button"
+            data-tour="tour-button"
+            onClick={() => { setOffer(false); startTour(user?.role) }}
+            className="mb-3 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-accent hover:bg-accent-soft"
+          >
+            <Icon name="compass" size={18} /> Guided tour
+          </button>
           <div className="mb-3 flex items-center gap-2">
             <span
               className={cx('h-2.5 w-2.5 rounded-full', connected ? 'bg-ok' : 'bg-warn')}
@@ -103,6 +118,17 @@ export default function AppShell({ nav, wide = false }) {
           <Outlet />
         </div>
       </main>
+
+      {offer && !tourActive && (
+        <div role="dialog" aria-label="Guided tour" className="fixed bottom-6 left-[17rem] z-40 w-80 rounded-2xl border border-line bg-surface p-5 shadow-xl xl:left-[19rem]">
+          <p className="flex items-center gap-2 font-bold"><Icon name="compass" /> New here?</p>
+          <p className="mt-1 text-muted">Take a two-minute guided tour of everything on this screen. You can restart it later from the sidebar.</p>
+          <div className="mt-4 flex gap-2">
+            <Button variant="primary" size="sm" onClick={() => { setOffer(false); startTour(user?.role) }}>Start the tour</Button>
+            <Button variant="ghost" size="sm" onClick={dismissOffer}>No thanks</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

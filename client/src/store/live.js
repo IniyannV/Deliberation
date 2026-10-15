@@ -19,6 +19,8 @@ const initial = {
   role: null,
   timeline: [],
   links: [],
+  notes: [],
+  burden: '',
   votes: [],
   votedIn: [],
   display: { view: 'timeline', voteId: null },
@@ -69,6 +71,8 @@ export const useLive = create((set, get) => ({
         role: s.role,
         timeline: s.timeline ?? [],
         links: s.links ?? [],
+        notes: s.notes ?? [],
+        burden: s.burden ?? '',
         votes: s.votes ?? [],
         votedIn: s.votedIn ?? [],
         display: s.display ?? initial.display,
@@ -85,6 +89,7 @@ export const useLive = create((set, get) => ({
 
     socket.on('timeline:changed', (timeline) => set({ timeline }))
     socket.on('links:changed', (links) => set({ links }))
+    socket.on('notes:changed', (notes) => set({ notes }))
     socket.on('display:changed', (display) => set({ display }))
     socket.on('vote:changed', (vote) => {
       const votes = get().votes
@@ -112,6 +117,14 @@ export const useLive = create((set, get) => ({
       set({ queue: [r, ...get().queue.filter((x) => x.id !== r.id)], alertAt: Date.now() })
       if (get().soundOn) chime()
       toast(`New request from Juror ${r.seat}`, { tone: 'warn', timeout: 8000 })
+    })
+    socket.on('request:message', (m) => {
+      const what = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge' }[m.type] ?? 'request'
+      if (m.from === 'bailiff') toast(`The bailiff sent you a message about your ${what}.`)
+      else {
+        if (get().soundOn) chime()
+        toast(`Juror ${m.seat} sent a message about their ${what}.`, { tone: 'warn', timeout: 8000 })
+      }
     })
     socket.on('updates:changed', () => set({ updatesVersion: get().updatesVersion + 1 }))
   },

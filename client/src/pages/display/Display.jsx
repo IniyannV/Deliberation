@@ -24,12 +24,15 @@ function VotesView({ votes, counts, voteId }) {
   const title = vote.kind === 'ballot' ? counts.find((c) => c.id === vote.countId)?.label ?? vote.question : vote.question
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <p className="mb-2 text-2xl font-semibold text-muted">{vote.kind === 'ballot' ? 'Secret ballot' : 'Temperature poll'}</p>
+      <p className="mb-2 text-2xl font-semibold text-muted">{vote.kind === 'ballot' ? 'Secret ballot' : 'Poll'}</p>
       <h2 className="mb-12 text-5xl leading-tight font-bold">{title}</h2>
-      {vote.status === 'open' ? (
+      {vote.status === 'open' && vote.kind === 'ballot' ? (
+        // No running count for secret ballots (the server doesn't send one to the display).
+        <p className="text-3xl text-muted">Voting is in progress. The result will appear here once every juror has voted.</p>
+      ) : vote.status === 'open' ? (
         <div>
           <VoteProgress vote={vote} large />
-          <p className="mt-8 text-2xl text-muted">Results appear here once {vote.kind === 'ballot' ? 'every juror has voted' : 'everyone has voted or the foreperson closes the poll'}.</p>
+          <p className="mt-8 text-2xl text-muted">Results appear here once everyone has voted or the foreperson closes the poll.</p>
         </div>
       ) : vote.status === 'voided' ? (
         <p className="text-3xl text-muted">This ballot was voided. No result was recorded.</p>
@@ -40,18 +43,11 @@ function VotesView({ votes, counts, voteId }) {
   )
 }
 
-function CalmView() {
-  const [inhale, setInhale] = useState(true)
-  useEffect(() => {
-    const id = setInterval(() => setInhale((v) => !v), 6000)
-    return () => clearInterval(id)
-  }, [])
+function IdleView({ caseInfo }) {
   return (
-    <div className="flex flex-col items-center gap-14">
-      <div className="relative h-[22rem] w-[22rem]">
-        <div className="absolute inset-0 rounded-full bg-accent-soft transition-transform duration-[6000ms] ease-in-out" style={{ transform: `scale(${inhale ? 1 : 0.55})` }} />
-      </div>
-      <p className="text-4xl font-semibold text-muted">{inhale ? 'Breathe in…' : 'Breathe out…'}</p>
+    <div className="text-center">
+      <p className="text-2xl font-semibold text-muted">{caseInfo?.caption}</p>
+      <p className="mt-4 text-5xl font-bold">Jury deliberation in progress</p>
     </div>
   )
 }
@@ -87,7 +83,7 @@ export default function Display() {
             : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
         )}
         {display.view === 'votes' && <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>}
-        {display.view === 'calm' && <div className="my-auto"><CalmView /></div>}
+        {display.view !== 'timeline' && display.view !== 'votes' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
       </main>
     </div>
   )

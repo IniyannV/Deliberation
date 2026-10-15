@@ -6,6 +6,7 @@ import { Spinner, Toaster } from './components/ui'
 import { homeFor, useAuth } from './store/auth'
 import { useLive } from './store/live'
 import Login from './pages/Login'
+import Tour from './features/tour/Tour'
 
 const JurorHome = lazy(() => import('./pages/JurorHome'))
 const ExhibitLocker = lazy(() => import('./features/evidence/ExhibitLocker'))
@@ -15,7 +16,6 @@ const TimelinePage = lazy(() => import('./features/timeline/TimelinePage'))
 const VotingPage = lazy(() => import('./features/voting/VotingPage'))
 const RequestsPage = lazy(() => import('./features/requests/RequestsPage'))
 const BulletinPage = lazy(() => import('./features/bulletin/BulletinPage'))
-const Wellbeing = lazy(() => import('./features/wellbeing/Wellbeing'))
 const Display = lazy(() => import('./pages/display/Display'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminRequests = lazy(() => import('./pages/admin/Requests'))
@@ -39,9 +39,7 @@ function JurorShell() {
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },
     { to: '/juror/requests', label: 'Requests', icon: 'bell' },
-    { section: 'Your wellbeing' },
     { to: '/juror/bulletin', label: 'Messages from home', icon: 'mail', badge: unread },
-    { to: '/juror/wellbeing', label: 'Rest & recharge', icon: 'leaf' },
   ]
   return <AppShell nav={nav} wide />
 }
@@ -84,7 +82,6 @@ export default function App() {
             <Route path="voting" element={<VotingPage />} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="bulletin" element={<BulletinPage />} />
-            <Route path="wellbeing/*" element={<Wellbeing />} />
           </Route>
           <Route path="/display" element={<RequireRole roles={['display']}><Display /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={['bailiff']}><AdminShell /></RequireRole>}>
@@ -99,6 +96,7 @@ export default function App() {
           <Route path="*" element={<RootRedirect />} />
         </Routes>
       </Suspense>
+      <Tour />
       <Toaster />
     </>
   )

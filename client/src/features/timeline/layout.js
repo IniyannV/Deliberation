@@ -1,23 +1,27 @@
 /*
  * Horizontal timeline geometry.
  *
- * Real cases mix events minutes apart with events weeks apart, so a linear
- * scale is unreadable. Instead each pair of consecutive event times is
- * spaced by a log of the gap: a 5-minute gap is ~160px, a day is ~470px, a
- * month is ~810px. Between event times the mapping is linear, so it is
- * monotonic and invertible, and dragging a card maps a pixel back to a time.
+ * Every event gets its own slot on the axis, in time order. Neighbouring
+ * cards are always at least one card-width apart, so each lane is a single
+ * line and cards never stack, plus extra space that grows with the log of
+ * the time gap. Minutes apart reads as "close", weeks apart reads as "far",
+ * without a linear scale making one of them unreadable. Between slots the
+ * mapping is linear, so a pixel can be turned back into a time when dragging.
  */
+
+import { EVENT_TYPES } from '../../lib/format'
 
 const HOUR = 3600e3
 export const CARD_W = 216
 export const CARD_H = 118
-export const ROW_GAP = 10
+export const GAP = 24
 export const LANE_PAD = 14
 export const AXIS_H = 72
 export const PAD_X = 56
 export const SNAP_MS = 5 * 60e3
+const STEP = CARD_W + GAP
 
-const spacing = (dtH) => (dtH <= 0 ? 0 : 150 + 70 * Math.log2(1 + dtH))
+const extra = (dtH) => (dtH <= 0 ? 0 : 70 * Math.log2(1 + dtH))
 
 export function humanGap(ms) {
   const h = ms / HOUR
@@ -28,82 +32,68 @@ export function humanGap(ms) {
   return `${Math.round(d / 30)} months later`
 }
 
-export function buildAxis(times, zoom = 1) {
-  const sorted = [...new Set(times)].sort((a, b) => a - b)
+const byTime = (a, b) => a.t - b.t || a.id.localeCompare(b.id)
+
+/** `items` are { id, t } (t in ms). `zoom` scales only the time-gap spacing; 0 means evenly spaced. */
+export function buildAxis(items, zoom = 1) {
+  const sorted = [...items].sort(byTime)
   const nodes = []
   let x = PAD_X
-  sorted.forEach((t, i) => {
-    if (i > 0) x += spacing((t - sorted[i - 1]) / HOUR) * zoom
-    nodes.push({ t, x })
+  sorted.forEach((it, i) => {
+    if (i) x += STEP + extra((it.t - sorted[i - 1].t) / HOUR) * zoom
+    nodes.push({ id: it.id, t: it.t, x })
   })
-  const edgePxPerHour = 80 * zoom
-
-  const xOf = (t) => {
-    if (!nodes.length) return PAD_X
-    const first = nodes[0]
-    const last = nodes.at(-1)
-    if (t <= first.t) return first.x - ((first.t - t) / HOUR) * edgePxPerHour
-    if (t >= last.t) return last.x + ((t - last.t) / HOUR) * edgePxPerHour
-    let i = 0
-    while (nodes[i + 1].t < t) i++
-    const a = nodes[i], b = nodes[i + 1]
-    return a.x + ((t - a.t) / (b.t - a.t)) * (b.x - a.x)
-  }
+  const xById = new Map(nodes.map((n) => [n.id, n.x]))
 
   const tOf = (px) => {
     if (!nodes.length) return Date.now()
     const first = nodes[0]
     const last = nodes.at(-1)
-    if (px <= first.x) return first.t - ((first.x - px) / edgePxPerHour) * HOUR
-    if (px >= last.x) return last.t + ((px - last.x) / edgePxPerHour) * HOUR
+    if (px <= first.x) return first.t - ((first.x - px) / STEP) * HOUR
+    if (px >= last.x) return last.t + ((px - last.x) / STEP) * HOUR
     let i = 0
-    while (nodes[i + 1].x < px) i++
+    while (nodes[i + 1].x <= px) i++
     const a = nodes[i], b = nodes[i + 1]
-    if (b.x === a.x) return a.t
+    if (b.t === a.t || b.x === a.x) return a.t
     return a.t + ((px - a.x) / (b.x - a.x)) * (b.t - a.t)
   }
 
-  // Calendar-day labels at the first event of each day, and markers for long gaps.
+  // A label at the first event of each calendar day, with a faint divider just before it.
   const days = []
-  let lastDay = ''
-  for (const n of nodes) {
-    const key = new Date(n.t).toDateString()
-    if (key !== lastDay) days.push({ x: n.x, t: n.t })
-    lastDay = key
-  }
+  nodes.forEach((n, i) => {
+    if (i === 0 || new Date(n.t).toDateString() !== new Date(nodes[i - 1].t).toDateString()) {
+      days.push({ x: n.x, t: n.t, divider: i === 0 ? null : n.x - GAP / 2 })
+    }
+  })
   const gaps = []
   for (let i = 1; i < nodes.length; i++) {
     const dt = nodes[i].t - nodes[i - 1].t
-    if (dt > 18 * HOUR) gaps.push({ from: nodes[i - 1].x, to: nodes[i].x, label: humanGap(dt) })
+    const from = nodes[i - 1].x + CARD_W
+    if (dt > 18 * HOUR && nodes[i].x - from > 110) gaps.push({ from, to: nodes[i].x, label: humanGap(dt) })
   }
 
-  const span = nodes.length ? nodes.at(-1).x - nodes[0].x : 0
-  return { nodes, xOf, tOf, days, gaps, span }
+  return { nodes, xById, tOf, days, gaps, width: (nodes.at(-1)?.x ?? PAD_X) + CARD_W + PAD_X }
 }
 
-/** Packs cards into three type lanes, stacking rows where cards would overlap. */
-export function layoutLanes(events, xOf, laneIds) {
-  const lanes = laneIds.map((id) => ({ id, rows: [], items: [] }))
-  const byId = Object.fromEntries(lanes.map((l) => [l.id, l]))
-  const sorted = [...events].sort((a, b) => a.t - b.t || a.id.localeCompare(b.id))
-  for (const ev of sorted) {
-    const lane = byId[ev.type] ?? lanes[0]
-    const x = xOf(ev.t)
-    let row = lane.rows.findIndex((right) => right + 10 <= x)
-    if (row === -1) {
-      row = lane.rows.length
-      lane.rows.push(0)
-    }
-    lane.rows[row] = x + CARD_W
-    lane.items.push({ ev, x, row })
+/** The zoom at which the whole timeline fits `available` px (0 if even spacing alone is too wide). */
+export function fitZoom(items, available) {
+  const sorted = [...items].sort(byTime)
+  if (sorted.length < 2) return 1
+  let extras = 0
+  for (let i = 1; i < sorted.length; i++) extras += extra((sorted[i].t - sorted[i - 1].t) / HOUR)
+  const base = (sorted.length - 1) * STEP + CARD_W + PAD_X * 2
+  if (!extras) return 1
+  return Math.min(2.5, Math.max(0, (available - base) / extras))
+}
+
+/** 'lanes': one row per event type. 'single': everything on one line. */
+export function laneLayout(mode) {
+  const ids = mode === 'single' ? ['all'] : EVENT_TYPES.map((t) => t.id)
+  const h = CARD_H + LANE_PAD * 2
+  return {
+    lanes: ids.map((id, i) => ({ id, y: AXIS_H + i * h, height: h, label: EVENT_TYPES.find((t) => t.id === id)?.label ?? null })),
+    height: AXIS_H + ids.length * h,
   }
-  let y = AXIS_H
-  for (const lane of lanes) {
-    lane.y = y
-    lane.height = Math.max(1, lane.rows.length) * (CARD_H + ROW_GAP) - ROW_GAP + LANE_PAD * 2
-    y += lane.height
-  }
-  return { lanes, height: y }
 }
 
 export const snap = (t) => Math.round(t / SNAP_MS) * SNAP_MS

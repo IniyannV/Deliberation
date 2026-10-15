@@ -25,7 +25,7 @@ export default function Dashboard() {
         <Link to="/admin/updates"><Card className="p-5 hover:border-accent"><p className="text-muted">Unread family updates</p><p className="text-4xl font-bold">{overview?.unreadUpdates ?? '–'}</p></Card></Link>
       </div>
 
-      <section className="mb-8">
+      <section className="mb-8" data-tour="admin-presence">
         <h2 className="mb-3 text-xl font-bold">Juror devices</h2>
         <div className="grid grid-cols-6 gap-3 xl:grid-cols-12">
           {seats.map((s) => (

@@ -93,7 +93,7 @@ export default function SplitReview() {
 
       <div ref={container} className="flex min-h-0 flex-1">
         {/* Left: transcript */}
-        <Card className="flex min-h-0 min-w-0 flex-col overflow-hidden" style={{ width: `${split}%` }}>
+        <Card className="flex min-h-0 min-w-0 flex-col overflow-hidden" style={{ width: `${split}%` }} data-tour="review-transcript">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
             <ExhibitPicker value={transcriptId} onChange={(v) => setParam('t', v)} exhibits={transcripts} label="Choose a transcript" />
             <label className="relative w-44">
@@ -157,7 +157,7 @@ export default function SplitReview() {
         </div>
 
         {/* Right: exhibit */}
-        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-tour="review-exhibit">
           <div className="flex items-center gap-2 border-b border-line p-3">
             <ExhibitPicker value={rightId} onChange={(v) => setParam('ex', v)} exhibits={exhibits} label="Choose an exhibit" />
             {rightId && (

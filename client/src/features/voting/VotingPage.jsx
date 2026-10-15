@@ -6,10 +6,11 @@ import { fmtDateTime } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Segmented, Select, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import ResultsBars, { VoteProgress } from './ResultsBars'
+import ChargeDetails from './ChargeDetails'
 
 const DEFAULT_OPTIONS = ['Leaning Guilty', 'Leaning Not Guilty', 'Undecided']
 
-function OpenVoteCard({ vote, voted, isForeperson }) {
+function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
   const emit = useLive((s) => s.emit)
   const [choice, setChoice] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -37,7 +38,7 @@ function OpenVoteCard({ vote, voted, isForeperson }) {
     <Card className="p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <Badge tone={isBallot ? 'warn' : 'accent'}>{isBallot ? 'Secret ballot' : 'Temperature poll'}</Badge>
+          <Badge tone={isBallot ? 'warn' : 'accent'}>{isBallot ? 'Secret ballot' : 'Poll'}</Badge>
           <h2 className="mt-2 text-2xl font-bold">{vote.question}</h2>
         </div>
         {isForeperson && (
@@ -70,6 +71,8 @@ function OpenVoteCard({ vote, voted, isForeperson }) {
           </div>
         </fieldset>
       )}
+
+      {isBallot && <div className="mb-5"><ChargeDetails count={count} burden={burden} defaultOpen={!voted} /></div>}
 
       <VoteProgress vote={vote} />
 
@@ -111,13 +114,13 @@ function ForepersonPanel({ counts, votes, display }) {
   const voteChoices = [...votes].reverse().filter((v) => v.status !== 'voided')
 
   return (
-    <Card className="border-accent/40 p-6">
+    <Card className="border-accent/40 p-6" data-tour="foreperson-panel">
       <h2 className="mb-1 flex items-center gap-2 text-xl font-bold"><Icon name="shield" /> Foreperson controls</h2>
       <p className="mb-5 text-muted">Only the foreperson sees these controls.</p>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="flex flex-col gap-3">
-          <h3 className="font-bold">Temperature poll</h3>
+          <h3 className="font-bold">Poll</h3>
           <p className="text-sm text-muted">A quick, informal check of where the room stands.</p>
           <Button icon="plus" disabled={pollIsOpen} onClick={() => setPollOpen(true)}>{pollIsOpen ? 'A poll is open' : 'New poll…'}</Button>
         </div>
@@ -143,7 +146,7 @@ function ForepersonPanel({ counts, votes, display }) {
             label="Room display shows"
             value={display.view}
             onChange={(view) => run('display:set', { view, voteId: display.voteId })}
-            options={[{ value: 'timeline', label: 'Timeline' }, { value: 'votes', label: 'Votes' }, { value: 'calm', label: 'Calm screen' }]}
+            options={[{ value: 'timeline', label: 'Timeline' }, { value: 'votes', label: 'Votes' }, { value: 'idle', label: 'Idle screen' }]}
           />
           {display.view === 'votes' && (
             <Select value={display.voteId ?? ''} onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null })} aria-label="Vote shown on the display">
@@ -162,7 +165,7 @@ function ForepersonPanel({ counts, votes, display }) {
       <Modal
         open={pollOpen}
         onClose={() => setPollOpen(false)}
-        title="New temperature poll"
+        title="New poll"
         footer={<>
           <Button variant="ghost" onClick={() => setPollOpen(false)}>Cancel</Button>
           <Button variant="primary" disabled={options.filter((o) => o.trim()).length < 2} onClick={() => run('poll:open', { question, options: options.filter((o) => o.trim()), showOnDisplay }, () => setPollOpen(false))}>Open poll</Button>
@@ -188,7 +191,7 @@ function ForepersonPanel({ counts, votes, display }) {
 
 export default function VotingPage() {
   const user = useAuth((s) => s.user)
-  const { votes, votedIn, counts, display } = useLive()
+  const { votes, votedIn, counts, display, burden } = useLive()
   const isForeperson = user?.role === 'foreperson'
   const open = votes.filter((v) => v.status === 'open')
   const history = votes.filter((v) => v.status !== 'open').sort((a, b) => b.closedAt.localeCompare(a.closedAt))
@@ -203,13 +206,26 @@ export default function VotingPage() {
 
       {isForeperson && <ForepersonPanel counts={counts} votes={votes} display={display} />}
 
-      <section className="flex flex-col gap-5">
+      <section className="flex flex-col gap-5" data-tour="voting-open">
         <h2 className="text-xl font-bold">Open now</h2>
         {open.length ? (
-          open.map((v) => <OpenVoteCard key={v.id} vote={v} voted={votedIn.includes(v.id)} isForeperson={isForeperson} />)
+          open.map((v) => <OpenVoteCard key={v.id} vote={v} voted={votedIn.includes(v.id)} isForeperson={isForeperson} count={counts.find((c) => c.id === v.countId)} burden={burden} />)
         ) : (
           <EmptyState icon="vote" title="Nothing to vote on right now">{isForeperson ? 'Use the controls above to open a poll or ballot.' : 'The foreperson will open a poll or ballot when the jury is ready.'}</EmptyState>
         )}
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-xl font-bold">The charges</h2>
+        <p className="mb-4 text-muted">Each count and what the People must prove. Open one to read it in full.</p>
+        <div className="flex flex-col gap-3">
+          {counts.map((c) => (
+            <div key={c.id}>
+              <h3 className="mb-1.5 font-bold">{c.label}</h3>
+              <ChargeDetails count={c} burden={burden} defaultOpen={false} />
+            </div>
+          ))}
+        </div>
       </section>
 
       <section>

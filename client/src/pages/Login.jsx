@@ -87,6 +87,16 @@ export default function Login() {
         <p className="mt-6 text-center text-sm text-muted">
           This system runs only on the court&apos;s private network and never connects to the internet.
         </p>
+        <details className="mt-6 rounded-xl border border-line bg-surface px-5 py-3 text-sm">
+          <summary className="cursor-pointer font-semibold">Trying out the demo?</summary>
+          <ul className="mt-2 flex flex-col gap-1 text-muted">
+            <li><b className="text-ink">1</b>: foreperson (juror with polls, ballots and display controls)</li>
+            <li><b className="text-ink">2–12</b>: jurors</li>
+            <li><b className="text-ink">B1</b>: bailiff / clerk</li>
+            <li><b className="text-ink">DISPLAY</b>: room projector</li>
+          </ul>
+          <p className="mt-2 text-muted">PINs are printed by <code>npm run seed</code> and saved in <code>server/data/demo-credentials.txt</code>. After signing in, choose <b className="text-ink">Guided tour</b> in the sidebar.</p>
+        </details>
       </div>
     </div>
   )

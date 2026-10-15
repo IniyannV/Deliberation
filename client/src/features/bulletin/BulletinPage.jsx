@@ -22,7 +22,7 @@ export default function BulletinPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl" data-tour="bulletin">
       <PageHeader
         title="Messages from home"
         subtitle="Short messages from your family, passed on by the bailiff after the court has reviewed them."

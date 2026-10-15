@@ -84,11 +84,11 @@ export default function Evidence() {
     <div>
       <PageHeader title="Evidence" subtitle="Upload exhibits admitted into evidence. Jurors see them immediately. Every upload is recorded in the audit log." />
 
-      <Card className="mb-8 p-6">
+      <Card className="mb-8 p-6" data-tour="admin-upload">
         <h2 className="mb-4 text-xl font-bold">Add an exhibit</h2>
         <form onSubmit={upload} className="flex flex-col gap-4">
-          <Field label="File" hint="PDF, image (PNG, JPEG, WebP, GIF), or a plain-text transcript (.txt). Lines starting with “Q:” or “NAME:” become speaker turns. 50 MB max.">
-            {(id) => <Input id={id} ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt" onChange={(e) => setFile(e.target.files[0] ?? null)} required className="file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1" />}
+          <Field label="File" hint="PDF, image (PNG, JPEG, WebP, GIF), a plain-text transcript (.txt; lines starting with “Q:” or “NAME:” become speaker turns), or an interactive map or chart (.json; format described in server/lib/interactive.js). 50 MB max.">
+            {(id) => <Input id={id} ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.json" onChange={(e) => setFile(e.target.files[0] ?? null)} required className="file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1" />}
           </Field>
           <MetaFields form={form} setForm={setForm} />
           <ErrorText>{error}</ErrorText>

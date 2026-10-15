@@ -39,13 +39,12 @@ export default function JurorHome() {
           {unread ? `${unread} new message${unread === 1 ? '' : 's'}` : 'No new messages'}
         </Tile>
         <Tile to="/juror/requests" icon="bell" title="Requests">{activeRequests ? `${activeRequests} in progress` : 'Breaks, meals, supplies'}</Tile>
-        <Tile to="/juror/wellbeing" icon="leaf" title="Rest & recharge">Audio, calming sounds, breathing and games</Tile>
       </div>
 
       <Card className="mt-8 bg-surface-2 p-6">
         <h2 className="mb-2 font-bold">A gentle reminder</h2>
         <p className="text-muted">
-          Deliberation is tiring. It’s fine to ask for a break, step away to breathe, or put on something calming.
+          Deliberation is tiring. It’s fine to ask the bailiff for a break at any time.
           Please don’t research the case or discuss it outside this room.
         </p>
       </Card>

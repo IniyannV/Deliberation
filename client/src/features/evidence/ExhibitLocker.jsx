@@ -6,7 +6,8 @@ import { useLive } from '../../store/live'
 import { Icon } from '../../components/icons'
 import { Badge, EmptyState, ErrorText, Input, PageHeader, Segmented, Select } from '../../components/ui'
 
-const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text' }
+const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', map: 'map', chart: 'chart' }
+const THUMB_TEXT = { pdf: 'PDF document', map: 'Interactive map', chart: 'Interactive chart' }
 
 export function ExhibitThumb({ exhibit, className = 'h-36' }) {
   if (exhibit.type === 'image') {
@@ -15,7 +16,7 @@ export function ExhibitThumb({ exhibit, className = 'h-36' }) {
   return (
     <div className={`${className} flex w-full flex-col items-center justify-center gap-2 rounded-t-xl bg-surface-2 text-muted`}>
       <Icon name={TYPE_ICON[exhibit.type]} size={40} strokeWidth={1.4} />
-      <span className="text-sm">{exhibit.type === 'transcript' ? `${exhibit.lineCount} lines` : 'PDF document'}</span>
+      <span className="text-sm">{exhibit.type === 'transcript' ? `${exhibit.lineCount} lines` : THUMB_TEXT[exhibit.type]}</span>
     </div>
   )
 }
@@ -29,6 +30,7 @@ function Highlight({ text, q }) {
 
 export default function ExhibitLocker() {
   const version = useLive((s) => s.exhibits)
+  const notes = useLive((s) => s.notes)
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [party, setParty] = useState('')
@@ -51,10 +53,10 @@ export default function ExhibitLocker() {
 
   return (
     <div>
-      <PageHeader title="Exhibit locker" subtitle="Every exhibit admitted into evidence. Search covers titles, descriptions and the full text of transcripts." />
+      <PageHeader title="Exhibit locker" subtitle="Every exhibit admitted into evidence, including interactive maps and charts. Search covers titles, descriptions, transcripts and the labels inside maps and charts." />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <label className="relative min-w-72 flex-1">
+        <label className="relative min-w-72 flex-1" data-tour="locker-search">
           <span className="sr-only">Search exhibits</span>
           <Icon name="search" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
           <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exhibits and transcripts…" className="pl-10" />
@@ -63,7 +65,7 @@ export default function ExhibitLocker() {
           label="Exhibit type"
           value={type}
           onChange={setType}
-          options={[{ value: '', label: 'All types' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }]}
+          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'map', label: 'Maps' }, { value: 'chart', label: 'Charts' }]}
         />
         <Select value={party} onChange={(e) => setParty(e.target.value)} className="w-auto" aria-label="Introduced by">
           <option value="">Introduced by: anyone</option>
@@ -77,7 +79,7 @@ export default function ExhibitLocker() {
         <EmptyState icon="search" title="No exhibits match">Try fewer words, or clear the filters.</EmptyState>
       )}
 
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-5">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-5" data-tour="locker-grid">
         {results?.map((e) => (
           <li key={e.id}>
             <Link to={`/juror/evidence/${e.id}`} className="flex h-full flex-col rounded-xl border border-line bg-surface transition-colors hover:border-accent">
@@ -89,6 +91,9 @@ export default function ExhibitLocker() {
                 </div>
                 <h2 className="leading-snug font-bold"><Highlight text={e.title} q={q} /></h2>
                 <p className="text-sm text-muted">{TYPE_LABEL[e.type]} · Admitted {fmtCalendarDate(e.dateAdmitted)}</p>
+                {notes.some((n) => n.exhibitId === e.id) && (
+                  <p className="flex items-center gap-1 text-sm text-accent"><Icon name="note" size={14} /> {notes.filter((n) => n.exhibitId === e.id).length} jury note{notes.filter((n) => n.exhibitId === e.id).length === 1 ? '' : 's'}</p>
+                )}
                 {e.hits?.length > 0 && (
                   <ul className="mt-1 flex flex-col gap-1 border-t border-line pt-2 text-sm">
                     {e.hits.map((h) => (

@@ -64,6 +64,18 @@ export function publicVote(v) {
 
 export const listVotes = () => db.data.votes.map(publicVote);
 
+/**
+ * The room display never shows how many jurors have cast a secret ballot,
+ * so nobody in the room can watch who is still holding out. The server
+ * strips the count rather than relying on the display UI to hide it.
+ */
+export function displayVote(v) {
+  const pub = publicVote(v);
+  return pub.kind === 'ballot' && pub.status === 'open' ? { ...pub, votesCast: null } : pub;
+}
+
+export const listVotesForDisplay = () => db.data.votes.map(displayVote);
+
 export const votedIn = (seatId) => [...live.entries()].filter(([, s]) => s.voted.has(seatId)).map(([id]) => id);
 
 export async function openPoll({ question, options }) {

@@ -42,7 +42,7 @@ export default function Updates() {
       <PageHeader title="Family updates" subtitle="One-way, text-only messages to a single juror. Jurors can mark them read but can't reply. Each message is logged with your ID and the time." />
 
       <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
-        <Card className="h-fit p-6">
+        <Card className="h-fit p-6" data-tour="admin-updates">
           <h2 className="mb-4 text-xl font-bold">New update</h2>
           <form onSubmit={send} className="flex flex-col gap-4">
             <Field label="To">

@@ -6,6 +6,7 @@ import { toast } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
+import RequestThread from './RequestThread'
 
 const TEMPLATES = [
   { type: 'break', icon: 'coffee', title: 'Take a break', text: 'Ask for a short recess.' },
@@ -128,9 +129,9 @@ export default function RequestsPage() {
   return (
     <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
       <div>
-        <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal, supplies, or (foreperson only) send a question to the judge." />
+        <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal, supplies, or (foreperson only) send a question to the judge. You can message the bailiff about any request." />
         {!active ? (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2" data-tour="request-templates">
             {templates.map((t) => (
               <button key={t.type} type="button" onClick={() => setActive(t.type)} className="flex items-start gap-4 rounded-xl border border-line bg-surface p-5 text-left hover:border-accent">
                 <span className="rounded-xl bg-accent-soft p-3 text-accent"><Icon name={t.icon} size={26} /></span>
@@ -162,6 +163,7 @@ export default function RequestsPage() {
                   </div>
                   <RequestSummary r={r} />
                   <p className="mt-2 text-sm text-muted">Sent {timeAgo(r.createdAt)}</p>
+                  <RequestThread request={r} viewer="juror" />
                 </Card>
               </li>
             ))}

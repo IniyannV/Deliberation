@@ -12,7 +12,6 @@ export const DATA_DIR = path.join(here, 'data');
 export const DB_FILE = path.join(DATA_DIR, 'db.json');
 export const AUDIT_FILE = path.join(DATA_DIR, 'audit.log.jsonl');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads', 'exhibits');
-export const MEDIA_DIR = path.join(here, 'media');
 export const CLIENT_DIST = path.join(here, '..', 'client', 'dist');
 
 export const SESSION_COOKIE = 'dr_session';

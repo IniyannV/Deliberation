@@ -5,7 +5,7 @@ import { auditAs } from '../services/audit.js';
 import { listVotes } from '../services/voting.js';
 import { emit } from '../realtime.js';
 import { HttpError, bad, int, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { publicRequest } from '../lib/requests.js';
+import { addRequestMessage, publicRequest } from '../lib/requests.js';
 
 /*
  * Juror-facing REST routes: family updates (read + mark read only, so no
@@ -87,6 +87,12 @@ router.post('/requests', juror, async (req, res) => {
   emit('bailiffs', 'request:new', publicRequest(request));
   emit(`user:${req.user.id}`, 'request:updated', publicRequest(request));
   res.status(201).json({ request: publicRequest(request) });
+});
+
+router.post('/requests/:id/messages', juror, async (req, res) => {
+  const r = db.data.requests.find((x) => x.id === req.params.id && x.seatId === req.user.id);
+  if (!r) throw new HttpError(404, 'Request not found');
+  res.status(201).json({ request: await addRequestMessage(r, req.user, req.role, req.body?.text) });
 });
 
 /* ── Vote history (tallies + timestamps only) ─────────────────────── */

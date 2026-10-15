@@ -8,18 +8,20 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DATA_DIR, DB_FILE, AUDIT_FILE, MEDIA_DIR, UPLOAD_DIR } from '../config.js';
+import { DATA_DIR, DB_FILE, AUDIT_FILE, UPLOAD_DIR } from '../config.js';
 import { defaultData, initDb, db } from '../db.js';
 import { hashPin, randomPin } from '../auth.js';
 import { audit, initAudit } from '../services/audit.js';
 import { parseTranscript } from '../lib/exhibits.js';
+import { validateInteractive } from '../lib/interactive.js';
+import { LOSS_CHART, MAP_EXHIBIT, PHONE_CHART } from './lib/interactive-exhibits.js';
 import { newId, nowIso } from '../lib/util.js';
 import {
   CASE, FAMILY_UPDATES, MENU, SUPPLIES, TRANSCRIPT_DELGADO, TRANSCRIPT_OKAFOR,
 } from './lib/case-content.js';
-import { AUDIO_TRACKS, IMAGE_EXHIBITS, PDF_EXHIBITS } from './lib/documents.js';
+import { IMAGE_EXHIBITS, PDF_EXHIBITS } from './lib/documents.js';
 
-const FOREPERSON_SEAT = 5;
+const FOREPERSON_SEAT = 1;
 
 // Never delete the audit trail: archive the old one alongside the new.
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -66,6 +68,9 @@ const exhibitDefs = [
   { number: 'D-2', title: 'Route map: warehouse to store', party: 'defense', dateAdmitted: '2026-09-17', kind: 'image', description: 'Driving route and distance between Warehouse 3 and Ferris Street.' },
   { number: 'Tr-1', title: 'Transcript: Officer Rosa Delgado', party: 'court', dateAdmitted: '2026-09-14', kind: 'transcript', text: TRANSCRIPT_DELGADO, description: 'Direct and cross-examination.' },
   { number: 'Tr-2', title: 'Transcript: Maya Okafor (store manager)', party: 'court', dateAdmitted: '2026-09-15', kind: 'transcript', text: TRANSCRIPT_OKAFOR, description: 'Direct and cross-examination.' },
+  { number: 'J-1', title: 'Interactive map: downtown Millbrook', party: 'joint', dateAdmitted: '2026-09-17', kind: 'json', spec: MAP_EXHIBIT, description: 'Demonstrative map agreed by both parties: key locations, the D-2 driving route and approximate cell coverage.' },
+  { number: 'P-7', title: 'Interactive chart: losses by item', party: 'prosecution', dateAdmitted: '2026-09-15', kind: 'json', spec: LOSS_CHART, description: 'Chart of the figures in the inventory loss statement (P-4).' },
+  { number: 'D-3', title: 'Interactive chart: phone activity by tower', party: 'defense', dateAdmitted: '2026-09-17', kind: 'json', spec: PHONE_CHART, description: 'The call-detail records in P-6, plotted by time and tower.' },
 ];
 
 for (const def of exhibitDefs) {
@@ -73,6 +78,8 @@ for (const def of exhibitDefs) {
   if (def.kind === 'pdf') { buffer = await PDF_EXHIBITS[def.number](); ext = '.pdf'; mime = 'application/pdf'; type = 'pdf'; }
   if (def.kind === 'image') { buffer = IMAGE_EXHIBITS[def.number](); ext = '.png'; mime = 'image/png'; type = 'image'; }
   if (def.kind === 'transcript') { buffer = Buffer.from(def.text + '\n', 'utf8'); ext = '.txt'; mime = 'text/plain; charset=utf-8'; type = 'transcript'; }
+  const spec = def.kind === 'json' ? validateInteractive(def.spec) : undefined;
+  if (spec) { buffer = Buffer.from(JSON.stringify(def.spec, null, 2)); ext = '.json'; mime = 'application/json'; type = spec.kind; }
   const stored = `${newId('file')}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, stored), buffer);
   const exhibit = {
@@ -85,6 +92,7 @@ for (const def of exhibitDefs) {
     type,
     file: { stored, mime, size: buffer.length, originalName: `${def.number}${ext}` },
     lines: type === 'transcript' ? parseTranscript(def.text) : undefined,
+    spec,
     uploadedBy: bailiff.id,
     uploadedAt: nowIso(),
   };
@@ -105,23 +113,17 @@ for (const u of FAMILY_UPDATES) {
 
 await db.write();
 
-/* ── Placeholder audio ── */
-fs.mkdirSync(MEDIA_DIR, { recursive: true });
-for (const t of AUDIO_TRACKS) fs.writeFileSync(path.join(MEDIA_DIR, t.file), t.make());
-const catalogFile = path.join(MEDIA_DIR, 'catalog.json');
-const existing = fs.existsSync(catalogFile) ? JSON.parse(fs.readFileSync(catalogFile, 'utf8')) : [];
-const placeholderFiles = new Set(AUDIO_TRACKS.map((t) => t.file));
-const catalog = [
-  ...AUDIO_TRACKS.map(({ make: _make, ...meta }) => meta),
-  ...existing.filter((c) => !placeholderFiles.has(c.file)), // keep entries a clerk added
-];
-fs.writeFileSync(catalogFile, JSON.stringify(catalog, null, 2) + '\n');
-
 /* ── Credentials ── */
 console.log(`\nSeeded "${CASE.caption}" (${CASE.caseNumber})`);
-console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.menu.length} menu items · ${db.data.updates.length} family updates · ${AUDIO_TRACKS.length} placeholder tracks\n`);
+console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.menu.length} menu items · ${db.data.updates.length} family updates\n`);
 console.log('  Sign-in credentials (shown once; PINs are stored only as hashes):\n');
 console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN');
 console.log('  ' + '─'.repeat(50));
-for (const c of credentials) console.log('  ' + c.who.padEnd(30) + c.signIn.padEnd(12) + c.pin);
-console.log('\n  The clerk can reset any juror PIN from /admin/jurors.\n');
+const rows = credentials.map((c) => '  ' + c.who.padEnd(30) + c.signIn.padEnd(12) + c.pin);
+for (const r of rows) console.log(r);
+console.log('\n  The clerk can reset any juror PIN from /admin/jurors.');
+
+// Demo convenience: the same table, saved where the git-ignored data lives.
+const credFile = path.join(DATA_DIR, 'demo-credentials.txt');
+fs.writeFileSync(credFile, [`Demo sign-ins for "${CASE.caption}" (generated ${nowIso()})`, '', '  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN', ...rows, ''].join('\n'));
+console.log(`  Also saved to ${path.relative(process.cwd(), credFile)}\n`);

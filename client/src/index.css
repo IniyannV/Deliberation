@@ -59,6 +59,21 @@
   --color-testimony: #56708f;
   --color-physical: #9c6548;
   --color-document: #6c7a3c;
+
+  /* Chart series: first three slots of the validated reference palette
+     (CVD-safe for all pairs in both modes). Max three series per chart. */
+  --color-viz-1: #2a78d6;
+  --color-viz-2: #eb6834;
+  --color-viz-3: #1baf7a;
+
+  /* Interactive map surfaces */
+  --color-map-land: #f1efe8;
+  --color-map-block: #e3e0d6;
+  --color-map-park: #d7e4cf;
+  --color-map-water: #cddfee;
+  --color-map-industrial: #e6dfd5;
+  --color-map-road: #ffffff;
+  --color-map-road-edge: #cfcabd;
 }
 
 .dark {
@@ -82,6 +97,18 @@
   --color-testimony: #8ea6c4;
   --color-physical: #cf9878;
   --color-document: #aab875;
+
+  --color-viz-1: #3987e5;
+  --color-viz-2: #d95926;
+  --color-viz-3: #199e70;
+
+  --color-map-land: #1f2325;
+  --color-map-block: #2a2f32;
+  --color-map-park: #263326;
+  --color-map-water: #1d2c3a;
+  --color-map-industrial: #2e2b27;
+  --color-map-road: #3d4347;
+  --color-map-road-edge: #2a2f32;
 }
 
 @layer base {

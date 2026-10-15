@@ -8,6 +8,7 @@ export const defaultData = () => ({
   sessions: [],
   exhibits: [],
   transcriptLinks: [],
+  imageNotes: [],
   timeline: [],
   votes: [], // polls and ballots: metadata + final tallies only (see services/voting.js)
   requests: [],
@@ -27,6 +28,7 @@ export async function initDb() {
   for (const [key, value] of Object.entries(defaultData())) {
     if (db.data[key] === undefined) db.data[key] = value;
   }
+  if (db.data.display?.view === 'calm') db.data.display.view = 'idle';
   await db.write();
   return db;
 }

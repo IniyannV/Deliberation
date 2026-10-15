@@ -1,7 +1,7 @@
 import { db } from '../db.js';
 import { ROLES, parseCookies, roleOf, userForToken } from '../auth.js';
 import { SESSION_COOKIE } from '../config.js';
-import { listVotes, votedIn } from '../services/voting.js';
+import { listVotes, listVotesForDisplay, votedIn } from '../services/voting.js';
 import { deliberationHandlers } from './deliberation.js';
 
 /*
@@ -23,9 +23,17 @@ export function getPresence() {
 function syncPayload(user, role) {
   const base = { display: db.data.display, counts: db.data.case.counts };
   if (ROLES.JUROR.includes(role)) {
-    return { ...base, timeline: db.data.timeline, links: db.data.transcriptLinks, votes: listVotes(), votedIn: votedIn(user.id) };
+    return {
+      ...base,
+      burden: db.data.case.burden ?? '',
+      timeline: db.data.timeline,
+      links: db.data.transcriptLinks,
+      notes: db.data.imageNotes,
+      votes: listVotes(),
+      votedIn: votedIn(user.id),
+    };
   }
-  if (role === 'display') return { ...base, timeline: db.data.timeline, votes: listVotes() };
+  if (role === 'display') return { ...base, timeline: db.data.timeline, votes: listVotesForDisplay() };
   if (role === 'bailiff') return { presence: getPresence() };
   return {};
 }
