@@ -4,7 +4,7 @@ import { cx } from '../../components/ui'
 import { fmtDateTime, fmtDay, fmtTime } from '../../lib/format'
 import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../lib/touch'
 import { useUi } from '../../store/ui'
-import { AXIS_H, buildAxis, cardSize, cardTop, fitZoom, laneLayout, snap } from './layout'
+import { AXIS_H, buildAxis, cardSize, cardTop, fitZoom, laneLayout, snap, timeAtX } from './layout'
 
 export const TYPE_STYLE = {
   testimony: { bar: 'bg-testimony', text: 'text-testimony', dot: 'bg-testimony' },
@@ -24,6 +24,7 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
   const board = useRef(null)
   const [boxWidth, setBoxWidth] = useState(1000)
   const [drag, setDrag] = useState(null) // { id, dx, previewT } while a card is being dragged
+  const [settling, setSettling] = useState(null) // { id, t }: a dropped card held in place until the server confirms
 
   useEffect(() => {
     const el = scroller.current
@@ -35,19 +36,33 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
 
   const scale = useUi((s) => s.textScale)
   const card = cardSize(scale)
-  const items = useMemo(() => events.map((e) => ({ ...e, t: new Date(e.at).getTime() })), [events])
+  const items = useMemo(
+    () => events.map((e) => ({ ...e, t: settling?.id === e.id ? settling.t : new Date(e.at).getTime() })),
+    [events, settling],
+  )
   const z = zoom === 'fit' ? fitZoom(items, boxWidth, scale) : zoom
+  const laneOf = mode === 'single' ? () => 'all' : (ev) => ev.type
   const axis = useMemo(
-    () => buildAxis(items, z, { scale, laneOf: mode === 'single' ? () => 'all' : (ev) => ev.type }),
+    () => buildAxis(items, z, { scale, laneOf }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- laneOf follows mode
     [items, z, scale, mode],
   )
+
+  // Where a card dropped at left edge `x` should go in time: the layout is
+  // rebuilt with it at the trial time, so it settles where the finger let go.
+  const dropTime = (ev, x, guess) =>
+    timeAtX(items, ev.id, x, (t) => {
+      const trial = items.map((it) => (it.id === ev.id ? { ...it, t } : it))
+      const tz = zoom === 'fit' ? fitZoom(trial, boxWidth, scale) : zoom
+      return buildAxis(trial, tz, { scale, laneOf }).xById.get(ev.id)
+    }, guess)
   const { lanes, height } = laneLayout(mode, axis.rowsByLane, scale)
   const laneFor = (ev) => (mode === 'single' ? lanes[0] : lanes.find((l) => l.id === ev.type) ?? lanes[0])
   const width = Math.max(boxWidth, axis.width)
 
   // Latest values for the window-level drag listeners.
   const live = useRef({})
-  live.current = { onMove, onSelect, onCardMenu, axis }
+  live.current = { onMove, onSelect, onCardMenu, axis, dropTime }
 
   /*
    * The layout is frozen for the whole drag: other cards stay put and the
@@ -79,7 +94,8 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
       if (pressTimer && Math.hypot(dx, me.clientY - startClientY) > LONG_PRESS_SLOP) { clearTimeout(pressTimer); pressTimer = null }
       if (pressed || !live.current.onMove || (!moved && Math.abs(dx) < 5)) return
       moved = true
-      previewT = snap(live.current.axis.tOf(baseX + dx))
+      const x = Math.max(0, baseX + dx)
+      previewT = live.current.dropTime(ev, x, live.current.axis.tOf(x))
       setDrag({ id: ev.id, dx, previewT })
     }
     const finish = (commit) => () => {
@@ -90,7 +106,11 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
       setDrag(null)
       if (!commit || pressed) return
       if (!moved) live.current.onSelect?.(ev)
-      else if (previewT !== ev.t) live.current.onMove(ev, new Date(previewT).toISOString())
+      else if (previewT !== ev.t) {
+        // Hold the card where it was dropped instead of letting it snap back while the server confirms.
+        setSettling({ id: ev.id, t: previewT })
+        Promise.resolve(live.current.onMove(ev, new Date(previewT).toISOString())).finally(() => setSettling(null))
+      }
     }
     const onUp = finish(true)
     const onCancel = finish(false)
@@ -184,7 +204,9 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
               onContextMenu={(e) => cardMenu(e, ev)}
               onKeyDown={(e) => keyDown(e, ev)}
               className={cx(
-                'no-callout absolute flex touch-none overflow-hidden rounded-xl border bg-surface text-left shadow-card transition-[box-shadow,scale,border-color] duration-200 ease-[var(--ease-fluid)]',
+                'no-callout absolute flex touch-none overflow-hidden rounded-xl border bg-surface text-left shadow-card duration-200 ease-[var(--ease-fluid)]',
+                // Other cards glide to their new spots after a drop; the dragged one tracks the finger exactly.
+                dragging ? 'transition-[box-shadow,scale,border-color]' : 'transition-[box-shadow,scale,border-color,left,top] motion-reduce:transition-[box-shadow,scale,border-color]',
                 onMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                 selectedId === ev.id ? 'border-accent ring-2 ring-accent/40' : 'border-transparent hover:shadow-[var(--shadow-lift)]',
                 // A dragged card lifts off the board: slightly larger, deeper shadow.

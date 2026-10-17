@@ -9,7 +9,7 @@ export const defaultData = () => ({
   exhibits: [],
   transcriptLinks: [],
   imageNotes: [],
-  personal: {}, // userId → { highlights, checks }: one juror's own marks, never shared or logged
+  personal: {}, // userId → { highlights, checks, timeline }: one juror's own marks and private timeline, never shared or logged
   timeline: [],
   votes: [], // polls and ballots: metadata + final tallies only (see services/voting.js)
   requests: [],

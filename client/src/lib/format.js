@@ -40,7 +40,7 @@ export function fmtBytes(n) {
 }
 
 export const PARTY_LABEL = { prosecution: 'Prosecution', defense: 'Defense', joint: 'Joint', court: 'Court' }
-export const TYPE_LABEL = { pdf: 'Document (PDF)', image: 'Image', transcript: 'Transcript', video: 'Video' }
+export const TYPE_LABEL = { pdf: 'Document (PDF)', image: 'Image', transcript: 'Transcript', video: 'Video', youtube: 'YouTube video' }
 export const EVENT_TYPES = [
   { id: 'testimony', label: 'Testimony' },
   { id: 'physical', label: 'Physical evidence' },

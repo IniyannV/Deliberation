@@ -21,8 +21,12 @@ const noteCoord = (v) => {
   return Math.round(n * 10000) / 10000;
 };
 
-// One juror's own highlights and checklist ticks. Like notes, never logged.
-const personalFor = (userId) => (db.data.personal[userId] ??= { highlights: {}, checks: {} });
+// One juror's own highlights, checklist ticks and private timeline. Like notes, never logged.
+const personalFor = (userId) => {
+  const mine = (db.data.personal[userId] ??= { highlights: {}, checks: {} });
+  mine.timeline ??= [];
+  return mine;
+};
 
 const toJurorsAndDisplay = (io, event, payload) => io.to(['jurors', 'display']).emit(event, payload);
 
@@ -55,18 +59,42 @@ function readEvent(p) {
   };
 }
 
-function findEvent(id, version) {
-  const ev = db.data.timeline.find((e) => e.id === id);
+/*
+ * Two timelines: the shared one every juror edits (and the room display
+ * shows), and each juror's personal one, which only their own devices see.
+ * `scope: 'personal'` on a timeline event picks the second.
+ */
+function timelineFor(p, user) {
+  if (p?.scope === 'personal') {
+    const mine = personalFor(user.id);
+    return {
+      list: () => mine.timeline,
+      set: (next) => { mine.timeline = next; },
+      async changed(io) {
+        await save();
+        io.to(`user:${user.id}`).emit('personal:changed', mine);
+      },
+      refresh: (socket) => socket.emit('personal:changed', mine),
+    };
+  }
+  return {
+    list: () => db.data.timeline,
+    set: (next) => { db.data.timeline = next; },
+    async changed(io) {
+      await save();
+      toJurorsAndDisplay(io, 'timeline:changed', db.data.timeline);
+    },
+    refresh: (socket) => socket.emit('timeline:changed', db.data.timeline),
+  };
+}
+
+function findEvent(list, id, version) {
+  const ev = list.find((e) => e.id === id);
   if (!ev) throw new HttpError(404, 'That event was removed by someone else');
   if (version !== undefined && version !== ev.version) {
     throw new HttpError(409, 'Someone else just changed this event. Your view has been refreshed.');
   }
   return ev;
-}
-
-async function timelineChanged(io) {
-  await save();
-  toJurorsAndDisplay(io, 'timeline:changed', db.data.timeline);
 }
 
 async function votesChanged(io, vote) {
@@ -75,50 +103,55 @@ async function votesChanged(io, vote) {
 }
 
 export const deliberationHandlers = {
-  /* ── Timeline ── */
+  /* ── Timeline (shared, or the juror's personal one) ── */
   'timeline:create': {
     roles: [ROLES.JUROR],
-    async handler({ io }, p) {
+    async handler({ io, user }, p) {
+      const tl = timelineFor(p, user);
+      if (tl.list().length >= 2000) throw bad('This timeline is full');
       const ev = { id: newId('ev'), ...readEvent(p), version: 1, updatedAt: nowIso() };
-      db.data.timeline.push(ev);
-      await timelineChanged(io);
+      tl.list().push(ev);
+      await tl.changed(io);
       return { event: ev };
     },
   },
   'timeline:update': {
     roles: [ROLES.JUROR],
-    async handler({ io, socket }, p) {
+    async handler({ io, socket, user }, p) {
+      const tl = timelineFor(p, user);
       try {
-        const ev = findEvent(p.id, p.version);
+        const ev = findEvent(tl.list(), p.id, p.version);
         Object.assign(ev, readEvent(p), { version: ev.version + 1, updatedAt: nowIso() });
-        await timelineChanged(io);
+        await tl.changed(io);
         return { event: ev };
       } catch (err) {
-        if (err.status === 409) socket.emit('timeline:changed', db.data.timeline);
+        if (err.status === 409) tl.refresh(socket);
         throw err;
       }
     },
   },
   'timeline:move': {
     roles: [ROLES.JUROR],
-    async handler({ io, socket }, p) {
+    async handler({ io, socket, user }, p) {
+      const tl = timelineFor(p, user);
       try {
-        const ev = findEvent(p.id, p.version);
+        const ev = findEvent(tl.list(), p.id, p.version);
         Object.assign(ev, { at: isoDateTime(p.at), version: ev.version + 1, updatedAt: nowIso() });
-        await timelineChanged(io);
+        await tl.changed(io);
         return { event: ev };
       } catch (err) {
-        if (err.status === 409) socket.emit('timeline:changed', db.data.timeline);
+        if (err.status === 409) tl.refresh(socket);
         throw err;
       }
     },
   },
   'timeline:delete': {
     roles: [ROLES.JUROR],
-    async handler({ io }, p) {
-      findEvent(p.id);
-      db.data.timeline = db.data.timeline.filter((e) => e.id !== p.id);
-      await timelineChanged(io);
+    async handler({ io, user }, p) {
+      const tl = timelineFor(p, user);
+      findEvent(tl.list(), p.id);
+      tl.set(tl.list().filter((e) => e.id !== p.id));
+      await tl.changed(io);
     },
   },
 

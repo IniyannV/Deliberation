@@ -36,7 +36,7 @@ function checkExcerpt(excerpt, transcript) {
 }
 
 /** Create or edit a timeline event. `initial` may be an existing event or a draft. */
-export default function EventEditor({ open, initial, defaultAt, onClose, onSaved }) {
+export default function EventEditor({ open, initial, defaultAt, scope = 'shared', onClose, onSaved }) {
   const exhibits = useLive((s) => s.exhibits)
   const emit = useLive((s) => s.emit)
   const editing = !!initial?.id
@@ -79,7 +79,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
     setBusy(true)
     setError('')
     try {
-      const payload = { ...form, at: fromLocalInput(form.at) }
+      const payload = { ...form, at: fromLocalInput(form.at), scope }
       const res = editing
         ? await emit('timeline:update', { ...payload, id: initial.id, version: initial.version })
         : await emit('timeline:create', payload)
@@ -97,7 +97,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
       open={open}
       onClose={onClose}
       wide
-      title={editing ? 'Edit event' : 'Add an event to the timeline'}
+      title={editing ? 'Edit event' : scope === 'personal' ? 'Add an event to my timeline' : 'Add an event to the shared timeline'}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="primary" type="submit" form="event-form" disabled={busy}>{editing ? 'Save changes' : 'Add event'}</Button>

@@ -3,7 +3,7 @@ import { api } from '../../lib/api'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { PARTY_LABEL, TYPE_LABEL, fmtBytes, fmtCalendarDate } from '../../lib/format'
-import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader, Select, Textarea } from '../../components/ui'
+import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader, Segmented, Select, Textarea } from '../../components/ui'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const EMPTY = { number: '', title: '', party: 'prosecution', dateAdmitted: today(), description: '' }
@@ -35,6 +35,8 @@ export default function Evidence() {
   const exhibits = useLive((s) => s.exhibits)
   const [form, setForm] = useState(EMPTY)
   const [file, setFile] = useState(null)
+  const [source, setSource] = useState('file') // 'file' | 'youtube'
+  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -45,15 +47,21 @@ export default function Evidence() {
     e.preventDefault()
     setBusy(true)
     setError('')
-    const data = new FormData()
-    Object.entries(form).forEach(([k, v]) => data.append(k, v))
-    data.append('file', file)
     try {
-      const { exhibit } = await api('/exhibits', { method: 'POST', form: data })
-      toast(`Exhibit ${exhibit.number} uploaded and visible to jurors.`)
+      let exhibit
+      if (source === 'youtube') {
+        ({ exhibit } = await api('/exhibits/youtube', { method: 'POST', body: { ...form, url: youtubeUrl } }))
+        setYoutubeUrl('')
+      } else {
+        const data = new FormData()
+        Object.entries(form).forEach(([k, v]) => data.append(k, v))
+        data.append('file', file)
+        ;({ exhibit } = await api('/exhibits', { method: 'POST', form: data }))
+        setFile(null)
+        fileInput.current.value = ''
+      }
+      toast(`Exhibit ${exhibit.number} added and visible to jurors.`)
       setForm({ ...EMPTY, party: form.party, dateAdmitted: form.dateAdmitted })
-      setFile(null)
-      fileInput.current.value = ''
     } catch (err) {
       setError(err.message)
     } finally {
@@ -85,14 +93,23 @@ export default function Evidence() {
       <PageHeader title="Evidence" subtitle="Upload exhibits admitted into evidence. Jurors see them immediately. Every upload is recorded in the audit log." />
 
       <Card className="mb-8 p-6" data-tour="admin-upload">
-        <h2 className="mb-4 text-xl font-bold">Add an exhibit</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Add an exhibit</h2>
+          <Segmented label="Exhibit source" value={source} onChange={(v) => { setSource(v); setError('') }} options={[{ value: 'file', label: 'Upload a file' }, { value: 'youtube', label: 'YouTube link' }]} />
+        </div>
         <form onSubmit={upload} className="flex flex-col gap-4">
+          {source === 'youtube' ? (
+            <Field label="YouTube link" hint="Paste the video’s address (watch, share or Shorts link). It streams from YouTube, so it plays only on juror devices that can reach the internet; everything else in the app stays on this laptop.">
+              {(id) => <Input id={id} type="url" inputMode="url" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} required placeholder="https://www.youtube.com/watch?v=…" />}
+            </Field>
+          ) : (
           <Field label="File" hint="PDF, image (PNG, JPEG, WebP, GIF), a plain-text transcript (.txt; lines starting with “Q:” or “NAME:” become speaker turns), or a video (MP4, MOV or WebM). 2 GB max.">
             {(id) => <Input id={id} ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.mp4,.m4v,.mov,.webm" onChange={(e) => setFile(e.target.files[0] ?? null)} required className="file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1" />}
           </Field>
+          )}
           <MetaFields form={form} setForm={setForm} />
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" variant="primary" icon="upload" disabled={busy || !file} className="self-start">{busy ? 'Uploading…' : 'Upload exhibit'}</Button>
+          <Button type="submit" variant="primary" icon="upload" disabled={busy || (source === 'file' ? !file : !youtubeUrl.trim())} className="self-start">{busy ? 'Adding…' : source === 'file' ? 'Upload exhibit' : 'Add YouTube exhibit'}</Button>
         </form>
       </Card>
 

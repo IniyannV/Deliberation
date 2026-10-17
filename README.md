@@ -7,7 +7,9 @@ station connect to it over a closed LAN with an ordinary browser.
 **It never touches the public internet.** There are no CDNs, web fonts,
 external APIs, analytics or telemetry, and the server sends a strict
 Content-Security-Policy so browsers refuse anything that isn't served by this
-laptop.
+laptop. The one opt-in exception is a **YouTube exhibit**, which the clerk can
+add by link: it plays in YouTube's privacy-enhanced player and only on devices
+that can reach the internet.
 
 > Prototype / demo. The case, people and exhibits in the seed data are fictional.
 
@@ -41,7 +43,7 @@ Set `PORT` to change the port (`PORT=8080 npm start`).
 
 | Role | Sign in with | Lands on |
 |---|---|---|
-| Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, timeline, voting, requests, messages from home |
+| Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, requests, messages from home |
 | Foreperson | seat `1` in the demo | same as juror, plus poll/ballot controls, judge questions, room-display control |
 | Room display | `DISPLAY` + PIN | `/display`: full-screen projector view (read-only) |
 | Bailiff / Clerk | `B1` + PIN | `/admin`: request queue, evidence upload, seats & PINs, family updates, menu, audit log |
@@ -62,7 +64,9 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
    exhibits: PDF, PNG/JPEG/WebP/GIF, `.txt` transcripts, or MP4/MOV/WebM
    video (up to 2 GB). Transcript lines that start with `Q:`, `A:` or
    `NAME:` become speaker turns. Files are type-checked by content, and
-   SVG/HTML are refused.
+   SVG/HTML are refused. A video's frame rate is read from its MP4/MOV
+   header so jurors can step through it one frame at a time. **YouTube
+   link** adds a YouTube video instead of a file (internet required to play).
 3. Configure the meal menu and supplies in **Admin → Menu & supplies**.
 
 Each count's **elements, definitions and burden of proof** (shown to jurors
@@ -73,8 +77,19 @@ from the judge's written instructions.
 
 Jurors are expected to use iPads, so every touch gesture has a mouse twin:
 
+Layouts are tuned for the iPad (10th generation), 820 × 1180 points:
+
+- In **landscape** the sidebar sits beside the page; in **portrait** it slides
+  over the page and tucks away again, as in iPadOS apps. Choosing a section
+  always puts the sidebar away so the page gets the full width.
+- **Add to Home Screen** (Share → Add to Home Screen) runs the app full screen
+  without Safari's bars, with its own icon.
+- Buttons are at least 44 points on touch screens, and double-tap zoom is off
+  so taps respond at once.
 - **Long-press** does whatever right-click does (pin a note on a photo, open a
   timeline card's menu).
+- **Videos** have their own controls: ⏴| and |⏵ (or ← and → on a keyboard)
+  step one frame, Shift+arrows a second, Space plays and pauses.
 - **Press and hold** transcript text to select it, then tap **Highlight**.
   Highlights are private to each juror and follow them to any device.
 - **A− / A+** in the top-right corner make all text smaller or larger.
@@ -103,18 +118,25 @@ Jurors are expected to use iPads, so every touch gesture has a mouse twin:
   the bailiff can read or post to it.
 - **Image notes** (right-click a photo) are shared with the jury and never
   visible to court staff.
+- **Two timelines.** The shared timeline is edited by every juror and shown on
+  the room display. Each juror also has a personal timeline that only their
+  own devices receive; events can be copied between the two. Neither is
+  visible to court staff or written to the audit log.
 - Court staff see only whether a device is connected, never deliberation activity.
 
 ## Offline guarantees
 
 - CSP header from Express:
-  `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'`
+  `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'; frame-src 'self' https://www.youtube-nocookie.com`
+  (the `frame-src` entry exists only for YouTube exhibits; the app still loads
+  no script from the internet and drives the player by `postMessage`)
 - Text uses the device's own UI font (SF Pro on Apple devices, Segoe UI or Roboto elsewhere), so no font is downloaded.
 - The pdf.js worker is bundled by Vite. Character maps, standard fonts and
   decoders are copied into `client/public/pdfjs` at build time.
 - No `http(s)://` URLs are used at runtime by `client/src`, `client/index.html`
-  or `server`. The only matches are the startup banner that prints LAN
-  addresses and the font licence text. URL strings inside the built bundle come
+  or `server`, except YouTube's player address, which is framed only when a
+  juror opens a YouTube exhibit. The other matches are the startup banner that
+  prints LAN addresses, the YouTube-link parser and the font licence text. URL strings inside the built bundle come
   from library internals (XML namespaces, error-message links) and are never
   fetched.
 

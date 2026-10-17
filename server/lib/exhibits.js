@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-export const EXHIBIT_TYPES = ['pdf', 'image', 'transcript', 'video'];
+export const EXHIBIT_TYPES = ['pdf', 'image', 'transcript', 'video', 'youtube'];
 export const PARTIES = ['prosecution', 'defense', 'joint', 'court'];
 
 const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
@@ -34,6 +34,96 @@ export function sniffFile(filePath, originalName) {
     if (!/<\s*(svg|script|html)/i.test(text)) return { type: 'transcript', mime: 'text/plain; charset=utf-8' };
   }
   return null;
+}
+
+/**
+ * Frames per second of an MP4/MOV's video track, read from its header boxes
+ * (moov → trak → mdia: the 'vide' handler's mdhd timescale over the most
+ * common stts sample delta). Lets jurors step exactly one frame at a time.
+ * Returns null for WebM or anything it can't read.
+ */
+export function probeVideoFps(filePath) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const total = fs.fstatSync(fd).size;
+    const head = Buffer.alloc(16);
+    // Find the top-level moov box without reading the (possibly huge) media data.
+    let pos = 0;
+    let moov = null;
+    while (pos + 8 <= total) {
+      fs.readSync(fd, head, 0, 16, pos);
+      let size = head.readUInt32BE(0);
+      const type = head.toString('latin1', 4, 8);
+      let hdr = 8;
+      if (size === 1) { size = Number(head.readBigUInt64BE(8)); hdr = 16; }
+      if (size === 0) size = total - pos;
+      if (size < hdr) return null;
+      if (type === 'moov') {
+        if (size > 64 * 1024 * 1024) return null;
+        moov = Buffer.alloc(size - hdr);
+        fs.readSync(fd, moov, 0, moov.length, pos + hdr);
+        break;
+      }
+      pos += size;
+    }
+    if (!moov) return null;
+
+    const children = (buf, start = 0, end = buf.length) => {
+      const out = [];
+      for (let p = start; p + 8 <= end;) {
+        const size = buf.readUInt32BE(p);
+        if (size < 8 || p + size > end) break;
+        out.push({ type: buf.toString('latin1', p + 4, p + 8), start: p + 8, end: p + size });
+        p += size;
+      }
+      return out;
+    };
+    const child = (buf, box, type) => children(buf, box.start, box.end).find((b) => b.type === type);
+
+    for (const trak of children(moov).filter((b) => b.type === 'trak')) {
+      const mdia = child(moov, trak, 'mdia');
+      const hdlr = mdia && child(moov, mdia, 'hdlr');
+      if (!hdlr || moov.toString('latin1', hdlr.start + 8, hdlr.start + 12) !== 'vide') continue;
+      const mdhd = child(moov, mdia, 'mdhd');
+      const stbl = child(moov, child(moov, mdia, 'minf') ?? { start: 0, end: 0 }, 'stbl');
+      const stts = stbl && child(moov, stbl, 'stts');
+      if (!mdhd || !stts) return null;
+      const timescale = moov.readUInt32BE(mdhd.start + (moov[mdhd.start] === 1 ? 20 : 12));
+      const entries = moov.readUInt32BE(stts.start + 4);
+      let best = { count: 0, delta: 0 };
+      for (let i = 0; i < entries && stts.start + 16 + i * 8 <= stts.end; i++) {
+        const count = moov.readUInt32BE(stts.start + 8 + i * 8);
+        const delta = moov.readUInt32BE(stts.start + 12 + i * 8);
+        if (count > best.count) best = { count, delta };
+      }
+      const fps = best.delta ? timescale / best.delta : 0;
+      return fps >= 1 && fps <= 240 ? Math.round(fps * 1000) / 1000 : null;
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+/**
+ * A YouTube video ID from a watch, share, embed, shorts or live link, or a bare ID.
+ * Returns null if it isn't one.
+ */
+export function youtubeId(input) {
+  const s = String(input ?? '').trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  let url;
+  try { url = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`); } catch { return null; }
+  const host = url.hostname.replace(/^(www\.|m\.|music\.)/, '');
+  let id = null;
+  if (host === 'youtu.be') id = url.pathname.slice(1).split('/')[0];
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    id = url.searchParams.get('v') ?? url.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{11})/)?.[1] ?? null;
+  }
+  return id && /^[\w-]{11}$/.test(id) ? id : null;
 }
 
 /**

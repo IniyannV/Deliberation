@@ -6,6 +6,7 @@ import { useExhibit } from './useExhibit'
 import TranscriptView from './TranscriptView'
 import ImageViewer from './ImageViewer'
 import VideoViewer from './VideoViewer'
+import YouTubeViewer from './YouTubeViewer'
 
 const PdfViewer = lazy(() => import('./PdfViewer'))
 
@@ -20,7 +21,8 @@ export default function ExhibitViewer({ exhibitId, focusLine, onOpenExhibit }) {
 
   if (exhibit.type === 'pdf') return <Suspense fallback={<Spinner />}><PdfViewer url={exhibitFileUrl(exhibit.id)} title={title} /></Suspense>
   if (exhibit.type === 'image') return <ImageViewer exhibit={exhibit} url={exhibitFileUrl(exhibit.id)} title={title} />
-  if (exhibit.type === 'video') return <VideoViewer url={exhibitFileUrl(exhibit.id)} title={title} />
+  if (exhibit.type === 'video') return <VideoViewer url={exhibitFileUrl(exhibit.id)} title={title} fps={exhibit.fps} />
+  if (exhibit.type === 'youtube') return <YouTubeViewer videoId={exhibit.youtubeId} title={title} />
   return (
     <div className="h-full overflow-y-auto p-4 scrollbar-thin">
       <TranscriptView

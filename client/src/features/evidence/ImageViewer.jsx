@@ -19,18 +19,55 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
 const DEFAULT_SIZE = { w: 288, h: 0 } // h 0: as tall as the content
 
 /**
+ * A hairline from the pin's edge to the nearest point on its note card, so a
+ * card dragged away still shows what it's about. Drawn in the image's own
+ * box: `box` is that box's size, `card` the card's rect, both in px.
+ */
+function LeaderLine({ x, y, box, card, pinRadius }) {
+  const px = x * box.w
+  const py = y * box.h
+  const cx = clamp(px, card.left, card.left + card.w)
+  const cy = clamp(py, card.top, card.top + card.h)
+  const len = Math.hypot(cx - px, cy - py)
+  if (len <= pinRadius + 2) return null // the card covers or touches the pin
+  const sx = px + ((cx - px) / len) * pinRadius
+  const sy = py + ((cy - py) / len) * pinRadius
+  return (
+    <svg aria-hidden className="pointer-events-none absolute top-0 left-0 z-20 overflow-visible" width={box.w} height={box.h}>
+      <line x1={sx} y1={sy} x2={cx} y2={cy} stroke="var(--color-accent)" strokeWidth="1" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <circle cx={cx} cy={cy} r="2" fill="var(--color-accent)" />
+    </svg>
+  )
+}
+
+/**
  * A floating note card beside a pin. Drag the grabber to move it anywhere
  * (even off the image) and the corner to resize it; the size is remembered.
  */
-function NoteCard({ x, y, label, children, onClose }) {
+function NoteCard({ x, y, label, children, onClose, pinRadius = 16 }) {
   const ref = useRef(null)
   const [offset, setOffset] = useState(null) // px from the pin, measured on open
   const [size, setSize] = useState(() => load('noteSize', DEFAULT_SIZE))
+  const [dims, setDims] = useState(null) // { box: image box size, w, h: card size } for the leader line
+
+  // Track the image box and the card's own size (content and the juror's resizing change it).
+  useLayoutEffect(() => {
+    const el = ref.current
+    const parent = el?.offsetParent
+    if (!el || !parent) return
+    const measure = () => setDims({ box: { w: parent.clientWidth, h: parent.clientHeight }, w: el.offsetWidth, h: el.offsetHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    ro.observe(parent)
+    return () => ro.disconnect()
+  }, [])
 
   // Open beside the pin, on whichever side has room.
   useLayoutEffect(() => {
     const el = ref.current
-    setOffset({ dx: x > 0.6 ? -(el.offsetWidth + 14) : 14, dy: y > 0.6 ? -el.offsetHeight : 0 })
+    // A little clear of the pin, so the leader line shows what the card points at.
+    setOffset({ dx: x > 0.6 ? -(el.offsetWidth + 40) : 40, dy: y > 0.6 ? -el.offsetHeight + 16 : -16 })
     // Only on open: later moves are the juror's.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -74,6 +111,16 @@ function NoteCard({ x, y, label, children, onClose }) {
   }
 
   return (
+    <>
+    {offset && dims && (
+      <LeaderLine
+        x={x}
+        y={y}
+        box={dims.box}
+        card={{ left: x * dims.box.w + offset.dx, top: y * dims.box.h + offset.dy, w: dims.w, h: dims.h }}
+        pinRadius={pinRadius}
+      />
+    )}
     <div
       ref={ref}
       role="dialog"
@@ -107,6 +154,7 @@ function NoteCard({ x, y, label, children, onClose }) {
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 1L1 9M9 5L5 9" /></svg>
       </div>
     </div>
+    </>
   )
 }
 
@@ -231,7 +279,7 @@ export default function ImageViewer({ exhibit, url, title }) {
           {draft && (
             <>
               <span className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-warn shadow" style={{ left: `${draft.x * 100}%`, top: `${draft.y * 100}%` }} aria-hidden />
-              <NoteCard x={draft.x} y={draft.y} label={`New note on ${exhibit.number}`} onClose={() => setDraft(null)}>
+              <NoteCard x={draft.x} y={draft.y} pinRadius={8} label={`New note on ${exhibit.number}`} onClose={() => setDraft(null)}>
                 <form onSubmit={(e) => { e.preventDefault(); run('note:create', { exhibitId: exhibit.id, x: draft.x, y: draft.y, text: draft.text }, () => setDraft(null)) }}>
                   <p className="mb-2 text-sm font-semibold">New note on {exhibit.number}</p>
                   <Textarea autoFocus value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} maxLength={500} className="min-h-20 text-base" placeholder="What should the jury notice here?" />

@@ -20,7 +20,7 @@ const initial = {
   timeline: [],
   links: [],
   notes: [],
-  personal: { highlights: {}, checks: {} }, // this juror's own highlights and checklist ticks
+  personal: { highlights: {}, checks: {}, timeline: [] }, // this juror's own highlights, checklist ticks and private timeline
   burden: '',
   votes: [],
   votedIn: [],

@@ -9,7 +9,7 @@ import { auditAs } from '../services/audit.js';
 import { emit } from '../realtime.js';
 import { HttpError, bad, isoDate, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
 import {
-  PARTIES, compareExhibitNumbers, exhibitSummary, parseTranscript, searchExhibits, sniffFile,
+  PARTIES, compareExhibitNumbers, exhibitSummary, parseTranscript, probeVideoFps, searchExhibits, sniffFile, youtubeId,
 } from '../lib/exhibits.js';
 
 const router = Router();
@@ -48,14 +48,19 @@ router.get('/', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, re
   res.json({ exhibits: list });
 });
 
+const filePathOf = (e) => path.join(UPLOAD_DIR, path.basename(e.file.stored));
+
 router.get('/:id', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
   const e = findExhibit(req.params.id);
+  // Videos uploaded before frame rates were recorded: read it once, now.
+  if (e.type === 'video' && e.fps === undefined) e.fps = probeVideoFps(filePathOf(e));
   res.json({ exhibit: { ...exhibitSummary(e), lines: e.lines ?? null } });
 });
 
 router.get('/:id/file', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
   const e = findExhibit(req.params.id);
-  const filePath = path.join(UPLOAD_DIR, path.basename(e.file.stored));
+  if (!e.file) throw new HttpError(404, 'This exhibit has no file');
+  const filePath = filePathOf(e);
   res.setHeader('Content-Type', e.file.mime);
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Cache-Control', 'private, max-age=300');
@@ -77,6 +82,7 @@ router.post('/', requireRole(ROLES.BAILIFF), upload.single('file'), async (req, 
       type: sniffed.type,
       file: { stored: req.file.filename, mime: sniffed.mime, size: req.file.size, originalName: req.file.originalname.slice(0, 200) },
       lines: sniffed.type === 'transcript' ? parseTranscript(fs.readFileSync(req.file.path, 'utf8')) : undefined,
+      fps: sniffed.type === 'video' ? probeVideoFps(req.file.path) : undefined,
       uploadedBy: req.user.id,
       uploadedAt: nowIso(),
     };
@@ -89,6 +95,31 @@ router.post('/', requireRole(ROLES.BAILIFF), upload.single('file'), async (req, 
     fs.rmSync(req.file.path, { force: true });
     throw err;
   }
+});
+
+// A YouTube video, embedded rather than uploaded. It only plays on devices
+// that can reach the internet; everything else in the app stays local.
+router.post('/youtube', requireRole(ROLES.BAILIFF), async (req, res) => {
+  const meta = readMeta(req.body ?? {});
+  const id = youtubeId(req.body?.url);
+  if (!id) throw bad('That is not a YouTube link. Paste the video’s address, such as https://www.youtube.com/watch?v=…');
+  if (db.data.exhibits.some((e) => e.number.toLowerCase() === meta.number.toLowerCase())) {
+    throw bad(`Exhibit ${meta.number} already exists`);
+  }
+  const exhibit = {
+    id: newId('ex'),
+    ...meta,
+    type: 'youtube',
+    youtubeId: id,
+    file: null,
+    uploadedBy: req.user.id,
+    uploadedAt: nowIso(),
+  };
+  db.data.exhibits.push(exhibit);
+  await save();
+  auditAs(req.user, req.role, 'exhibit.uploaded', exhibit.id, { exhibitNumber: exhibit.number, exhibitType: exhibit.type });
+  broadcastChange();
+  res.status(201).json({ exhibit: exhibitSummary(exhibit) });
 });
 
 router.patch('/:id', requireRole(ROLES.BAILIFF), async (req, res) => {
@@ -111,7 +142,7 @@ router.delete('/:id', requireRole(ROLES.BAILIFF), async (req, res) => {
   db.data.imageNotes = db.data.imageNotes.filter((n) => n.exhibitId !== e.id);
   for (const mine of Object.values(db.data.personal)) delete mine.highlights?.[e.id];
   await save();
-  fs.rmSync(path.join(UPLOAD_DIR, path.basename(e.file.stored)), { force: true });
+  if (e.file) fs.rmSync(filePathOf(e), { force: true });
   auditAs(req.user, req.role, 'exhibit.removed', e.id, { exhibitNumber: e.number });
   broadcastChange();
   emit(['jurors'], 'links:changed', db.data.transcriptLinks);

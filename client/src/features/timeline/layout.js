@@ -155,3 +155,28 @@ export function laneLayout(mode, rowsByLane = {}, scale = 1) {
 export const cardTop = (lane, row, scale = 1) => lane.y + LANE_PAD + row * (cardSize(scale).h + ROW_GAP)
 
 export const snap = (t) => Math.round(t / SNAP_MS) * SNAP_MS
+
+/**
+ * The time to give `id` so that, once the whole axis is laid out again with
+ * it there, its card's left edge lands at `targetX`. `place(t)` returns that
+ * left edge for a trial time. `guess` (read off the frozen axis) wins when it
+ * already lands close, since it keeps the time the juror pointed at. Otherwise
+ * bisect: a later time never moves a card left. Snapped to SNAP_MS.
+ */
+export function timeAtX(items, id, targetX, place, guess) {
+  const g = snap(guess)
+  if (Math.abs(place(g) - targetX) <= 8) return g
+  const others = items.filter((it) => it.id !== id)
+  const ts = others.length ? others.map((it) => it.t) : [guess]
+  const reach = 2 * 365 * 24 * HOUR
+  let lo = Math.min(...ts) - reach
+  let hi = Math.max(...ts) + reach
+  // Out of reach (at zoom 0 the spacing ignores time): keep the guess.
+  if (place(lo) >= targetX || place(hi) <= targetX) return g
+  for (let i = 0; i < 48 && hi - lo > 1000; i++) {
+    const mid = (lo + hi) / 2
+    if (place(mid) < targetX) lo = mid
+    else hi = mid
+  }
+  return snap(hi)
+}

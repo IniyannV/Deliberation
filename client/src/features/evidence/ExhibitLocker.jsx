@@ -8,7 +8,7 @@ import { Badge, EmptyState, ErrorText, Input, PageHeader, Segmented, Select } fr
 
 const PdfThumb = lazy(() => import('./PdfThumb'))
 
-const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', video: 'video' }
+const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', video: 'video', youtube: 'video' }
 
 function Placeholder({ exhibit, className }) {
   return (
@@ -111,7 +111,7 @@ export default function ExhibitLocker() {
           label="Exhibit type"
           value={type}
           onChange={setType}
-          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'video', label: 'Video' }]}
+          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'video', label: 'Video' }, { value: 'youtube', label: 'YouTube' }]}
         />
         <Select value={party} onChange={(e) => setParty(e.target.value)} className="w-auto" aria-label="Introduced by">
           <option value="">Introduced by: anyone</option>

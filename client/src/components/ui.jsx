@@ -39,7 +39,7 @@ export function IconButton({ icon, label, className, size = 20, ...props }) {
       type="button"
       aria-label={label}
       title={label}
-      className={cx('pressable inline-flex items-center justify-center rounded-full p-2 text-muted hover:bg-fill hover:text-ink disabled:opacity-40', className)}
+      className={cx('pressable inline-flex items-center justify-center rounded-full p-2 text-muted hover:bg-fill hover:text-ink disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11', className)}
       {...props}
     >
       <Icon name={icon} size={size} />
@@ -142,7 +142,7 @@ export function Segmented({ value, onChange, options, label, className }) {
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('pressable pressable-soft relative shrink-0 rounded-[0.5rem] px-3.5 py-1 text-sm', value === o.value ? 'font-semibold text-ink' : 'font-medium text-ink/80 hover:text-ink', !thumb && value === o.value && 'bg-surface shadow-sm')}
+          className={cx('pressable pressable-soft relative shrink-0 rounded-[0.5rem] px-3.5 py-1 text-sm pointer-coarse:py-1.5', value === o.value ? 'font-semibold text-ink' : 'font-medium text-ink/80 hover:text-ink', !thumb && value === o.value && 'bg-surface shadow-sm')}
         >
           {o.label}
         </button>

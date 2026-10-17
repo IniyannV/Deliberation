@@ -29,7 +29,7 @@ function syncPayload(user, role) {
       timeline: db.data.timeline,
       links: db.data.transcriptLinks,
       notes: db.data.imageNotes,
-      personal: db.data.personal[user.id] ?? { highlights: {}, checks: {} },
+      personal: { timeline: [], ...(db.data.personal[user.id] ?? { highlights: {}, checks: {} }) },
       votes: listVotes(),
       votedIn: votedIn(user.id),
     };

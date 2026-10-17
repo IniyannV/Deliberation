@@ -10,7 +10,7 @@ import Timeline, { TYPE_STYLE } from './Timeline'
 import EventEditor from './EventEditor'
 
 /** An event's details, shown in a popup when its card is tapped. */
-function EventDetail({ ev, exhibitsById, onEdit, onDelete, onClose }) {
+function EventDetail({ ev, exhibitsById, scope, onEdit, onDelete, onCopy, onClose }) {
   const shown = useRef(ev)
   if (ev) shown.current = ev
   const e = shown.current // keep the content while the popup animates out
@@ -22,6 +22,9 @@ function EventDetail({ ev, exhibitsById, onEdit, onDelete, onClose }) {
       title={e?.label ?? ''}
       footer={<>
         <Button variant="danger" icon="trash" onClick={onDelete}>Delete</Button>
+        <Button icon="plus" onClick={onCopy} className="mr-auto order-first">
+          {scope === 'personal' ? 'Copy to shared timeline' : 'Copy to my timeline'}
+        </Button>
         <Button variant="primary" icon="edit" onClick={onEdit}>Edit</Button>
       </>}
     >
@@ -86,8 +89,16 @@ function CardMenu({ menu, onEdit, onDelete, onClose }) {
   )
 }
 
+const SCOPES = [
+  { value: 'shared', label: 'Shared with the jury' },
+  { value: 'personal', label: 'My timeline' },
+]
+
 export default function TimelinePage() {
-  const timeline = useLive((s) => s.timeline)
+  const [scope, setScope] = useState(() => load('timelineScope', 'shared'))
+  const shared = useLive((s) => s.timeline)
+  const personal = useLive((s) => s.personal.timeline)
+  const timeline = (scope === 'personal' ? personal : shared) ?? []
   const exhibits = useLive((s) => s.exhibits)
   const emit = useLive((s) => s.emit)
   const location = useLocation()
@@ -101,7 +112,8 @@ export default function TimelinePage() {
 
   const exhibitsById = Object.fromEntries(exhibits.map((e) => [e.id, e]))
   const selected = timeline.find((e) => e.id === selectedId)
-  const latest = timeline.reduce((m, e) => (e.at > m ? e.at : m), '')
+  // New events default to the latest time on this timeline (or the shared one, while this is empty).
+  const latest = (timeline.length ? timeline : shared).reduce((m, e) => (e.at > m ? e.at : m), '')
 
   // A draft handed over from side-by-side review ("Add to timeline").
   useEffect(() => {
@@ -113,7 +125,7 @@ export default function TimelinePage() {
 
   async function move(ev, at) {
     try {
-      await emit('timeline:move', { id: ev.id, version: ev.version, at })
+      await emit('timeline:move', { id: ev.id, version: ev.version, at, scope })
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -121,7 +133,7 @@ export default function TimelinePage() {
 
   async function remove() {
     try {
-      await emit('timeline:delete', { id: deleting.id })
+      await emit('timeline:delete', { id: deleting.id, scope })
       if (selectedId === deleting.id) setSelectedId(null)
     } catch (err) {
       toast(err.message, { tone: 'error' })
@@ -129,15 +141,38 @@ export default function TimelinePage() {
     setDeleting(null)
   }
 
+  /** Put a copy of an event on the other timeline. */
+  async function copy(ev) {
+    const to = scope === 'personal' ? 'shared' : 'personal'
+    try {
+      const { label, at, type, description, attachments } = ev
+      await emit('timeline:create', { label, at, type, description, attachments, scope: to })
+      toast(to === 'personal' ? `Copied “${label}” to your timeline.` : `Copied “${label}” to the shared timeline. Every juror can see it now.`)
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  }
+
   const changeMode = (m) => { setMode(m); store('timelineMode', m) }
+  const changeScope = (v) => { setScope(v); store('timelineScope', v); setSelectedId(null); setMenu(null) }
   const zoomNum = zoom === 'fit' ? 1 : zoom
 
   return (
     <div>
       <PageHeader
         title="Timeline"
-        subtitle="A shared timeline for the whole jury. Changes appear on every screen and the room display."
+        subtitle={scope === 'personal'
+          ? 'Your own timeline. Only you can see it, on any device you sign in to.'
+          : 'A shared timeline for the whole jury. Changes appear on every screen and the room display.'}
         actions={<Button variant="primary" icon="plus" onClick={() => setEditor({ initial: null })}>Add event</Button>}
+      />
+
+      <Segmented
+        label="Which timeline"
+        value={scope}
+        onChange={changeScope}
+        options={SCOPES.map((o) => ({ ...o, label: `${o.label} (${((o.value === 'personal' ? personal : shared) ?? []).length})` }))}
+        className="mb-4"
       />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -176,8 +211,9 @@ export default function TimelinePage() {
         </>
       ) : (
         <div className="mb-6">
-          <EmptyState icon="timeline" title="The timeline is empty">
+          <EmptyState icon="timeline" title={scope === 'personal' ? 'Your timeline is empty' : 'The timeline is empty'}>
             Add the first event, or select transcript lines in side-by-side review and choose “Add to timeline”.
+            {scope === 'personal' && ' You can also open any event on the shared timeline and copy it here.'}
           </EmptyState>
         </div>
       )}
@@ -185,6 +221,8 @@ export default function TimelinePage() {
       <EventDetail
         ev={selected}
         exhibitsById={exhibitsById}
+        scope={scope}
+        onCopy={() => { copy(selected); setSelectedId(null) }}
         onEdit={() => { setEditor({ initial: selected }); setSelectedId(null) }}
         onDelete={() => { setDeleting(selected); setSelectedId(null) }}
         onClose={() => setSelectedId(null)}
@@ -202,6 +240,7 @@ export default function TimelinePage() {
       {editor && (
         <EventEditor
           open
+          scope={scope}
           initial={editor.initial}
           defaultAt={editor.defaultAt ?? (latest || undefined)}
           onClose={() => setEditor(null)}
@@ -214,10 +253,14 @@ export default function TimelinePage() {
         title="Delete this event?"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleting(null)}>Keep it</Button>
-          <Button variant="danger" onClick={remove}>Delete for everyone</Button>
+          <Button variant="danger" onClick={remove}>{scope === 'personal' ? 'Delete' : 'Delete for everyone'}</Button>
         </>}
       >
-        <p>“{deleting?.label}” will be removed from the timeline on every juror’s screen.</p>
+        <p>
+          {scope === 'personal'
+            ? `“${deleting?.label}” will be removed from your timeline.`
+            : `“${deleting?.label}” will be removed from the timeline on every juror’s screen.`}
+        </p>
       </Modal>
     </div>
   )

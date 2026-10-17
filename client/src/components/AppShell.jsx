@@ -14,6 +14,10 @@ import { store } from '../lib/storage'
 const project = (v, d = 0.998) => ((v / 1000) * d) / (1 - d)
 const rubberband = (x, dim, c = 0.55) => (x * dim * c) / (dim + c * Math.abs(x))
 
+// Wide enough to keep the sidebar beside the page: iPad landscape (1180 pt) and
+// up. In iPad portrait (820 pt) it slides over the page instead, like iPadOS apps.
+const DOCKED = '(min-width: 64rem)'
+
 /**
  * The narrow-screen sidebar is a drawer you can drag. It tracks the finger
  * 1:1 from where it was grabbed, resists being pulled past open, and on
@@ -22,7 +26,7 @@ const rubberband = (x, dim, c = 0.55) => (x * dim * c) / (dim + c * Math.abs(x))
 function useDrawerDrag(open, setOpen) {
   const [dx, setDx] = useState(null)
   const onPointerDown = useCallback((e) => {
-    if (!open || e.pointerType === 'mouse' || window.matchMedia('(min-width: 48rem)').matches) return
+    if (!open || e.pointerType === 'mouse' || window.matchMedia(DOCKED).matches) return
     const panel = e.currentTarget
     const width = panel.offsetWidth
     const x0 = e.clientX
@@ -87,6 +91,16 @@ export default function AppShell({ nav, wide = false }) {
     main.current?.scrollTo({ top: 0 })
   }, [location.pathname])
 
+  // The tour points at things in the sidebar, so bring it back while the tour runs.
+  // Where it's a drawer (iPad portrait), slide it out just for the sidebar step.
+  const tourOnSidebar = useTour((s) => s.active && s.steps[s.index]?.target === 'sidebar')
+  useEffect(() => {
+    if (tourActive) setSidebarCollapsed(false)
+  }, [tourActive, setSidebarCollapsed])
+  useEffect(() => {
+    if (!window.matchMedia(DOCKED).matches) setDrawer(tourOnSidebar)
+  }, [tourOnSidebar])
+
   useEffect(() => {
     if (!drawer) return
     const key = (e) => e.key === 'Escape' && setDrawer(false)
@@ -98,12 +112,13 @@ export default function AppShell({ nav, wide = false }) {
 
   return (
     <TitleBarContext.Provider value={setCompact}>
-      <div className="flex h-dvh overflow-hidden">
+      {/* Safe-area padding: the Home Screen app runs edge to edge (viewport-fit=cover). */}
+      <div className="flex h-dvh overflow-hidden pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
         {/* Scrim for the narrow-screen drawer. Dims to focus, fades with the drag. */}
         <div
           aria-hidden
           onClick={() => setDrawer(false)}
-          className={cx('fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 md:hidden', drawer ? 'opacity-100' : 'pointer-events-none opacity-0')}
+          className={cx('fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 lg:hidden', drawer ? 'opacity-100' : 'pointer-events-none opacity-0')}
           style={dx != null ? { opacity: Math.max(0, 1 + Math.min(0, dx) / 288), transition: 'none' } : undefined}
         />
 
@@ -112,10 +127,10 @@ export default function AppShell({ nav, wide = false }) {
           className={cx(
             'material-bar drawer motion-travel fixed inset-y-2 left-2 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden rounded-[1.375rem] shadow-[var(--shadow-float)]',
             'transition-transform duration-[var(--duration-ui)] ease-[var(--ease-fluid)]',
-            'md:relative md:inset-auto md:my-2 md:ml-2 md:shadow-card md:transition-[transform,margin] xl:w-[18rem]',
+            'lg:relative lg:inset-auto lg:my-2 lg:ml-2 lg:shadow-card lg:transition-[transform,margin] xl:w-[18rem]',
             drawer ? 'translate-x-0' : '-translate-x-[calc(100%+5rem)]',
             // Collapsed on a wide screen: slide out and give up its space, so content takes the full width.
-            collapsed ? 'md:-mr-[17.5rem] md:-translate-x-[calc(100%+1rem)] xl:-mr-[18.5rem]' : 'md:translate-x-0',
+            collapsed ? 'lg:-mr-[17.5rem] lg:-translate-x-[calc(100%+1rem)] xl:-mr-[18.5rem]' : 'lg:translate-x-0',
           )}
           aria-hidden={collapsed && !drawer ? true : undefined}
           inert={collapsed && !drawer ? true : undefined}
@@ -150,6 +165,8 @@ export default function AppShell({ nav, wide = false }) {
                     <NavLink
                       to={item.to}
                       end={item.end}
+                      // Choosing a section puts the sidebar away so the page gets the whole width.
+                      onClick={() => { if (window.matchMedia(DOCKED).matches) setSidebarCollapsed(true) }}
                       className={({ isActive }) =>
                         cx(
                           'pressable pressable-soft group flex items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem]',
@@ -231,8 +248,8 @@ export default function AppShell({ nav, wide = false }) {
               <IconButton
                 icon="sidebar"
                 label="Show sidebar"
-                className={cx('relative text-accent', !collapsed && 'md:hidden')}
-                onClick={() => (window.matchMedia('(min-width: 48rem)').matches ? setSidebarCollapsed(false) : setDrawer(true))}
+                className={cx('relative text-accent', !collapsed && 'lg:hidden')}
+                onClick={() => (window.matchMedia(DOCKED).matches ? setSidebarCollapsed(false) : setDrawer(true))}
               />
               <p
                 aria-hidden
@@ -244,7 +261,7 @@ export default function AppShell({ nav, wide = false }) {
                 {compact?.title}
               </p>
               {/* With the sidebar showing, text size lives at its foot instead. */}
-              <TextSize className={cx('relative ml-auto', !collapsed && 'md:hidden')} />
+              <TextSize className={cx('relative ml-auto', !collapsed && 'lg:hidden')} />
             </div>
           </div>
 
@@ -252,7 +269,7 @@ export default function AppShell({ nav, wide = false }) {
           <div
             className={cx(
               'mx-auto px-5 pt-16 pb-10 [--page-chrome:6rem] md:px-8 xl:px-10',
-              collapsed ? 'md:pt-16' : 'md:pt-9 md:[--page-chrome:4rem]',
+              collapsed ? 'lg:pt-16' : 'lg:pt-9 lg:[--page-chrome:4rem]',
               wide ? 'max-w-none' : 'max-w-6xl',
             )}
           >
@@ -264,7 +281,7 @@ export default function AppShell({ nav, wide = false }) {
           <div
             role="dialog"
             aria-label="Guided tour"
-            className={cx('material materialize fixed right-4 bottom-4 left-4 z-40 origin-bottom-left rounded-3xl p-5 md:right-auto md:w-80', !collapsed && 'md:left-[19rem] xl:left-[20rem]')}
+            className={cx('material materialize fixed right-4 bottom-4 left-4 z-40 origin-bottom-left rounded-3xl p-5 md:right-auto md:w-80', !collapsed && 'lg:left-[19rem] xl:left-[20rem]')}
           >
             <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-[0.75rem] bg-accent-soft text-accent"><Icon name="compass" size={24} /></span>
             <p className="text-lg font-bold">New here?</p>

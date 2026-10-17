@@ -100,6 +100,10 @@
 @layer base {
   html {
     font-size: 106.25%; /* 17px: the iOS body size */
+    /* iPad Safari: no font boost on rotation, and no double-tap zoom (taps respond at once). */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -184,6 +188,47 @@
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Video scrubber: a thin track with a large thumb that's easy to grab with a finger. */
+.scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+.scrubber::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-line);
+}
+.scrubber::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-line);
+}
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.25), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+}
+.scrubber::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.25), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+}
+.scrubber:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* A juror's own transcript highlights: a highlighter-pen yellow. */
