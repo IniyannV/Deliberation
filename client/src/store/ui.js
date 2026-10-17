@@ -15,11 +15,17 @@ const initialTheme = load('theme', prefersDark() ? 'dark' : 'light')
 applyTheme(initialTheme)
 
 let toastId = 0
+let themeTimer
 
 export const useUi = create((set, get) => ({
   theme: initialTheme,
   toggleTheme() {
     const theme = get().theme === 'dark' ? 'light' : 'dark'
+    // Ease the switch so the whole screen doesn't flash to a new brightness.
+    const root = document.documentElement
+    root.classList.add('theme-transition')
+    clearTimeout(themeTimer)
+    themeTimer = setTimeout(() => root.classList.remove('theme-transition'), 400)
     applyTheme(theme)
     store('theme', theme)
     set({ theme })
@@ -31,8 +37,12 @@ export const useUi = create((set, get) => ({
     set({ toasts: [...get().toasts, { id, message, tone }] })
     if (timeout) setTimeout(() => get().dismiss(id), timeout)
   },
+  // Mark the toast as leaving so it can animate out, then remove it.
   dismiss(id) {
-    set({ toasts: get().toasts.filter((t) => t.id !== id) })
+    const t = get().toasts.find((x) => x.id === id)
+    if (!t || t.leaving) return
+    set({ toasts: get().toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x)) })
+    setTimeout(() => set({ toasts: get().toasts.filter((x) => x.id !== id) }), 200)
   },
 }))
 

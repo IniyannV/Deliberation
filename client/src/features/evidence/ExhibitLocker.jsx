@@ -82,7 +82,7 @@ export default function ExhibitLocker() {
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-5" data-tour="locker-grid">
         {results?.map((e) => (
           <li key={e.id}>
-            <Link to={`/juror/evidence/${e.id}`} className="flex h-full flex-col rounded-xl border border-line bg-surface transition-colors hover:border-accent">
+            <Link to={`/juror/evidence/${e.id}`} className="pressable pressable-soft flex h-full flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent hover:shadow-[0_6px_24px_-12px_rgb(0_0_0/0.25)]">
               <ExhibitThumb exhibit={e} />
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <div className="flex items-center justify-between gap-2">

@@ -3,11 +3,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
-import { Button, Card, EmptyState, Field, Input, Modal, Select, Spinner } from '../../components/ui'
+import { Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useExhibit } from './useExhibit'
 import ExhibitViewer from './ExhibitViewer'
 import TranscriptView from './TranscriptView'
+
+// Past a limit the pane follows less and less, like pulling against a spring.
+function rubberband(value, min, max, dimension = 50, c = 0.55) {
+  const over = value < min ? value - min : value > max ? value - max : 0
+  if (!over) return value
+  const eased = (over * dimension * c) / (dimension + c * Math.abs(over))
+  return (over < 0 ? min : max) + eased
+}
 
 function ExhibitPicker({ value, onChange, exhibits, label }) {
   return (
@@ -48,19 +56,37 @@ export default function SplitReview() {
 
   useEffect(() => setSelection(null), [transcriptId])
 
-  // Draggable divider between the panes.
+  /*
+   * Draggable divider between the panes. It tracks the pointer 1:1 from
+   * wherever it was grabbed; past the 25–75% limits it resists progressively
+   * instead of stopping dead, then springs back to the limit on release.
+   */
+  const [settling, setSettling] = useState(false)
   const startDrag = useCallback((e) => {
     e.preventDefault()
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    setSettling(false)
     const box = container.current.getBoundingClientRect()
-    const move = (ev) => setSplit(Math.min(75, Math.max(25, ((ev.clientX - box.left) / box.width) * 100)))
+    const toPct = (x) => ((x - box.left) / box.width) * 100
+    const grabOffset = toPct(e.clientX) - split
+    let raw = split
+    const move = (ev) => {
+      raw = toPct(ev.clientX) - grabOffset
+      setSplit(rubberband(raw, 25, 75))
+    }
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      setSplit((s) => { store('splitPct', s); return s })
+      window.removeEventListener('pointercancel', up)
+      const final = Math.min(75, Math.max(25, raw))
+      setSettling(true)
+      setSplit(final)
+      store('splitPct', final)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
-  }, [])
+    window.addEventListener('pointercancel', up)
+  }, [split])
 
   const onSelect = (n, shift) => {
     if (shift && selection) setSelection({ from: Math.min(selection.from, n), to: Math.max(selection.to, n) })
@@ -93,7 +119,12 @@ export default function SplitReview() {
 
       <div ref={container} className="flex min-h-0 flex-1">
         {/* Left: transcript */}
-        <Card className="flex min-h-0 min-w-0 flex-col overflow-hidden" style={{ width: `${split}%` }} data-tour="review-transcript">
+        <Card
+          className={cx('flex min-h-0 min-w-0 flex-col overflow-hidden', settling && 'motion-travel transition-[width] duration-500 ease-[var(--ease-spring)]')}
+          style={{ width: `${split}%` }}
+          onTransitionEnd={() => setSettling(false)}
+          data-tour="review-transcript"
+        >
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
             <ExhibitPicker value={transcriptId} onChange={(v) => setParam('t', v)} exhibits={transcripts} label="Choose a transcript" />
             <label className="relative w-44">
@@ -148,12 +179,12 @@ export default function SplitReview() {
           tabIndex={0}
           onPointerDown={startDrag}
           onKeyDown={(e) => {
-            if (e.key === 'ArrowLeft') setSplit((s) => Math.max(25, s - 5))
-            if (e.key === 'ArrowRight') setSplit((s) => Math.min(75, s + 5))
+            if (e.key === 'ArrowLeft') { setSettling(true); setSplit((s) => Math.max(25, s - 5)) }
+            if (e.key === 'ArrowRight') { setSettling(true); setSplit((s) => Math.min(75, s + 5)) }
           }}
-          className="group flex w-4 shrink-0 cursor-col-resize items-center justify-center"
+          className="group flex w-4 shrink-0 cursor-col-resize touch-none items-center justify-center"
         >
-          <div className="h-16 w-1 rounded-full bg-line group-hover:bg-accent" />
+          <div className="h-16 w-1 rounded-full bg-line transition-[background-color,height,width] duration-200 ease-[var(--ease-fluid)] group-hover:bg-accent group-active:h-24 group-active:w-1.5 group-active:bg-accent" />
         </div>
 
         {/* Right: exhibit */}

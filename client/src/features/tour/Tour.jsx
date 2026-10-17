@@ -125,14 +125,14 @@ export default function Tour() {
     <div className="pointer-events-none fixed inset-0 z-[60]" aria-live="polite">
       {rect ? (
         <div
-          className="absolute rounded-xl ring-2 ring-accent transition-all duration-300"
+          className="motion-travel absolute rounded-xl ring-2 ring-accent transition-[top,left,width,height] duration-[var(--duration-ui)] ease-[var(--ease-fluid)]"
           style={{ top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2, boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.45)' }}
         />
       ) : (
         <div className="absolute inset-0 bg-black/45" />
       )}
       {!waiting && (
-        <div role="dialog" aria-label={`Tour step ${index + 1} of ${steps.length}: ${step.title}`} className="pointer-events-auto absolute rounded-2xl border border-line bg-surface p-5 text-ink shadow-2xl" style={{ ...cardStyle, width: CARD_W }}>
+        <div key={index} role="dialog" aria-label={`Tour step ${index + 1} of ${steps.length}: ${step.title}`} className="materialize pointer-events-auto absolute rounded-2xl border border-line bg-surface p-5 text-ink shadow-2xl" style={{ ...cardStyle, width: CARD_W }}>
           <div className="mb-1 flex items-center justify-between">
             <span className="text-sm font-semibold text-accent">Step {index + 1} of {steps.length}</span>
             <IconButton icon="x" label="End tour" size={16} onClick={end} className="-m-1" />

@@ -111,13 +111,43 @@
   --color-map-road-edge: #2a2f32;
 }
 
+@theme {
+  /* Motion. --ease-fluid approximates a critically damped spring (no
+     overshoot); --ease-spring adds a touch of bounce and is reserved for
+     things the user just let go of. */
+  --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1);
+  --duration-press: 100ms;
+  --duration-ui: 320ms;
+}
+
 @layer base {
   html {
     font-size: 112.5%; /* 18px base: large, readable type */
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   body {
     @apply bg-bg text-ink font-sans leading-relaxed;
+  }
+  /* Tracking and leading change with size: large type is set tighter,
+     body copy stays open. */
+  h1 {
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  h2 {
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  h3 {
+    letter-spacing: -0.006em;
+    line-height: 1.3;
+  }
+  p {
+    text-wrap: pretty;
   }
   :focus-visible {
     outline: 3px solid var(--color-accent);
@@ -129,17 +159,196 @@
   }
   button {
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
   button:disabled {
     cursor: not-allowed;
   }
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
-/* No aggressive motion for fatigued users. */
+/* Press feedback fires on pointer-down and is instant; release eases back. */
+.pressable {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 160ms, 160ms, 160ms, 160ms, var(--duration-ui);
+  transition-timing-function: var(--ease-fluid);
+}
+.pressable:active:not(:disabled) {
+  transform: scale(var(--press-scale, 0.97));
+  transition-duration: var(--duration-press);
+}
+.pressable-soft {
+  --press-scale: 0.985;
+}
+
+/* Translucent floating layers. Content keeps reading through them while
+   they stay clearly in front. */
+.material {
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 12px 40px -8px rgb(0 0 0 / 0.22);
+}
+.dark .material {
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 16px 48px -8px rgb(0 0 0 / 0.6);
+}
+
+/* Floating surfaces materialize: scale, blur and opacity arrive together,
+   growing out of their transform-origin. Exit runs the same path in reverse. */
+@keyframes materialize {
+  from {
+    opacity: 0;
+    scale: 0.94;
+    filter: blur(6px);
+  }
+}
+.materialize {
+  animation: materialize var(--duration-ui) var(--ease-fluid) both;
+}
+
+/* Toasts rise from the corner they live in, and leave back toward it. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+    scale: 0.96;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 24px 0;
+    scale: 0.96;
+  }
+}
+.toast-in {
+  animation: toast-in var(--duration-ui) var(--ease-fluid) both;
+}
+.toast-out {
+  animation: toast-out 200ms var(--ease-fluid) both;
+}
+
+/* Native <dialog>: materializes in, dismisses along the same path,
+   and the scrim dims the page behind it. */
+dialog.sheet {
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+  filter: blur(4px);
+  transition:
+    opacity 220ms var(--ease-fluid),
+    transform var(--duration-ui) var(--ease-fluid),
+    filter 220ms var(--ease-fluid),
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+dialog.sheet[open] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+@starting-style {
+  dialog.sheet[open] {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(4px);
+  }
+}
+dialog.sheet::backdrop {
+  background: rgb(0 0 0 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 260ms var(--ease-fluid),
+    backdrop-filter 260ms var(--ease-fluid),
+    overlay 260ms allow-discrete,
+    display 260ms allow-discrete;
+}
+dialog.sheet[open]::backdrop {
+  background: rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(3px);
+}
+@starting-style {
+  dialog.sheet[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+/* Light ↔ dark eases instead of flashing. Applied only for the moment
+   of the switch so it never slows ordinary interaction. */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color 360ms ease,
+    border-color 360ms ease,
+    color 360ms ease,
+    fill 360ms ease !important;
+}
+
+/* Fatigued or motion-sensitive users: no travel, scaling or bounce.
+   Cross-fades stay, because they still say what changed. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+  }
   *, *::before, *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  @keyframes materialize {
+    from { opacity: 0; }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; }
+  }
+  @keyframes toast-out {
+    to { opacity: 0; }
+  }
+  dialog.sheet,
+  dialog.sheet[open] {
+    transform: none;
+    filter: none;
+  }
+  @starting-style {
+    dialog.sheet[open] {
+      transform: none;
+      filter: none;
+    }
+  }
+  .motion-travel {
+    transition: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material,
+  .dark .material {
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  dialog.sheet[open]::backdrop {
+    backdrop-filter: none;
+    background: rgb(0 0 0 / 0.5);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .material,
+  .dark .material {
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    outline: 2px solid var(--color-ink);
   }
 }
 

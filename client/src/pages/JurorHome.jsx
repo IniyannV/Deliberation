@@ -6,7 +6,7 @@ import { Icon } from '../components/icons'
 
 function Tile({ to, icon, title, children, highlight }) {
   return (
-    <Link to={to} className={`flex gap-4 rounded-xl border bg-surface p-5 hover:border-accent ${highlight ? 'border-accent/60' : 'border-line'}`}>
+    <Link to={to} className={`pressable pressable-soft flex gap-4 rounded-xl border bg-surface p-5 hover:border-accent hover:shadow-[0_6px_24px_-12px_rgb(0_0_0/0.25)] ${highlight ? 'border-accent/60' : 'border-line'}`}>
       <span className={`h-fit rounded-xl p-3 ${highlight ? 'bg-accent text-accent-ink' : 'bg-accent-soft text-accent'}`}><Icon name={icon} size={24} /></span>
       <span>
         <span className="block text-lg font-bold">{title}</span>
@@ -26,7 +26,7 @@ export default function JurorHome() {
   return (
     <div className="max-w-5xl">
       <p className="text-lg text-muted">Welcome, {user?.name}{user?.role === 'foreperson' ? ' (foreperson)' : ''}</p>
-      <h1 className="mt-1 mb-2 text-3xl font-bold">{caseInfo?.caption}</h1>
+      <h1 className="mt-1 mb-2 text-4xl font-bold">{caseInfo?.caption}</h1>
       <p className="mb-8 text-muted">{caseInfo?.court}</p>
 
       <div className="grid gap-4 md:grid-cols-2">

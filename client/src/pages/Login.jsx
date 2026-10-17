@@ -37,18 +37,18 @@ export default function Login() {
       <button
         type="button"
         onClick={toggleTheme}
-        className="fixed top-5 right-5 rounded-lg p-2 text-muted hover:bg-surface-2"
+        className="pressable fixed top-5 right-5 rounded-lg p-2 text-muted hover:bg-surface-2"
         aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
       </button>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <p className="font-semibold tracking-wide text-accent uppercase">Deliberation Room</p>
-          <h1 className="mt-2 text-3xl font-bold">Sign in</h1>
+          <p className="text-sm font-semibold tracking-[0.08em] text-accent uppercase">Deliberation Room</p>
+          <h1 className="mt-2 text-4xl font-bold">Sign in</h1>
           <p className="mt-2 text-muted">Use the seat number and PIN the court clerk gave you.</p>
         </div>
-        <Card className="p-8">
+        <Card className="p-8 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_40px_-16px_rgb(0_0_0/0.18)]">
           <form onSubmit={submit} className="flex flex-col gap-5">
             <Field label="Seat number or staff ID">
               {(id) => (
