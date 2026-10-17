@@ -25,7 +25,7 @@ function wrap(text, font, size, maxWidth) {
 export async function makePdf({ exhibit, title, subtitle, blocks }) {
   const doc = await PDFDocument.create();
   doc.setTitle(`${exhibit}: ${title}`);
-  doc.setProducer('Deliberation Room seed script');
+  doc.setProducer('Deliberation seed script');
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const W = 612, H = 792, M = 64;

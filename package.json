@@ -1,5 +1,5 @@
 {
-  "name": "deliberation-room",
+  "name": "deliberation",
   "private": true,
   "version": "0.1.0",
   "description": "Offline jury deliberation app for a closed LAN",

@@ -1,7 +1,6 @@
 import fs from 'node:fs';
-import { interactiveSearchText, validateInteractive } from './interactive.js';
 
-export const EXHIBIT_TYPES = ['pdf', 'image', 'transcript', 'map', 'chart'];
+export const EXHIBIT_TYPES = ['pdf', 'image', 'transcript', 'video'];
 export const PARTIES = ['prosecution', 'defense', 'joint', 'court'];
 
 const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
@@ -23,16 +22,13 @@ export function sniffFile(filePath, originalName) {
   if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return { type: 'image', mime: IMAGE_MIME.jpg };
   if (head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP') return { type: 'image', mime: IMAGE_MIME.webp };
   if (head.subarray(0, 4).toString('latin1') === 'GIF8') return { type: 'image', mime: IMAGE_MIME.gif };
-  if (ext === 'json') {
-    let raw;
-    try {
-      raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    } catch {
-      return null;
-    }
-    const spec = validateInteractive(raw); // throws a readable 400 on a bad spec
-    return { type: spec.kind, mime: 'application/json', spec };
+  // MP4 and QuickTime share the ISO box format: an 'ftyp' box comes first.
+  if (head.subarray(4, 8).toString('latin1') === 'ftyp') {
+    const brand = head.subarray(8, 12).toString('latin1');
+    if (/^M4[ABP]/.test(brand)) return null; // audio-only and audiobook files
+    return { type: 'video', mime: brand === 'qt  ' ? 'video/quicktime' : 'video/mp4' };
   }
+  if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) return { type: 'video', mime: 'video/webm' };
   if (ext === 'txt') {
     const text = fs.readFileSync(filePath, 'utf8');
     if (!/<\s*(svg|script|html)/i.test(text)) return { type: 'transcript', mime: 'text/plain; charset=utf-8' };
@@ -58,7 +54,14 @@ export function parseTranscript(text) {
 
 export function exhibitSummary(e) {
   const { lines, file, spec, ...rest } = e;
-  return { ...rest, mime: file?.mime ?? null, size: file?.size ?? null, lineCount: lines?.length ?? 0, spec: spec ? { kind: spec.kind, chart: spec.chart ?? null } : null };
+  return {
+    ...rest,
+    mime: file?.mime ?? null,
+    size: file?.size ?? null,
+    lineCount: lines?.length ?? 0,
+    // The first few lines, so the locker can show what a transcript looks like.
+    preview: lines ? lines.slice(0, 8) : null,
+  };
 }
 
 /** Case-insensitive AND search over number, title, description and transcript lines. */
@@ -72,7 +75,7 @@ export function searchExhibits(exhibits, { q = '', type, party }) {
       out.push({ ...exhibitSummary(e), hits: [] });
       continue;
     }
-    const meta = `${e.number} ${e.title} ${e.description ?? ''} ${e.spec ? interactiveSearchText(e.spec) : ''}`.toLowerCase();
+    const meta = `${e.number} ${e.title} ${e.description ?? ''}`.toLowerCase();
     const lineText = (e.lines ?? []).map((l) => `${l.speaker ?? ''} ${l.text}`.toLowerCase());
     const all = meta + ' ' + lineText.join(' ');
     if (!terms.every((t) => all.includes(t))) continue;

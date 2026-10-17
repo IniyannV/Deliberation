@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
 import { Button, IconButton, cx } from './ui'
 import { TitleBarContext } from './titleBar'
+import TextSize from './TextSize'
 import { useAuth } from '../store/auth'
 import { useLive } from '../store/live'
 import { useUi } from '../store/ui'
@@ -66,7 +67,7 @@ function useDrawerDrag(open, setOpen) {
 export default function AppShell({ nav, wide = false }) {
   const { user, caseInfo, logout } = useAuth()
   const connected = useLive((s) => s.connected)
-  const { theme, toggleTheme } = useUi()
+  const { theme, toggleTheme, sidebarCollapsed: collapsed, setSidebarCollapsed } = useUi()
   const navigate = useNavigate()
   const location = useLocation()
   const startTour = useTour((s) => s.start)
@@ -111,20 +112,30 @@ export default function AppShell({ nav, wide = false }) {
           className={cx(
             'material-bar drawer motion-travel fixed inset-y-2 left-2 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden rounded-[1.375rem] shadow-[var(--shadow-float)]',
             'transition-transform duration-[var(--duration-ui)] ease-[var(--ease-fluid)]',
-            'md:relative md:inset-auto md:my-2 md:ml-2 md:translate-x-0 md:shadow-card xl:w-[18rem]',
+            'md:relative md:inset-auto md:my-2 md:ml-2 md:shadow-card md:transition-[transform,margin] xl:w-[18rem]',
             drawer ? 'translate-x-0' : '-translate-x-[calc(100%+5rem)]',
+            // Collapsed on a wide screen: slide out and give up its space, so content takes the full width.
+            collapsed ? 'md:-mr-[17.5rem] md:-translate-x-[calc(100%+1rem)] xl:-mr-[18.5rem]' : 'md:translate-x-0',
           )}
+          aria-hidden={collapsed && !drawer ? true : undefined}
+          inert={collapsed && !drawer ? true : undefined}
           style={dx != null ? { transform: `translateX(${dx}px)`, transition: 'none' } : undefined}
         >
           <div className="flex items-center gap-3 px-4 pt-5 pb-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.7rem] bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_1px_3px_rgb(0_0_0/0.2)]">
               <Icon name="scale" size={22} strokeWidth={1.8} />
             </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-muted">Deliberation Room</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-muted">Deliberation</p>
               {caseInfo && <p className="truncate leading-tight font-semibold" title={caseInfo.caption}>{caseInfo.caption}</p>}
               {caseInfo && <p className="text-xs text-muted tabular-nums">{caseInfo.caseNumber}</p>}
             </div>
+            <IconButton
+              icon="sidebar"
+              label="Hide sidebar"
+              className="-mr-1.5 -mt-4 self-start text-accent"
+              onClick={() => (drawer ? setDrawer(false) : setSidebarCollapsed(true))}
+            />
           </div>
 
           <nav aria-label="Main" className="flex-1 overflow-y-auto px-2.5 pb-3 scrollbar-thin" data-tour="sidebar">
@@ -177,6 +188,10 @@ export default function AppShell({ nav, wide = false }) {
             </ul>
           </nav>
 
+          <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
+            <span className="text-sm font-medium text-muted">Text size</span>
+            <TextSize />
+          </div>
           <div className="mx-2.5 mb-2.5 rounded-[0.875rem] bg-fill/60 p-2.5">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#a1a1a6] to-[#7c7c80] text-sm font-semibold text-white" aria-hidden>
@@ -213,7 +228,12 @@ export default function AppShell({ nav, wide = false }) {
                   scrolled ? 'opacity-100' : 'opacity-0',
                 )}
               />
-              <IconButton icon="sidebar" label="Show sidebar" className="relative text-accent md:hidden" onClick={() => setDrawer(true)} />
+              <IconButton
+                icon="sidebar"
+                label="Show sidebar"
+                className={cx('relative text-accent', !collapsed && 'md:hidden')}
+                onClick={() => (window.matchMedia('(min-width: 48rem)').matches ? setSidebarCollapsed(false) : setDrawer(true))}
+              />
               <p
                 aria-hidden
                 className={cx(
@@ -223,10 +243,19 @@ export default function AppShell({ nav, wide = false }) {
               >
                 {compact?.title}
               </p>
+              {/* With the sidebar showing, text size lives at its foot instead. */}
+              <TextSize className={cx('relative ml-auto', !collapsed && 'md:hidden')} />
             </div>
           </div>
 
-          <div className={cx('mx-auto px-5 pt-16 pb-10 md:px-8 md:pt-9 xl:px-10', wide ? 'max-w-none' : 'max-w-6xl')}>
+          {/* --page-chrome: the padding above and below, for pages that fill the screen height. */}
+          <div
+            className={cx(
+              'mx-auto px-5 pt-16 pb-10 [--page-chrome:6rem] md:px-8 xl:px-10',
+              collapsed ? 'md:pt-16' : 'md:pt-9 md:[--page-chrome:4rem]',
+              wide ? 'max-w-none' : 'max-w-6xl',
+            )}
+          >
             <Outlet />
           </div>
         </main>
@@ -235,7 +264,7 @@ export default function AppShell({ nav, wide = false }) {
           <div
             role="dialog"
             aria-label="Guided tour"
-            className="material materialize fixed right-4 bottom-4 left-4 z-40 origin-bottom-left rounded-3xl p-5 md:right-auto md:left-[19rem] md:w-80 xl:left-[20rem]"
+            className={cx('material materialize fixed right-4 bottom-4 left-4 z-40 origin-bottom-left rounded-3xl p-5 md:right-auto md:w-80', !collapsed && 'md:left-[19rem] xl:left-[20rem]')}
           >
             <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-[0.75rem] bg-accent-soft text-accent"><Icon name="compass" size={24} /></span>
             <p className="text-lg font-bold">New here?</p>

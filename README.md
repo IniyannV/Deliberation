@@ -1,4 +1,4 @@
-# Deliberation Room
+# Deliberation
 
 An offline web app for a sequestered or long-deliberating jury. One laptop runs
 the court's local server. Juror devices, the room projector and the bailiff's
@@ -59,8 +59,8 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
    `server/scripts/lib/case-content.js` first to set the caption, case number
    and counts (charges) for ballots.
 2. In **Admin → Evidence**, remove the demo exhibits and upload the admitted
-   exhibits: PDF, PNG/JPEG/WebP/GIF, `.txt` transcripts, or `.json`
-   interactive maps and charts. Transcript lines that start with `Q:`, `A:` or
+   exhibits: PDF, PNG/JPEG/WebP/GIF, `.txt` transcripts, or MP4/MOV/WebM
+   video (up to 2 GB). Transcript lines that start with `Q:`, `A:` or
    `NAME:` become speaker turns. Files are type-checked by content, and
    SVG/HTML are refused.
 3. Configure the meal menu and supplies in **Admin → Menu & supplies**.
@@ -69,22 +69,17 @@ Each count's **elements, definitions and burden of proof** (shown to jurors
 beside every ballot) live in `case-content.js` too. For a real trial, copy them
 from the judge's written instructions.
 
-## Interactive exhibits
+## Using it on an iPad
 
-Maps and charts are uploaded as JSON and drawn as SVG in the browser, with no
-map tiles and no network access. The server rebuilds every spec field by field
-(`server/lib/interactive.js`, which documents the format), so an exhibit can
-only contain shapes, numbers and plain text.
+Jurors are expected to use iPads, so every touch gesture has a mouse twin:
 
-- **Map** (`"kind": "map"`): areas, roads, layers you can toggle, and places,
-  routes and coverage circles you can click. Places can link to other exhibits
-  by number. With `milesPerUnit` set, jurors can measure distances.
-- **Chart** (`"kind": "chart"`): `"bar"` (values with notes) or `"events"`
-  (things that happened over time, by row, up to three categories), with hover
-  details and a table view.
-
-The seed includes J-1 (map), P-7 (bar chart) and D-3 (events chart). See
-`server/scripts/lib/interactive-exhibits.js` for complete examples.
+- **Long-press** does whatever right-click does (pin a note on a photo, open a
+  timeline card's menu).
+- **Press and hold** transcript text to select it, then tap **Highlight**.
+  Highlights are private to each juror and follow them to any device.
+- **A− / A+** in the top-right corner make all text smaller or larger.
+- The sidebar collapses (top-left button) to give exhibits the whole width,
+  and every exhibit has a **Full screen** button.
 
 ## Privacy design
 
@@ -127,7 +122,7 @@ The seed includes J-1 (map), P-7 (bar chart) and D-3 (events chart). See
 
 ```
 client/                 React + Vite (SWC), Tailwind, zustand, react-router
-  src/features/         evidence (incl. map/chart viewers) · timeline · voting · requests · bulletin · tour
+  src/features/         evidence (PDF, image, video, transcript viewers) · timeline · voting · requests · bulletin · tour
   src/pages/            login, juror home, display, admin/*
   src/store/            auth, live (socket-synced state), ui (theme, toasts)
 server/
@@ -136,7 +131,6 @@ server/
   routes/               auth, exhibits, juror, admin
   sockets/              connection auth + timeline/links/notes/polls/ballots/display
   services/             audit.js (append-only log), voting.js (anonymous voting)
-  lib/interactive.js    validator for map/chart exhibits
-  scripts/seed.js       demo case, generated PDFs/PNGs, map and charts
+  scripts/seed.js       demo case, generated PDFs/PNGs, a short demo video
   data/                 db.json (lowdb), uploads, audit log, demo PINs (git-ignored)
 ```

@@ -8,7 +8,7 @@ import { db } from '../db.js';
 
 const REQUEST = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge' };
 const STATUS = { pending: 'pending', acknowledged: 'acknowledged', fulfilled: 'fulfilled' };
-const EXHIBIT = { pdf: 'PDF', image: 'image', transcript: 'transcript', map: 'interactive map', chart: 'interactive chart' };
+const EXHIBIT = { pdf: 'PDF', image: 'image', transcript: 'transcript', video: 'video' };
 
 export function actorName(id) {
   if (id === 'system') return 'System';

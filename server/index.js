@@ -63,7 +63,7 @@ function lanAddresses() {
 
 server.listen(PORT, HOST, () => {
   const urls = lanAddresses().map((ip) => `http://${ip}:${PORT}`);
-  console.log('\n  Deliberation Room server is running (offline / LAN only)\n');
+  console.log('\n  Deliberation server is running (offline / LAN only)\n');
   console.log(`  This machine:  http://localhost:${PORT}`);
   if (urls.length) {
     console.log('  Juror devices on the LAN can connect at:');

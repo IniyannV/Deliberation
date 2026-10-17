@@ -14,6 +14,18 @@ const prefersDark = () => {
 const initialTheme = load('theme', prefersDark() ? 'dark' : 'light')
 applyTheme(initialTheme)
 
+/*
+ * Text size. Everything is sized in rem, so scaling the root font size
+ * scales the whole interface like browser zoom, which iPad Safari has no
+ * keyboard shortcut for. 106.25% is the 17px iOS body size from index.css.
+ */
+export const TEXT_SCALES = [0.85, 1, 1.15, 1.3, 1.5, 1.75]
+const applyTextScale = (scale) => {
+  document.documentElement.style.fontSize = scale === 1 ? '' : `${106.25 * scale}%`
+}
+const initialTextScale = TEXT_SCALES.includes(load('textScale', 1)) ? load('textScale', 1) : 1
+applyTextScale(initialTextScale)
+
 let toastId = 0
 let themeTimer
 
@@ -29,6 +41,22 @@ export const useUi = create((set, get) => ({
     applyTheme(theme)
     store('theme', theme)
     set({ theme })
+  },
+
+  textScale: initialTextScale,
+  stepTextScale(dir) {
+    const i = TEXT_SCALES.indexOf(get().textScale)
+    const textScale = TEXT_SCALES[Math.min(TEXT_SCALES.length - 1, Math.max(0, i + dir))]
+    applyTextScale(textScale)
+    store('textScale', textScale)
+    set({ textScale })
+  },
+
+  // The sidebar can be tucked away on wide screens to give exhibits the room.
+  sidebarCollapsed: load('sidebarCollapsed', false),
+  setSidebarCollapsed(sidebarCollapsed) {
+    store('sidebarCollapsed', sidebarCollapsed)
+    set({ sidebarCollapsed })
   },
 
   toasts: [],

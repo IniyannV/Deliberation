@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/icons'
 import { cx } from '../../components/ui'
 import { fmtDateTime, fmtDay, fmtTime } from '../../lib/format'
-import { AXIS_H, CARD_H, CARD_W, LANE_PAD, buildAxis, fitZoom, laneLayout, snap } from './layout'
+import { LONG_PRESS_MS, LONG_PRESS_SLOP } from '../../lib/touch'
+import { useUi } from '../../store/ui'
+import { AXIS_H, buildAxis, cardSize, cardTop, fitZoom, laneLayout, snap } from './layout'
 
 export const TYPE_STYLE = {
   testimony: { bar: 'bg-testimony', text: 'text-testimony', dot: 'bg-testimony' },
@@ -31,16 +33,21 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
     return () => ro.disconnect()
   }, [])
 
+  const scale = useUi((s) => s.textScale)
+  const card = cardSize(scale)
   const items = useMemo(() => events.map((e) => ({ ...e, t: new Date(e.at).getTime() })), [events])
-  const z = zoom === 'fit' ? fitZoom(items, boxWidth) : zoom
-  const axis = useMemo(() => buildAxis(items, z), [items, z])
-  const { lanes, height } = laneLayout(mode)
+  const z = zoom === 'fit' ? fitZoom(items, boxWidth, scale) : zoom
+  const axis = useMemo(
+    () => buildAxis(items, z, { scale, laneOf: mode === 'single' ? () => 'all' : (ev) => ev.type }),
+    [items, z, scale, mode],
+  )
+  const { lanes, height } = laneLayout(mode, axis.rowsByLane, scale)
   const laneFor = (ev) => (mode === 'single' ? lanes[0] : lanes.find((l) => l.id === ev.type) ?? lanes[0])
   const width = Math.max(boxWidth, axis.width)
 
   // Latest values for the window-level drag listeners.
   const live = useRef({})
-  live.current = { onMove, onSelect, axis }
+  live.current = { onMove, onSelect, onCardMenu, axis }
 
   /*
    * The layout is frozen for the whole drag: other cards stay put and the
@@ -51,13 +58,26 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
   function pointerDown(e, ev) {
     if (e.button !== 0) return
     const startClientX = e.clientX
+    const startClientY = e.clientY
     const baseX = live.current.axis.xById.get(ev.id)
     let moved = false
     let previewT = ev.t
 
+    // Holding a finger still on a card opens the same menu as right-click.
+    let pressed = false
+    let pressTimer = null
+    if (e.pointerType !== 'mouse' && live.current.onCardMenu) {
+      pressTimer = setTimeout(() => {
+        pressed = true
+        navigator.vibrate?.(10)
+        live.current.onCardMenu(ev, startClientX, startClientY)
+      }, LONG_PRESS_MS)
+    }
+
     const move = (me) => {
       const dx = me.clientX - startClientX
-      if (!live.current.onMove || (!moved && Math.abs(dx) < 5)) return
+      if (pressTimer && Math.hypot(dx, me.clientY - startClientY) > LONG_PRESS_SLOP) { clearTimeout(pressTimer); pressTimer = null }
+      if (pressed || !live.current.onMove || (!moved && Math.abs(dx) < 5)) return
       moved = true
       previewT = snap(live.current.axis.tOf(baseX + dx))
       setDrag({ id: ev.id, dx, previewT })
@@ -66,8 +86,9 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onCancel)
+      clearTimeout(pressTimer)
       setDrag(null)
-      if (!commit) return
+      if (!commit || pressed) return
       if (!moved) live.current.onSelect?.(ev)
       else if (previewT !== ev.t) live.current.onMove(ev, new Date(previewT).toISOString())
     }
@@ -157,19 +178,19 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
               data-card
               role="button"
               tabIndex={0}
-              aria-label={`${ev.label}, ${fmtDateTime(ev.t)}${onMove ? '. Alt plus arrow keys move by 15 minutes; add Shift for a day. Context-menu key for edit or delete.' : ''}`}
+              aria-label={`${ev.label}, ${fmtDateTime(ev.t)}${onMove ? '. Alt plus arrow keys move by 15 minutes; add Shift for a day. Context-menu key or long-press for edit or delete.' : ''}`}
               aria-pressed={selectedId === ev.id}
               onPointerDown={(e) => pointerDown(e, ev)}
               onContextMenu={(e) => cardMenu(e, ev)}
               onKeyDown={(e) => keyDown(e, ev)}
               className={cx(
-                'absolute flex touch-none overflow-hidden rounded-xl border bg-surface text-left shadow-card transition-[box-shadow,scale,border-color] duration-200 ease-[var(--ease-fluid)]',
+                'no-callout absolute flex touch-none overflow-hidden rounded-xl border bg-surface text-left shadow-card transition-[box-shadow,scale,border-color] duration-200 ease-[var(--ease-fluid)]',
                 onMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                 selectedId === ev.id ? 'border-accent ring-2 ring-accent/40' : 'border-transparent hover:shadow-[var(--shadow-lift)]',
                 // A dragged card lifts off the board: slightly larger, deeper shadow.
                 dragging && 'z-20 scale-[1.03] shadow-[var(--shadow-float)] ring-2 ring-accent/50',
               )}
-              style={{ left: dragging ? dragX : axis.xById.get(ev.id), top: lane.y + LANE_PAD, width: CARD_W, height: CARD_H }}
+              style={{ left: dragging ? dragX : axis.xById.get(ev.id), top: cardTop(lane, axis.nodeById.get(ev.id)?.row ?? 0, scale), width: card.w, height: card.h }}
             >
               <span className={cx('w-1.5 shrink-0', TYPE_STYLE[ev.type].bar)} />
               <span className="flex min-w-0 flex-1 flex-col px-3 py-2">

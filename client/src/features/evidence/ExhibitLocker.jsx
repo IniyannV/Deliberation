@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, exhibitFileUrl } from '../../lib/api'
 import { PARTY_LABEL, TYPE_LABEL, fmtCalendarDate } from '../../lib/format'
@@ -6,19 +6,65 @@ import { useLive } from '../../store/live'
 import { Icon } from '../../components/icons'
 import { Badge, EmptyState, ErrorText, Input, PageHeader, Segmented, Select } from '../../components/ui'
 
-const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', map: 'map', chart: 'chart' }
-const THUMB_TEXT = { pdf: 'PDF document', map: 'Interactive map', chart: 'Interactive chart' }
+const PdfThumb = lazy(() => import('./PdfThumb'))
 
-export function ExhibitThumb({ exhibit, className = 'h-36' }) {
-  if (exhibit.type === 'image') {
-    return <img src={exhibitFileUrl(exhibit.id)} alt="" loading="lazy" className={`${className} w-full object-cover`} />
-  }
+const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', video: 'video' }
+
+function Placeholder({ exhibit, className }) {
   return (
     <div className={`${className} flex w-full flex-col items-center justify-center gap-2 bg-surface-2 text-muted`}>
       <Icon name={TYPE_ICON[exhibit.type]} size={40} strokeWidth={1.4} />
-      <span className="text-sm">{exhibit.type === 'transcript' ? `${exhibit.lineCount} lines` : THUMB_TEXT[exhibit.type]}</span>
+      <span className="text-sm">{TYPE_LABEL[exhibit.type]}</span>
     </div>
   )
+}
+
+// A sheet of paper peeking up from the bottom of the thumbnail.
+const PAPER = 'mx-auto mt-4 w-[78%] overflow-hidden rounded-t-[3px] bg-white shadow-[0_1px_3px_rgb(0_0_0/0.18),0_6px_16px_rgb(0_0_0/0.1)]'
+
+/** A static preview of any exhibit: the image, a PDF's first page, a video frame, or a transcript's opening lines. */
+export function ExhibitThumb({ exhibit, className = 'h-36' }) {
+  const url = exhibitFileUrl(exhibit.id)
+  if (exhibit.type === 'image') {
+    return <img src={url} alt="" loading="lazy" className={`${className} w-full object-cover`} />
+  }
+  if (exhibit.type === 'video') {
+    return (
+      <div className={`${className} relative w-full overflow-hidden bg-black`}>
+        {/* #t= asks for a frame from just after the start, which iPad Safari will paint without playing. */}
+        <video src={`${url}#t=0.5`} preload="metadata" muted playsInline disablePictureInPicture tabIndex={-1} aria-hidden className="pointer-events-none h-full w-full object-cover" />
+        <span className="material absolute top-1/2 left-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-ink" aria-hidden>
+          <Icon name="play" size={20} strokeWidth={0} className="ml-0.5 fill-current" />
+        </span>
+      </div>
+    )
+  }
+  if (exhibit.type === 'pdf') {
+    const fallback = <Placeholder exhibit={exhibit} className="h-full" />
+    return (
+      <div className={`${className} w-full overflow-hidden bg-surface-2`} aria-hidden>
+        <div className={`${PAPER} [&_canvas]:!h-auto [&_canvas]:!w-full`}>
+          <Suspense fallback={fallback}><PdfThumb url={url} width={320} fallback={fallback} /></Suspense>
+        </div>
+      </div>
+    )
+  }
+  if (exhibit.type === 'transcript' && exhibit.preview?.length) {
+    return (
+      <div className={`${className} w-full overflow-hidden bg-surface-2`} aria-hidden>
+        <div className={`${PAPER} px-3.5 pt-3 pb-6 font-mono text-[0.5625rem] leading-[1.6] text-black/75`}>
+          {exhibit.preview.map((l) => (
+            <p key={l.n} className="truncate">
+              <span className="mr-1.5 text-black/35 tabular-nums">{l.n}</span>
+              {l.speaker && <b className="text-black">{l.speaker}: </b>}
+              {l.text}
+            </p>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  return <Placeholder exhibit={exhibit} className={className} />
 }
 
 function Highlight({ text, q }) {
@@ -53,7 +99,7 @@ export default function ExhibitLocker() {
 
   return (
     <div>
-      <PageHeader title="Exhibit locker" subtitle="Every exhibit admitted into evidence, including interactive maps and charts. Search covers titles, descriptions, transcripts and the labels inside maps and charts." />
+      <PageHeader title="Exhibit locker" subtitle="Every exhibit admitted into evidence. Search covers titles, descriptions and every line of every transcript." />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <label className="relative min-w-72 flex-1" data-tour="locker-search">
@@ -65,7 +111,7 @@ export default function ExhibitLocker() {
           label="Exhibit type"
           value={type}
           onChange={setType}
-          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'map', label: 'Maps' }, { value: 'chart', label: 'Charts' }]}
+          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'video', label: 'Video' }]}
         />
         <Select value={party} onChange={(e) => setParty(e.target.value)} className="w-auto" aria-label="Introduced by">
           <option value="">Introduced by: anyone</option>

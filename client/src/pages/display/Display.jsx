@@ -67,7 +67,7 @@ export default function Display() {
       <header className="group flex items-center justify-between px-10 py-6 text-xl">
         <div>
           <span className="font-semibold">{caseInfo?.caption}</span>
-          <span className="ml-4 text-muted">Jury deliberation room</span>
+          <span className="ml-4 text-muted">Deliberation</span>
         </div>
         <div className="flex items-center gap-6 text-muted">
           {!connected && <span className="text-warn">Reconnecting…</span>}

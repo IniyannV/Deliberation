@@ -1,13 +1,32 @@
 import { useState } from 'react'
 import { Icon } from '../../components/icons'
+import { cx } from '../../components/ui'
+import { useLive } from '../../store/live'
+import { toast } from '../../store/ui'
 
 /**
  * What the prosecution must prove for one count: the statute, a plain
  * summary, every element, key definitions and the burden of proof.
+ * Each element is a checkbox a juror can tick as they weigh the evidence.
+ * Ticks are private to that juror (never shown to others or logged).
  */
 export default function ChargeDetails({ count, burden, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
+  const checks = useLive((s) => s.personal.checks?.[count?.id])
   if (!count?.elements?.length) return null
+  const ticked = new Set(checks ?? [])
+
+  async function toggle(i) {
+    const checked = !ticked.has(i)
+    const live = useLive.getState()
+    const next = checked ? [...ticked, i].sort((a, b) => a - b) : [...ticked].filter((x) => x !== i)
+    useLive.setState({ personal: { ...live.personal, checks: { ...live.personal.checks, [count.id]: next } } })
+    try {
+      await live.emit('check:set', { countId: count.id, element: i, checked })
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  }
   return (
     <section className="rounded-2xl bg-surface shadow-card">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 rounded-2xl px-5 py-3.5 text-left hover:bg-fill/50">
@@ -21,14 +40,38 @@ export default function ChargeDetails({ count, burden, defaultOpen = true }) {
             <p className="mt-1">{count.summary}</p>
           </div>
           <div>
-            <p className="mb-2 font-semibold">To convict on this count, you must all agree the People proved <u>each</u> of these beyond a reasonable doubt:</p>
-            <ol className="flex flex-col gap-2">
-              {count.elements.map((el, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-bold text-accent">{i + 1}</span>
-                  <span className="pt-0.5">{el}</span>
-                </li>
-              ))}
+            <p className="mb-1 font-semibold">To convict on this count, you must all agree the People proved <u>each</u> of these beyond a reasonable doubt:</p>
+            <p className="mb-2 text-sm text-muted">
+              Tick each one you are satisfied was proven. Only you see your ticks. {ticked.size} of {count.elements.length} ticked.
+            </p>
+            <ol className="flex flex-col gap-1">
+              {count.elements.map((el, i) => {
+                const on = ticked.has(i)
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => toggle(i)}
+                      className="pressable pressable-soft -mx-2 flex w-[calc(100%+1rem)] gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-fill/60"
+                    >
+                      <span
+                        className={cx(
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors duration-200',
+                          on ? 'border-ok bg-ok text-white' : 'border-accent/40 bg-accent-soft text-accent',
+                        )}
+                        aria-hidden
+                      >
+                        {on ? <Icon name="check" size={16} strokeWidth={3} /> : i + 1}
+                      </span>
+                      <span className={cx('pt-0.5', on && 'text-muted')}>
+                        <span className="sr-only">Element {i + 1}: </span>{el}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
             </ol>
           </div>
           {count.definitions?.length > 0 && (

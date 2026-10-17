@@ -50,7 +50,7 @@ router.get('/', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, re
 
 router.get('/:id', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
   const e = findExhibit(req.params.id);
-  res.json({ exhibit: { ...exhibitSummary(e), lines: e.lines ?? null, spec: e.spec ?? null } });
+  res.json({ exhibit: { ...exhibitSummary(e), lines: e.lines ?? null } });
 });
 
 router.get('/:id/file', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
@@ -70,14 +70,13 @@ router.post('/', requireRole(ROLES.BAILIFF), upload.single('file'), async (req, 
       throw bad(`Exhibit ${meta.number} already exists`);
     }
     const sniffed = sniffFile(req.file.path, req.file.originalname);
-    if (!sniffed) throw bad('Unsupported file. Use PDF, PNG, JPEG, WebP, GIF, a .txt transcript, or a .json interactive map/chart.');
+    if (!sniffed) throw bad('Unsupported file. Use PDF, PNG, JPEG, WebP, GIF, a .txt transcript, or an MP4, MOV or WebM video.');
     const exhibit = {
       id: newId('ex'),
       ...meta,
       type: sniffed.type,
       file: { stored: req.file.filename, mime: sniffed.mime, size: req.file.size, originalName: req.file.originalname.slice(0, 200) },
       lines: sniffed.type === 'transcript' ? parseTranscript(fs.readFileSync(req.file.path, 'utf8')) : undefined,
-      spec: sniffed.spec,
       uploadedBy: req.user.id,
       uploadedAt: nowIso(),
     };
@@ -110,6 +109,7 @@ router.delete('/:id', requireRole(ROLES.BAILIFF), async (req, res) => {
   db.data.exhibits = db.data.exhibits.filter((x) => x.id !== e.id);
   db.data.transcriptLinks = db.data.transcriptLinks.filter((l) => l.exhibitId !== e.id && l.transcriptId !== e.id);
   db.data.imageNotes = db.data.imageNotes.filter((n) => n.exhibitId !== e.id);
+  for (const mine of Object.values(db.data.personal)) delete mine.highlights?.[e.id];
   await save();
   fs.rmSync(path.join(UPLOAD_DIR, path.basename(e.file.stored)), { force: true });
   auditAs(req.user, req.role, 'exhibit.removed', e.id, { exhibitNumber: e.number });

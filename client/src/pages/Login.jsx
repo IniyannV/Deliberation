@@ -49,7 +49,7 @@ export default function Login() {
           <span className="mb-5 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.1rem] bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_8px_24px_-6px_rgb(0_113_227/0.5)]">
             <Icon name="scale" size={38} strokeWidth={1.6} />
           </span>
-          <h1 className="text-[2rem] font-bold">Deliberation Room</h1>
+          <h1 className="text-[2rem] font-bold">Deliberation</h1>
           <p className="mt-2 text-[1.0625rem] text-muted">Sign in with the seat number and PIN the court clerk gave you.</p>
         </div>
 

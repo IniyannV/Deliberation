@@ -51,20 +51,7 @@
   --color-physical: #c93400;
   --color-document: #248a3d;
 
-  /* Chart series: first three slots of the validated reference palette
-     (CVD-safe for all pairs in both modes). Max three series per chart. */
-  --color-viz-1: #2a78d6;
-  --color-viz-2: #eb6834;
-  --color-viz-3: #1baf7a;
 
-  /* Interactive map surfaces, in the spirit of Apple Maps. */
-  --color-map-land: #f5f3ee;
-  --color-map-block: #e9e6df;
-  --color-map-park: #d4ecc8;
-  --color-map-water: #b5d9f5;
-  --color-map-industrial: #ebe4dc;
-  --color-map-road: #ffffff;
-  --color-map-road-edge: #d6d2c8;
 }
 
 .dark {
@@ -97,17 +84,7 @@
   --color-physical: #ff9f0a;
   --color-document: #30d158;
 
-  --color-viz-1: #3987e5;
-  --color-viz-2: #d95926;
-  --color-viz-3: #199e70;
 
-  --color-map-land: #1e2022;
-  --color-map-block: #2a2d30;
-  --color-map-park: #1f3324;
-  --color-map-water: #142a3d;
-  --color-map-industrial: #2c2a27;
-  --color-map-road: #45484c;
-  --color-map-road-edge: #2a2d30;
 }
 
 @theme {
@@ -199,6 +176,26 @@
 }
 .pressable-soft {
   --press-scale: 0.985;
+}
+
+/* Long-press targets: no iOS callout or selection loupe, so holding a finger
+   still opens the app's own menu instead. */
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* A juror's own transcript highlights: a highlighter-pen yellow. */
+.hl {
+  background: rgb(255 214 10 / 0.45);
+  border-radius: 2px;
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .hl {
+  background: rgb(255 214 10 / 0.3);
 }
 
 /* Translucent floating layers (Apple's "regular" material). Content keeps

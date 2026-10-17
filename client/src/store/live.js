@@ -20,6 +20,7 @@ const initial = {
   timeline: [],
   links: [],
   notes: [],
+  personal: { highlights: {}, checks: {} }, // this juror's own highlights and checklist ticks
   burden: '',
   votes: [],
   votedIn: [],
@@ -72,6 +73,7 @@ export const useLive = create((set, get) => ({
         timeline: s.timeline ?? [],
         links: s.links ?? [],
         notes: s.notes ?? [],
+        personal: s.personal ?? initial.personal,
         burden: s.burden ?? '',
         votes: s.votes ?? [],
         votedIn: s.votedIn ?? [],
@@ -90,6 +92,7 @@ export const useLive = create((set, get) => ({
     socket.on('timeline:changed', (timeline) => set({ timeline }))
     socket.on('links:changed', (links) => set({ links }))
     socket.on('notes:changed', (notes) => set({ notes }))
+    socket.on('personal:changed', (personal) => set({ personal }))
     socket.on('display:changed', (display) => set({ display }))
     socket.on('vote:changed', (vote) => {
       const votes = get().votes

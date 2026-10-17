@@ -9,6 +9,7 @@ export const defaultData = () => ({
   exhibits: [],
   transcriptLinks: [],
   imageNotes: [],
+  personal: {}, // userId → { highlights, checks }: one juror's own marks, never shared or logged
   timeline: [],
   votes: [], // polls and ballots: metadata + final tallies only (see services/voting.js)
   requests: [],
@@ -29,6 +30,14 @@ export async function initDb() {
     if (db.data[key] === undefined) db.data[key] = value;
   }
   if (db.data.display?.view === 'calm') db.data.display.view = 'idle';
+  // Interactive map and chart exhibits were retired. Their uploaded files are left in place.
+  const retired = new Set(db.data.exhibits.filter((e) => e.type === 'map' || e.type === 'chart').map((e) => e.id));
+  if (retired.size) {
+    db.data.exhibits = db.data.exhibits.filter((e) => !retired.has(e.id));
+    db.data.transcriptLinks = db.data.transcriptLinks.filter((l) => !retired.has(l.exhibitId));
+    for (const ev of db.data.timeline) ev.attachments = (ev.attachments ?? []).filter((a) => !retired.has(a.exhibitId));
+    console.log(`  Retired ${retired.size} interactive map/chart exhibit(s); re-upload them as PDFs or images if still needed.`);
+  }
   await db.write();
   return db;
 }

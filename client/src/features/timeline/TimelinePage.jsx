@@ -9,46 +9,53 @@ import { Icon } from '../../components/icons'
 import Timeline, { TYPE_STYLE } from './Timeline'
 import EventEditor from './EventEditor'
 
+/** An event's details, shown in a popup when its card is tapped. */
 function EventDetail({ ev, exhibitsById, onEdit, onDelete, onClose }) {
+  const shown = useRef(ev)
+  if (ev) shown.current = ev
+  const e = shown.current // keep the content while the popup animates out
   return (
-    <Card className="p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className={cx('font-semibold', TYPE_STYLE[ev.type].text)}>
-            {EVENT_TYPES.find((t) => t.id === ev.type)?.label} · {fmtDateTime(ev.at)}
+    <Modal
+      open={!!ev}
+      onClose={onClose}
+      wide
+      title={e?.label ?? ''}
+      footer={<>
+        <Button variant="danger" icon="trash" onClick={onDelete}>Delete</Button>
+        <Button variant="primary" icon="edit" onClick={onEdit}>Edit</Button>
+      </>}
+    >
+      {e && (
+        <>
+          <p className={cx('-mt-2 font-semibold', TYPE_STYLE[e.type].text)}>
+            {EVENT_TYPES.find((t) => t.id === e.type)?.label} · {fmtDateTime(e.at)}
           </p>
-          <h2 className="mt-1 text-2xl font-bold">{ev.label}</h2>
-        </div>
-        <div className="flex gap-1">
-          <Button size="sm" icon="edit" onClick={onEdit}>Edit</Button>
-          <Button size="sm" variant="danger" icon="trash" onClick={onDelete}>Delete</Button>
-          <IconButton icon="x" label="Close details" onClick={onClose} />
-        </div>
-      </div>
-      {ev.description && <p className="mt-4 max-w-3xl whitespace-pre-wrap">{ev.description}</p>}
-      {ev.attachments?.length > 0 && (
-        <ul className="mt-5 flex flex-wrap gap-2">
-          {ev.attachments.map((a, i) => {
-            const ex = exhibitsById[a.kind === 'exhibit' ? a.exhibitId : a.transcriptId]
-            if (!ex) return <li key={i}><Badge>Removed exhibit</Badge></li>
-            const href = a.kind === 'exhibit' ? `/juror/evidence/${ex.id}` : `/juror/review?t=${ex.id}&line=${a.fromLine}`
-            return (
-              <li key={i}>
-                <Link to={href} className="pressable inline-flex items-center gap-2 rounded-full bg-fill px-3.5 py-1.5 font-medium text-accent hover:bg-fill-strong">
-                  <Icon name={a.kind === 'exhibit' ? 'file' : 'text'} size={16} />
-                  <b>{ex.number}</b>
-                  <span className="text-muted">{a.kind === 'excerpt' ? `lines ${a.fromLine}${a.toLine !== a.fromLine ? `–${a.toLine}` : ''}` : ex.title}</span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+          {e.description ? <p className="mt-3 whitespace-pre-wrap">{e.description}</p> : <p className="mt-3 text-muted">No description.</p>}
+          {e.attachments?.length > 0 && (
+            <ul className="mt-5 flex flex-wrap gap-2">
+              {e.attachments.map((a, i) => {
+                const ex = exhibitsById[a.kind === 'exhibit' ? a.exhibitId : a.transcriptId]
+                if (!ex) return <li key={i}><Badge>Removed exhibit</Badge></li>
+                const href = a.kind === 'exhibit' ? `/juror/evidence/${ex.id}` : `/juror/review?t=${ex.id}&line=${a.fromLine}`
+                return (
+                  <li key={i}>
+                    <Link to={href} className="pressable inline-flex items-center gap-2 rounded-full bg-fill px-3.5 py-1.5 font-medium text-accent hover:bg-fill-strong">
+                      <Icon name={a.kind === 'exhibit' ? 'file' : 'text'} size={16} />
+                      <b>{ex.number}</b>
+                      <span className="text-muted">{a.kind === 'excerpt' ? `lines ${a.fromLine}${a.toLine !== a.fromLine ? `–${a.toLine}` : ''}` : ex.title}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </>
       )}
-    </Card>
+    </Modal>
   )
 }
 
-/** Right-click menu for a timeline card. */
+/** Right-click (or long-press) menu for a timeline card. */
 function CardMenu({ menu, onEdit, onDelete, onClose }) {
   const ref = useRef(null)
   useEffect(() => {
@@ -164,7 +171,7 @@ export default function TimelinePage() {
             />
           </Card>
           <p className="mb-6 text-sm text-muted">
-            Drag a card sideways to change its time · Double-click empty space to add an event there · Right-click a card to edit or delete it
+            Tap a card for details · Drag it sideways to change its time · Double-click empty space to add an event there · Right-click or long-press a card to edit or delete it
           </p>
         </>
       ) : (
@@ -175,15 +182,13 @@ export default function TimelinePage() {
         </div>
       )}
 
-      {selected && (
-        <EventDetail
-          ev={selected}
-          exhibitsById={exhibitsById}
-          onEdit={() => setEditor({ initial: selected })}
-          onDelete={() => setDeleting(selected)}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
+      <EventDetail
+        ev={selected}
+        exhibitsById={exhibitsById}
+        onEdit={() => { setEditor({ initial: selected }); setSelectedId(null) }}
+        onDelete={() => { setDeleting(selected); setSelectedId(null) }}
+        onClose={() => setSelectedId(null)}
+      />
 
       {menu && (
         <CardMenu
@@ -200,7 +205,6 @@ export default function TimelinePage() {
           initial={editor.initial}
           defaultAt={editor.defaultAt ?? (latest || undefined)}
           onClose={() => setEditor(null)}
-          onSaved={(ev) => setSelectedId(ev.id)}
         />
       )}
 

@@ -1,22 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
-// The worker is bundled by Vite and served from this server, never a CDN.
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { IconButton } from '../../components/ui'
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-
-// Character maps, standard fonts and decoders are copied into /public/pdfjs at build time.
-const PDF_OPTIONS = {
-  cMapUrl: '/pdfjs/cmaps/',
-  cMapPacked: true,
-  standardFontDataUrl: '/pdfjs/standard_fonts/',
-  wasmUrl: '/pdfjs/wasm/',
-  isEvalSupported: false,
-  withCredentials: true,
-}
+import { PDF_OPTIONS } from './pdfSetup'
 
 export default function PdfViewer({ url, title }) {
   const box = useRef(null)
@@ -49,15 +36,17 @@ export default function PdfViewer({ url, title }) {
         {error ? (
           <p className="text-danger">{error}</p>
         ) : (
+          // Without suspense={false}, react-pdf throws a failed load past onLoadError and blanks the app.
           <Document
             file={file}
             options={PDF_OPTIONS}
+            suspense={false}
             onLoadSuccess={({ numPages }) => setPages(numPages)}
             onLoadError={(e) => setError(`Could not open this PDF (${e.message}).`)}
             loading={<p className="text-muted">Opening document…</p>}
           >
             {Array.from({ length: pages }, (_, i) => (
-              <Page key={i} pageNumber={i + 1} width={width * zoom} loading="" />
+              <Page key={i} pageNumber={i + 1} width={width * zoom} suspense={false} loading="" />
             ))}
           </Document>
         )}

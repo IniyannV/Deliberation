@@ -14,6 +14,16 @@ import {
 const EVENT_TYPES = ['testimony', 'physical', 'document'];
 const DISPLAY_VIEWS = ['timeline', 'votes', 'idle'];
 
+// Note pins are stored as fractions of the image, so they stay put at any zoom.
+const noteCoord = (v) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > 1) throw bad('Position is off the image');
+  return Math.round(n * 10000) / 10000;
+};
+
+// One juror's own highlights and checklist ticks. Like notes, never logged.
+const personalFor = (userId) => (db.data.personal[userId] ??= { highlights: {}, checks: {} });
+
 const toJurorsAndDisplay = (io, event, payload) => io.to(['jurors', 'display']).emit(event, payload);
 
 function readAttachments(raw = []) {
@@ -140,12 +150,7 @@ export const deliberationHandlers = {
     roles: [ROLES.JUROR],
     async handler({ io }, p) {
       if (!db.data.exhibits.some((e) => e.id === p.exhibitId && e.type === 'image')) throw bad('Notes can only be added to image exhibits');
-      const coord = (v, field) => {
-        const n = Number(v);
-        if (!Number.isFinite(n) || n < 0 || n > 1) throw bad(`${field} is off the image`);
-        return Math.round(n * 10000) / 10000;
-      };
-      const note = { id: newId('note'), exhibitId: p.exhibitId, x: coord(p.x, 'Position'), y: coord(p.y, 'Position'), text: str(p.text, { min: 1, max: 500, field: 'Note' }), createdAt: nowIso() };
+      const note = { id: newId('note'), exhibitId: p.exhibitId, x: noteCoord(p.x), y: noteCoord(p.y), text: str(p.text, { min: 1, max: 500, field: 'Note' }), createdAt: nowIso() };
       db.data.imageNotes.push(note);
       await save();
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
@@ -162,12 +167,63 @@ export const deliberationHandlers = {
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
     },
   },
+  'note:move': {
+    roles: [ROLES.JUROR],
+    async handler({ io }, p) {
+      const note = db.data.imageNotes.find((n) => n.id === p.id);
+      if (!note) throw new HttpError(404, 'That note was removed');
+      note.x = noteCoord(p.x);
+      note.y = noteCoord(p.y);
+      await save();
+      io.to('jurors').emit('notes:changed', db.data.imageNotes);
+    },
+  },
   'note:delete': {
     roles: [ROLES.JUROR],
     async handler({ io }, p) {
       db.data.imageNotes = db.data.imageNotes.filter((n) => n.id !== p.id);
       await save();
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
+    },
+  },
+
+  /* ── Personal marks (private to one juror, synced across their devices) ── */
+  'highlight:set': {
+    roles: [ROLES.JUROR],
+    async handler({ io, user }, p) {
+      const t = db.data.exhibits.find((e) => e.id === p.transcriptId && e.type === 'transcript');
+      if (!t) throw bad('Transcript not found');
+      if (!p.lines || typeof p.lines !== 'object' || Object.keys(p.lines).length > 2000) throw bad('Nothing to highlight');
+      const mine = personalFor(user.id);
+      const byLine = (mine.highlights[t.id] ??= {});
+      for (const [key, ranges] of Object.entries(p.lines)) {
+        const line = t.lines.find((l) => l.n === Number(key));
+        if (!line) throw bad('Line not found');
+        if (!Array.isArray(ranges) || ranges.length > 100) throw bad('Bad highlight');
+        const clean = ranges.map((r) => {
+          const start = int(r?.[0], { min: 0, max: line.text.length, field: 'Highlight start' });
+          const end = int(r?.[1], { min: start, max: line.text.length, field: 'Highlight end' });
+          return [start, end];
+        }).filter(([a, b]) => b > a);
+        if (clean.length) byLine[line.n] = clean;
+        else delete byLine[line.n];
+      }
+      await save();
+      io.to(`user:${user.id}`).emit('personal:changed', mine);
+    },
+  },
+  'check:set': {
+    roles: [ROLES.JUROR],
+    async handler({ io, user }, p) {
+      const count = db.data.case.counts.find((c) => c.id === p.countId);
+      if (!count) throw bad('Count not found');
+      const element = int(p.element, { min: 0, max: (count.elements?.length ?? 1) - 1, field: 'Element' });
+      const mine = personalFor(user.id);
+      const set = new Set(mine.checks[count.id] ?? []);
+      if (p.checked) set.add(element); else set.delete(element);
+      mine.checks[count.id] = [...set].sort((a, b) => a - b);
+      await save();
+      io.to(`user:${user.id}`).emit('personal:changed', mine);
     },
   },
 

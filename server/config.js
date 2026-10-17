@@ -16,4 +16,4 @@ export const CLIENT_DIST = path.join(here, '..', 'client', 'dist');
 
 export const SESSION_COOKIE = 'dr_session';
 export const SESSION_TTL_MS = 16 * 60 * 60 * 1000; // one long court day
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // room for trial video
