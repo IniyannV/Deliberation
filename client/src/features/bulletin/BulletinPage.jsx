@@ -27,7 +27,7 @@ export default function BulletinPage() {
         title="Messages from home"
         subtitle="Short messages from your family, passed on by the bailiff after the court has reviewed them."
       />
-      <p className="mb-6 flex items-start gap-3 rounded-xl bg-surface-2 px-4 py-3 text-muted">
+      <p className="mb-6 flex items-start gap-3 rounded-2xl bg-fill px-4 py-3 text-muted">
         <Icon name="shield" className="mt-0.5 shrink-0" />
         While the jury is sequestered you can’t reply from here. If something is urgent, tell the bailiff.
       </p>

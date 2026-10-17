@@ -114,7 +114,7 @@ The seed includes J-1 (map), P-7 (bar chart) and D-3 (events chart). See
 
 - CSP header from Express:
   `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'`
-- Fonts (Atkinson Hyperlegible, SIL OFL) are self-hosted in `client/src/assets/fonts`.
+- Text uses the device's own UI font (SF Pro on Apple devices, Segoe UI or Roboto elsewhere), so no font is downloaded.
 - The pdf.js worker is bundled by Vite. Character maps, standard fonts and
   decoders are copied into `client/public/pdfjs` at build time.
 - No `http(s)://` URLs are used at runtime by `client/src`, `client/index.html`

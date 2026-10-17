@@ -51,7 +51,7 @@ export default function Audit() {
         title="Audit log"
         subtitle="Append-only record of sign-ins, requests, status changes, family updates and evidence uploads. Deliberation content (timeline, votes, notes, message text) is never logged."
         actions={
-          <a href="/api/admin/audit.csv" download className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 font-semibold hover:bg-surface-2">
+          <a href="/api/admin/audit.csv" download className="pressable inline-flex min-h-10 items-center gap-1.5 rounded-full bg-fill px-5 py-1.5 font-semibold text-accent hover:bg-fill-strong">
             <Icon name="download" /> Export CSV
           </a>
         }
@@ -71,7 +71,7 @@ export default function Audit() {
       <div className="flex flex-col gap-6" data-tour="audit-list">
         {groups.map((g) => (
           <section key={g.day}>
-            <h2 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">{g.day}</h2>
+            <h2 className="mb-2 text-[0.8125rem] font-semibold text-muted">{g.day}</h2>
             <Card>
               <ul className="divide-y divide-line">
                 {g.entries.map((e) => {
@@ -80,7 +80,7 @@ export default function Audit() {
                   return (
                     <li key={e.seq} className="flex items-start gap-4 px-5 py-3">
                       <span className="w-24 shrink-0 pt-0.5 text-sm text-muted tabular-nums" title={e.ts}>{fmtClock(e.ts)}</span>
-                      <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${failed ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted'}`}><Icon name={cat.icon} size={16} /></span>
+                      <span className={`mt-0.5 shrink-0 rounded-[0.5rem] p-1.5 ${failed ? 'bg-danger-soft text-danger' : 'bg-fill text-muted'}`}><Icon name={cat.icon} size={16} /></span>
                       <div className="min-w-0 flex-1">
                         <p className={failed ? 'font-semibold text-danger' : 'font-semibold'}>{e.summary}</p>
                         <p className="text-xs text-muted">

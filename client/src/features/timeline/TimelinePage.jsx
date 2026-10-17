@@ -34,7 +34,7 @@ function EventDetail({ ev, exhibitsById, onEdit, onDelete, onClose }) {
             const href = a.kind === 'exhibit' ? `/juror/evidence/${ex.id}` : `/juror/review?t=${ex.id}&line=${a.fromLine}`
             return (
               <li key={i}>
-                <Link to={href} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 hover:border-accent hover:text-accent">
+                <Link to={href} className="pressable inline-flex items-center gap-2 rounded-full bg-fill px-3.5 py-1.5 font-medium text-accent hover:bg-fill-strong">
                   <Icon name={a.kind === 'exhibit' ? 'file' : 'text'} size={16} />
                   <b>{ex.number}</b>
                   <span className="text-muted">{a.kind === 'excerpt' ? `lines ${a.fromLine}${a.toLine !== a.fromLine ? `–${a.toLine}` : ''}` : ex.title}</span>
@@ -67,12 +67,12 @@ function CardMenu({ menu, onEdit, onDelete, onClose }) {
   const x = Math.min(menu.x, window.innerWidth - 240)
   const y = Math.min(menu.y, window.innerHeight - 150)
   return (
-    <div ref={ref} role="menu" aria-label={`Options for ${menu.ev.label}`} className="fixed z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl" style={{ left: x, top: y }}>
-      <p className="truncate border-b border-line px-4 py-2 text-sm text-muted">{menu.ev.label}</p>
-      <button type="button" role="menuitem" onClick={onEdit} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 focus:bg-surface-2 focus:outline-none">
+    <div ref={ref} role="menu" aria-label={`Options for ${menu.ev.label}`} className="material materialize fixed z-50 w-56 origin-top-left overflow-hidden rounded-xl p-1.5" style={{ left: x, top: y }}>
+      <p className="truncate px-2.5 pt-1 pb-1.5 text-xs font-semibold text-muted">{menu.ev.label}</p>
+      <button type="button" role="menuitem" onClick={onEdit} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-accent hover:text-accent-ink focus:bg-accent focus:text-accent-ink focus:outline-none">
         <Icon name="edit" size={18} /> Edit event
       </button>
-      <button type="button" role="menuitem" onClick={onDelete} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-danger hover:bg-danger-soft focus:bg-danger-soft focus:outline-none">
+      <button type="button" role="menuitem" onClick={onDelete} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-danger hover:bg-danger hover:text-white focus:bg-danger focus:text-white focus:outline-none">
         <Icon name="trash" size={18} /> Delete event…
       </button>
     </div>

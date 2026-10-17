@@ -49,15 +49,15 @@ function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
       </div>
 
       {voted ? (
-        <p className="mb-5 flex items-center gap-2 rounded-lg bg-ok-soft px-4 py-3 font-semibold text-ok">
-          <Icon name="check" /> Your vote is recorded. Results appear when {isBallot ? 'every juror has voted' : 'everyone has voted or the foreperson closes the poll'}.
+        <p className="mb-5 flex items-center gap-2.5 rounded-2xl bg-ok-soft px-4 py-3 font-semibold text-ok">
+          <Icon name="checkCircle" size={22} className="shrink-0" /> Your vote is recorded. Results appear when {isBallot ? 'every juror has voted' : 'everyone has voted or the foreperson closes the poll'}.
         </p>
       ) : (
         <fieldset className="mb-5">
           <legend className="sr-only">Your choice</legend>
           <div className="flex flex-wrap gap-3">
             {vote.options.map((o) => (
-              <label key={o.id} className={cx('flex min-w-48 flex-1 cursor-pointer items-center gap-3 rounded-xl border-2 px-5 py-4 text-lg font-semibold', choice === o.id ? 'border-accent bg-accent-soft' : 'border-line hover:border-muted')}>
+              <label key={o.id} className={cx('pressable pressable-soft flex min-w-48 flex-1 cursor-pointer items-center gap-3 rounded-2xl border-2 px-5 py-4 text-lg font-semibold', choice === o.id ? 'border-accent bg-accent-soft' : 'border-transparent bg-fill hover:bg-fill-strong')}>
                 <input type="radio" name={`vote-${vote.id}`} value={o.id} checked={choice === o.id} onChange={() => setChoice(o.id)} className="h-5 w-5 accent-[var(--color-accent)]" />
                 {o.label}
               </label>
@@ -115,7 +115,7 @@ function ForepersonPanel({ counts, votes, display }) {
 
   return (
     <Card className="border-accent/40 p-6" data-tour="foreperson-panel">
-      <h2 className="mb-1 flex items-center gap-2 text-xl font-bold"><Icon name="shield" /> Foreperson controls</h2>
+      <h2 className="mb-1 flex items-center gap-2.5 text-xl font-bold"><span className="flex h-8 w-8 items-center justify-center rounded-[0.55rem] bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white"><Icon name="shield" size={18} strokeWidth={2} /></span> Foreperson controls</h2>
       <p className="mb-5 text-muted">Only the foreperson sees these controls.</p>
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -157,8 +157,8 @@ function ForepersonPanel({ counts, votes, display }) {
         </div>
       </div>
 
-      <label className="mt-5 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={showOnDisplay} onChange={(e) => setShowOnDisplay(e.target.checked)} className="h-4 w-4 accent-[var(--color-accent)]" />
+      <label className="mt-5 flex items-center gap-3">
+        <input type="checkbox" checked={showOnDisplay} onChange={(e) => setShowOnDisplay(e.target.checked)} role="switch" className="switch" />
         Switch the room display to new polls and ballots automatically
       </label>
 

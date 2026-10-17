@@ -117,7 +117,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
           <legend className="mb-1.5 font-semibold">Kind of event</legend>
           <div className="flex flex-wrap gap-2">
             {EVENT_TYPES.map((t) => (
-              <label key={t.id} className={cx('flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2', form.type === t.id ? 'border-accent bg-accent-soft' : 'border-line')}>
+              <label key={t.id} className={cx('pressable pressable-soft flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2', form.type === t.id ? 'border-accent bg-accent-soft' : 'border-transparent bg-fill hover:bg-fill-strong')}>
                 <input type="radio" name="type" value={t.id} checked={form.type === t.id} onChange={set('type')} className="sr-only" />
                 <span className={cx('h-3 w-3 rounded-full', TYPE_STYLE[t.id].dot)} />
                 {t.label}
@@ -139,7 +139,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
                 type="button"
                 aria-pressed={attachedExhibitIds.includes(x.id)}
                 onClick={() => toggleExhibit(x.id)}
-                className={cx('rounded-full border px-3 py-1 text-sm', attachedExhibitIds.includes(x.id) ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-line hover:bg-surface-2')}
+                className={cx('rounded-full border px-3 py-1 text-sm', attachedExhibitIds.includes(x.id) ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-line hover:bg-fill')}
                 title={x.title}
               >
                 {attachedExhibitIds.includes(x.id) && <Icon name="check" size={14} className="mr-1 inline" />}
@@ -152,7 +152,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-1.5 font-semibold">Transcript excerpts</legend>
           {form.attachments.map((a, i) => a.kind === 'excerpt' && (
-            <div key={i} className="rounded-lg border border-line p-3">
+            <div key={i} className="rounded-xl bg-fill p-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{byId[a.transcriptId]?.number}, lines {a.fromLine}{a.toLine !== a.fromLine ? `–${a.toLine}` : ''}</span>
                 <Button size="sm" variant="ghost" icon="x" onClick={() => setForm((f) => ({ ...f, attachments: f.attachments.filter((_, j) => j !== i) }))}>Remove</Button>
@@ -174,7 +174,7 @@ export default function EventEditor({ open, initial, defaultAt, onClose, onSaved
           )}
           {pending.error && <p role="alert" className="text-sm font-semibold text-danger">{pending.error}</p>}
           {pendingValid && (
-            <div className="rounded-lg border border-dashed border-accent/50 bg-accent-soft/40 p-3">
+            <div className="rounded-xl border border-dashed border-accent/50 bg-accent-soft p-3">
               <p className="text-sm font-semibold text-accent">Preview: {pendingTranscript.number}, line{pending.toLine !== pending.fromLine ? `s ${pending.fromLine}–${pending.toLine}` : ` ${pending.fromLine}`}</p>
               <ExcerptPreview transcriptId={excerpt.transcriptId} fromLine={pending.fromLine} toLine={pending.toLine} max={12} />
             </div>

@@ -16,8 +16,8 @@ export default function ResultsBars({ vote, large = false }) {
               <span>{o.label}</span>
               <span className="tabular-nums">{n}</span>
             </div>
-            <div className={cx('overflow-hidden rounded-full bg-surface-2', large ? 'h-10' : 'h-4')} role="img" aria-label={`${o.label}: ${n} of ${total}`}>
-              <div className={cx('h-full rounded-full transition-[width] duration-700', BAR_COLORS[i % BAR_COLORS.length])} style={{ width: `${pct}%` }} />
+            <div className={cx('overflow-hidden rounded-full bg-fill', large ? 'h-10' : 'h-4')} role="img" aria-label={`${o.label}: ${n} of ${total}`}>
+              <div className={cx('h-full rounded-full transition-[width] duration-700 ease-[var(--ease-fluid)]', BAR_COLORS[i % BAR_COLORS.length])} style={{ width: `${pct}%` }} />
             </div>
           </li>
         )
@@ -31,7 +31,7 @@ export function VoteProgress({ vote, large = false }) {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1.5" aria-hidden>
         {Array.from({ length: vote.eligible }, (_, i) => (
-          <span key={i} className={cx('rounded-full', large ? 'h-8 w-8' : 'h-3.5 w-3.5', i < vote.votesCast ? 'bg-accent' : 'bg-surface-2 ring-1 ring-line')} />
+          <span key={i} className={cx('rounded-full', large ? 'h-8 w-8' : 'h-3.5 w-3.5', i < vote.votesCast ? 'bg-accent' : 'bg-fill-strong')} />
         ))}
       </div>
       <p className={cx('text-muted', large && 'text-3xl')}>

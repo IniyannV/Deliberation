@@ -98,7 +98,7 @@ export default function Evidence() {
 
       <h2 className="mb-3 text-xl font-bold">Admitted exhibits ({exhibits.length})</h2>
       <Card>
-        <table className="w-full text-left">
+        <table className="apple-table w-full text-left">
           <thead className="border-b border-line text-sm text-muted">
             <tr><th className="px-5 py-3">No.</th><th className="py-3">Title</th><th className="py-3">Type</th><th className="py-3">Party</th><th className="py-3">Admitted</th><th className="py-3">Size</th><th /></tr>
           </thead>

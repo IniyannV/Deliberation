@@ -43,7 +43,7 @@ export default function Jurors() {
     <div>
       <PageHeader title="Juror seats" subtitle="Assign PINs, choose the foreperson, and excuse seats. PINs are stored only as hashes. A new PIN is shown once." />
       <Card data-tour="admin-seats">
-        <table className="w-full text-left">
+        <table className="apple-table w-full text-left">
           <thead className="border-b border-line text-sm text-muted">
             <tr><th className="px-5 py-3">Seat</th><th className="py-3">Status</th><th className="py-3">Role</th><th /></tr>
           </thead>
@@ -74,7 +74,7 @@ export default function Jurors() {
 
       <Modal open={!!newPin} onClose={() => setNewPin(null)} title={`New PIN for seat ${newPin?.seat}`} footer={<Button variant="primary" onClick={() => setNewPin(null)}>I’ve written it down</Button>}>
         <p className="mb-4 text-muted">Give this to the juror privately. It won’t be shown again.</p>
-        <p className="rounded-xl bg-surface-2 py-6 text-center font-mono text-5xl tracking-[0.3em]">{newPin?.pin}</p>
+        <p className="rounded-2xl bg-fill py-6 text-center font-mono text-5xl tracking-[0.3em] tabular-nums">{newPin?.pin}</p>
       </Modal>
     </div>
   )

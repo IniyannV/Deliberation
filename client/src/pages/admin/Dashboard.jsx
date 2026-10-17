@@ -20,17 +20,17 @@ export default function Dashboard() {
       <PageHeader title="Bailiff dashboard" subtitle={overview ? `${overview.case.caption} · ${overview.case.caseNumber}` : ''} />
 
       <div className="mb-8 grid gap-4 md:grid-cols-3">
-        <Link to="/admin/requests"><Card className="p-5 hover:border-accent"><p className="text-muted">Open requests</p><p className="text-4xl font-bold">{open.length}</p></Card></Link>
-        <Link to="/admin/evidence"><Card className="p-5 hover:border-accent"><p className="text-muted">Exhibits loaded</p><p className="text-4xl font-bold">{exhibits.length}</p></Card></Link>
-        <Link to="/admin/updates"><Card className="p-5 hover:border-accent"><p className="text-muted">Unread family updates</p><p className="text-4xl font-bold">{overview?.unreadUpdates ?? '–'}</p></Card></Link>
+        <Link to="/admin/requests" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Open requests</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{open.length}</p></Card></Link>
+        <Link to="/admin/evidence" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Exhibits loaded</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{exhibits.length}</p></Card></Link>
+        <Link to="/admin/updates" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Unread family updates</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{overview?.unreadUpdates ?? '–'}</p></Card></Link>
       </div>
 
       <section className="mb-8" data-tour="admin-presence">
         <h2 className="mb-3 text-xl font-bold">Juror devices</h2>
         <div className="grid grid-cols-6 gap-3 xl:grid-cols-12">
           {seats.map((s) => (
-            <div key={s.seat} className={cx('flex flex-col items-center rounded-xl border p-3', s.active ? 'border-line bg-surface' : 'border-dashed border-line opacity-50')}>
-              <span className="text-2xl font-bold">{s.seat}</span>
+            <div key={s.seat} className={cx('flex flex-col items-center rounded-2xl border p-3', s.active ? 'border-transparent bg-surface shadow-card' : 'border-dashed border-line opacity-50')}>
+              <span className="text-2xl font-bold tabular-nums">{s.seat}</span>
               <span className="flex items-center gap-1.5 text-sm text-muted">
                 <span className={cx('h-2 w-2 rounded-full', s.online ? 'bg-ok' : 'bg-line')} />
                 {s.active ? (s.online ? 'Online' : 'Offline') : 'Inactive'}

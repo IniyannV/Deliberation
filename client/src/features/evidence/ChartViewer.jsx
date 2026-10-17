@@ -33,7 +33,7 @@ function Tooltip({ tip }) {
   return (
     <div
       role="status"
-      className="pointer-events-none absolute z-10 max-w-64 rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow-lg"
+      className="material pointer-events-none absolute z-10 max-w-64 rounded-xl px-3 py-2 text-sm"
       style={{ left: tip.x, top: tip.y, transform: `translate(${tip.flip ? 'calc(-100% - 12px)' : '12px'}, -50%)` }}
     >
       {tip.children}
@@ -193,7 +193,7 @@ function DataTable({ spec }) {
   if (spec.chart === 'bar') {
     const total = spec.bars.reduce((s, b) => s + b.value, 0)
     return (
-      <table className="w-full text-left">
+      <table className="apple-table w-full text-left">
         <thead className="border-b border-line text-sm text-muted"><tr><th className="py-2">Item</th><th className="py-2 text-right">Value</th><th className="py-2 pl-6">Note</th></tr></thead>
         <tbody className="divide-y divide-line">
           {spec.bars.map((b) => <tr key={b.label}><td className="py-2">{b.label}</td><td className="py-2 text-right tabular-nums">{spec.valuePrefix}{b.value.toLocaleString()}</td><td className="py-2 pl-6 text-muted">{b.note}</td></tr>)}
@@ -204,7 +204,7 @@ function DataTable({ spec }) {
   }
   const sorted = [...spec.points].sort((a, b) => a.t.localeCompare(b.t))
   return (
-    <table className="w-full text-left">
+    <table className="apple-table w-full text-left">
       <thead className="border-b border-line text-sm text-muted"><tr><th className="py-2">Time</th><th className="py-2">Event</th><th className="py-2">Category</th><th className="py-2">Row</th></tr></thead>
       <tbody className="divide-y divide-line">
         {sorted.map((p, i) => (

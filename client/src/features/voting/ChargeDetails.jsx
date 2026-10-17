@@ -9,10 +9,10 @@ export default function ChargeDetails({ count, burden, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   if (!count?.elements?.length) return null
   return (
-    <section className="rounded-xl border border-line bg-surface-2/60">
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left">
-        <span className="flex items-center gap-2 font-bold"><Icon name="shield" size={18} /> What must be proven for a guilty verdict</span>
-        <Icon name={open ? 'minus' : 'plus'} size={18} className="text-muted" />
+    <section className="rounded-2xl bg-surface shadow-card">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 rounded-2xl px-5 py-3.5 text-left hover:bg-fill/50">
+        <span className="flex items-center gap-2 font-bold"><Icon name="shield" size={18} className="text-accent" /> What must be proven for a guilty verdict</span>
+        <Icon name="chevronRight" size={18} strokeWidth={2.2} className={`text-muted transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
         <div className="flex flex-col gap-4 px-5 pb-5">
@@ -41,7 +41,7 @@ export default function ChargeDetails({ count, burden, defaultOpen = true }) {
               ))}
             </dl>
           )}
-          {burden && <p className="rounded-lg bg-warn-soft px-4 py-3 text-warn">{burden}</p>}
+          {burden && <p className="rounded-xl bg-warn-soft px-4 py-3 text-warn">{burden}</p>}
           <p className="text-sm text-muted">If you are unsure what an instruction means, the foreperson can send a question to the judge from Requests.</p>
         </div>
       )}

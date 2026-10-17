@@ -37,18 +37,21 @@ function ItemPicker({ items, value, onChange, grouped }) {
     <div className="flex flex-col gap-4">
       {Object.entries(groups).map(([group, list]) => (
         <div key={group}>
-          {group && <h4 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">{group}</h4>}
+          {group && <h4 className="mb-2 text-[0.8125rem] font-semibold text-muted">{group}</h4>}
           <ul className="grid gap-2 sm:grid-cols-2">
             {list.map((it) => (
-              <li key={it.id} className={cx('flex items-center justify-between gap-3 rounded-lg border px-3 py-2', qty(it.id) ? 'border-accent bg-accent-soft' : 'border-line')}>
+              <li key={it.id} className={cx('flex items-center justify-between gap-3 rounded-xl border px-3 py-2 transition-colors', qty(it.id) ? 'border-accent bg-accent-soft' : 'border-transparent bg-fill')}>
                 <span>
                   {it.name}
                   {it.dietary && <span className="block text-sm text-muted">{it.dietary}</span>}
                 </span>
-                <span className="flex items-center gap-1">
-                  <button type="button" className="rounded-md px-2 text-xl text-muted hover:bg-surface-2 disabled:opacity-30" disabled={!qty(it.id)} onClick={() => setQty(it.id, qty(it.id) - 1)} aria-label={`One fewer ${it.name}`}>−</button>
-                  <span className="w-5 text-center tabular-nums" aria-label={`${qty(it.id)} selected`}>{qty(it.id)}</span>
-                  <button type="button" className="rounded-md px-2 text-xl text-muted hover:bg-surface-2" onClick={() => setQty(it.id, qty(it.id) + 1)} aria-label={`One more ${it.name}`}>+</button>
+                <span className="flex shrink-0 items-center gap-2.5">
+                  <span className="w-5 text-center font-semibold tabular-nums" aria-label={`${qty(it.id)} selected`}>{qty(it.id) || ''}</span>
+                  <span className="flex items-center rounded-lg bg-surface shadow-card">
+                    <button type="button" className="flex h-8 w-11 items-center justify-center rounded-l-lg text-ink active:bg-fill disabled:text-muted/50" disabled={!qty(it.id)} onClick={() => setQty(it.id, qty(it.id) - 1)} aria-label={`One fewer ${it.name}`}><Icon name="minus" size={16} strokeWidth={2.2} /></button>
+                    <span className="h-4 w-px bg-line" aria-hidden />
+                    <button type="button" className="flex h-8 w-11 items-center justify-center rounded-r-lg text-ink active:bg-fill" onClick={() => setQty(it.id, qty(it.id) + 1)} aria-label={`One more ${it.name}`}><Icon name="plus" size={16} strokeWidth={2.2} /></button>
+                  </span>
                 </span>
               </li>
             ))}
@@ -133,7 +136,7 @@ export default function RequestsPage() {
         {!active ? (
           <div className="grid gap-4 sm:grid-cols-2" data-tour="request-templates">
             {templates.map((t) => (
-              <button key={t.type} type="button" onClick={() => setActive(t.type)} className="flex items-start gap-4 rounded-xl border border-line bg-surface p-5 text-left hover:border-accent">
+              <button key={t.type} type="button" onClick={() => setActive(t.type)} className="pressable pressable-soft flex items-start gap-4 rounded-2xl bg-surface p-5 text-left shadow-card hover:shadow-[var(--shadow-lift)]">
                 <span className="rounded-xl bg-accent-soft p-3 text-accent"><Icon name={t.icon} size={26} /></span>
                 <span>
                   <span className="block text-lg font-bold">{t.title}</span>

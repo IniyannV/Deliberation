@@ -13,7 +13,7 @@ function ItemRows({ items, setItems, withCategory }) {
           {withCategory && <Input value={it.category ?? ''} onChange={(e) => update(i, { category: e.target.value })} placeholder="Category" aria-label="Category" className="flex-1" />}
           {withCategory && <Input value={it.dietary ?? ''} onChange={(e) => update(i, { dietary: e.target.value })} placeholder="Dietary notes" aria-label="Dietary notes" className="flex-1" />}
           <label className="flex items-center gap-1.5 text-sm whitespace-nowrap">
-            <input type="checkbox" checked={it.available !== false} onChange={(e) => update(i, { available: e.target.checked })} className="h-4 w-4" />
+            <input type="checkbox" checked={it.available !== false} onChange={(e) => update(i, { available: e.target.checked })} role="switch" className="switch" />
             Available
           </label>
           <IconButton icon="trash" label={`Remove ${it.name || 'item'}`} onClick={() => setItems(items.filter((_, j) => j !== i))} />

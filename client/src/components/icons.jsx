@@ -60,6 +60,12 @@ const paths = {
   table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
   send: 'M4 12l16-8-6 16-3-7z',
   compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5l-2 5-5 2 2-5z',
+  alert: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5h.01',
+  checkCircle: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.7 2.7L16 9.5',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5.5M12 7.5h.01',
+  sidebar: 'M4 5h16v14H4zM9.5 5v14',
+  arrowUp: 'M12 19V5M6 11l6-6 6 6',
+  scale: 'M12 3v18M8 21h8M4 7h16M6 7l-3 6.5a3 3 0 0 0 6 0zM18 7l-3 6.5a3 3 0 0 0 6 0zM12 3l-1.5 1.5M12 3l1.5 1.5',
 }
 
 export const ICON_PATHS = paths

@@ -1,134 +1,252 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
-import { Button, cx } from './ui'
+import { Button, IconButton, cx } from './ui'
+import { TitleBarContext } from './titleBar'
 import { useAuth } from '../store/auth'
 import { useLive } from '../store/live'
 import { useUi } from '../store/ui'
 import { tourOffered, useTour } from '../features/tour/Tour'
 import { store } from '../lib/storage'
 
+// Apple's momentum projection: where a flick would come to rest.
+const project = (v, d = 0.998) => ((v / 1000) * d) / (1 - d)
+const rubberband = (x, dim, c = 0.55) => (x * dim * c) / (dim + c * Math.abs(x))
+
 /**
- * Persistent left sidebar plus a scrolling content area.
- * `nav` is a list of { to, label, icon, end?, badge?, children? } or { section }.
+ * The narrow-screen sidebar is a drawer you can drag. It tracks the finger
+ * 1:1 from where it was grabbed, resists being pulled past open, and on
+ * release uses the flick's velocity to decide whether it closes.
+ */
+function useDrawerDrag(open, setOpen) {
+  const [dx, setDx] = useState(null)
+  const onPointerDown = useCallback((e) => {
+    if (!open || e.pointerType === 'mouse' || window.matchMedia('(min-width: 48rem)').matches) return
+    const panel = e.currentTarget
+    const width = panel.offsetWidth
+    const x0 = e.clientX
+    const y0 = e.clientY
+    let tracking = false
+    let samples = [{ x: x0, t: performance.now() }]
+    const move = (ev) => {
+      const d = ev.clientX - x0
+      if (!tracking) {
+        // A little hysteresis, and only claim horizontal gestures.
+        if (Math.abs(d) < 10 || Math.abs(d) < Math.abs(ev.clientY - y0)) return
+        tracking = true
+        panel.setPointerCapture?.(e.pointerId)
+      }
+      samples = [...samples.slice(-4), { x: ev.clientX, t: performance.now() }]
+      setDx(d > 0 ? rubberband(d, width) : d)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      if (!tracking) return
+      const a = samples[0]
+      const b = samples[samples.length - 1]
+      const v = b.t > a.t ? ((b.x - a.x) / (b.t - a.t)) * 1000 : 0
+      const resting = b.x - x0 + project(v)
+      setDx(null)
+      if (resting < -width / 2) setOpen(false)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  }, [open, setOpen])
+  return { dx, onPointerDown }
+}
+
+/**
+ * A floating translucent sidebar beside a scrolling content area, with a
+ * title bar that materializes once content scrolls beneath it.
+ * `nav` is a list of { to, label, icon, end?, badge? } or { section }.
  */
 export default function AppShell({ nav, wide = false }) {
   const { user, caseInfo, logout } = useAuth()
   const connected = useLive((s) => s.connected)
   const { theme, toggleTheme } = useUi()
   const navigate = useNavigate()
+  const location = useLocation()
   const startTour = useTour((s) => s.start)
   const tourActive = useTour((s) => s.active)
   const [offer, setOffer] = useState(() => !tourOffered())
   const dismissOffer = () => { setOffer(false); store('tourOffered', true) }
 
+  const [compact, setCompact] = useState(null)
+  const [scrolled, setScrolled] = useState(false)
+  const [drawer, setDrawer] = useState(false)
+  const main = useRef(null)
+  const { dx, onPointerDown } = useDrawerDrag(drawer, setDrawer)
+
+  // Each page starts at the top, with the drawer put away.
+  useEffect(() => {
+    setDrawer(false)
+    main.current?.scrollTo({ top: 0 })
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!drawer) return
+    const key = (e) => e.key === 'Escape' && setDrawer(false)
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [drawer])
+
+  const initials = (user?.name ?? '?').replace(/^Juror\s+/i, '').slice(0, 2).toUpperCase()
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-surface xl:w-72">
-        <div className="px-5 pt-6 pb-4">
-          <p className="text-sm font-semibold tracking-wide text-accent uppercase">Deliberation Room</p>
-          {caseInfo && (
-            <p className="mt-1 leading-snug font-bold">
-              {caseInfo.caption}
-              <span className="block text-sm font-normal text-muted">{caseInfo.caseNumber}</span>
-            </p>
+    <TitleBarContext.Provider value={setCompact}>
+      <div className="flex h-dvh overflow-hidden">
+        {/* Scrim for the narrow-screen drawer. Dims to focus, fades with the drag. */}
+        <div
+          aria-hidden
+          onClick={() => setDrawer(false)}
+          className={cx('fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 md:hidden', drawer ? 'opacity-100' : 'pointer-events-none opacity-0')}
+          style={dx != null ? { opacity: Math.max(0, 1 + Math.min(0, dx) / 288), transition: 'none' } : undefined}
+        />
+
+        <aside
+          onPointerDown={onPointerDown}
+          className={cx(
+            'material-bar drawer motion-travel fixed inset-y-2 left-2 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden rounded-[1.375rem] shadow-[var(--shadow-float)]',
+            'transition-transform duration-[var(--duration-ui)] ease-[var(--ease-fluid)]',
+            'md:relative md:inset-auto md:my-2 md:ml-2 md:translate-x-0 md:shadow-card xl:w-[18rem]',
+            drawer ? 'translate-x-0' : '-translate-x-[calc(100%+5rem)]',
           )}
-        </div>
-
-        <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin" data-tour="sidebar">
-          <ul className="flex flex-col gap-0.5">
-            {nav.map((item) =>
-              item.section ? (
-                <li key={item.section} className="mt-5 mb-1 px-3 text-xs font-bold tracking-wider text-muted uppercase">
-                  {item.section}
-                </li>
-              ) : (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      cx(
-                        'pressable pressable-soft flex items-center gap-3 rounded-lg px-3 py-2.5 font-semibold',
-                        isActive ? 'bg-accent-soft text-accent' : 'text-ink/85 hover:bg-surface-2',
-                      )
-                    }
-                  >
-                    <Icon name={item.icon} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge ? (
-                      <span className="min-w-6 rounded-full bg-accent px-2 text-center text-sm tabular-nums text-accent-ink" aria-label={`${item.badge} new`}>
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </NavLink>
-                </li>
-              ),
-            )}
-          </ul>
-        </nav>
-
-        <div className="border-t border-line p-4">
-          <button
-            type="button"
-            data-tour="tour-button"
-            onClick={() => { setOffer(false); startTour(user?.role) }}
-            className="pressable pressable-soft mb-3 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-accent hover:bg-accent-soft"
-          >
-            <Icon name="compass" size={18} /> Guided tour
-          </button>
-          <div className="mb-3 flex items-center gap-2">
-            <span
-              className={cx('h-2.5 w-2.5 rounded-full transition-colors duration-500', connected ? 'bg-ok' : 'bg-warn')}
-              aria-hidden
-            />
-            <span className="text-sm text-muted">{connected ? 'Connected to court server' : 'Reconnecting…'}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
+          style={dx != null ? { transform: `translateX(${dx}px)`, transition: 'none' } : undefined}
+        >
+          <div className="flex items-center gap-3 px-4 pt-5 pb-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.7rem] bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_1px_3px_rgb(0_0_0/0.2)]">
+              <Icon name="scale" size={22} strokeWidth={1.8} />
+            </span>
             <div className="min-w-0">
-              <p className="truncate font-semibold">{user?.name}</p>
-              <p className="text-sm text-muted capitalize">{user?.role}</p>
+              <p className="text-xs font-semibold text-muted">Deliberation Room</p>
+              {caseInfo && <p className="truncate leading-tight font-semibold" title={caseInfo.caption}>{caseInfo.caption}</p>}
+              {caseInfo && <p className="text-xs text-muted tabular-nums">{caseInfo.caseNumber}</p>}
             </div>
-            <div className="flex">
-              <button
-                type="button"
+          </div>
+
+          <nav aria-label="Main" className="flex-1 overflow-y-auto px-2.5 pb-3 scrollbar-thin" data-tour="sidebar">
+            <ul className="flex flex-col gap-px">
+              {nav.map((item) =>
+                item.section ? (
+                  <li key={item.section} className="mt-4 mb-1 px-3 text-[0.8125rem] font-semibold text-muted">
+                    {item.section}
+                  </li>
+                ) : (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        cx(
+                          'pressable pressable-soft group flex items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem]',
+                          isActive ? 'bg-accent font-semibold text-accent-ink' : 'text-ink hover:bg-fill',
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <Icon name={item.icon} size={20} strokeWidth={2} className={isActive ? 'text-accent-ink' : 'text-accent'} />
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {item.badge ? (
+                            <span
+                              className={cx('min-w-6 rounded-full px-1.5 text-center text-sm font-semibold tabular-nums', isActive ? 'bg-white/25 text-accent-ink' : 'bg-accent text-accent-ink')}
+                              aria-label={`${item.badge} new`}
+                            >
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                ),
+              )}
+              <li className="mt-4">
+                <button
+                  type="button"
+                  data-tour="tour-button"
+                  onClick={() => { setOffer(false); setDrawer(false); startTour(user?.role) }}
+                  className="pressable pressable-soft flex w-full items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem] text-ink hover:bg-fill"
+                >
+                  <Icon name="compass" size={20} strokeWidth={2} className="text-accent" /> Guided tour
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <div className="mx-2.5 mb-2.5 rounded-[0.875rem] bg-fill/60 p-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#a1a1a6] to-[#7c7c80] text-sm font-semibold text-white" aria-hidden>
+                {initials}
+                {/* Presence dot: green while connected to the court server. */}
+                <span className={cx('absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-surface transition-colors duration-500', connected ? 'bg-ok' : 'bg-warn')} />
+              </span>
+              <div className="min-w-0 flex-1" title={connected ? 'Connected to court server' : 'Reconnecting to court server'}>
+                <p className="truncate leading-tight font-semibold">{user?.name}</p>
+                <p className={cx('truncate text-xs', connected ? 'text-muted capitalize' : 'font-semibold text-warn')}>
+                  {connected ? user?.role : 'Reconnecting…'}
+                  <span className="sr-only">{connected ? ', connected to court server' : ''}</span>
+                </p>
+              </div>
+              <IconButton
+                icon={theme === 'dark' ? 'sun' : 'moon'}
+                size={18}
+                label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 onClick={toggleTheme}
-                className="pressable rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-ink"
-                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              >
-                <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-              </button>
-              <button
-                type="button"
-                onClick={async () => { await logout(); navigate('/login') }}
-                className="pressable rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-ink"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <Icon name="logout" />
-              </button>
+              />
+              <IconButton icon="logout" size={18} label="Sign out" onClick={async () => { await logout(); navigate('/login') }} />
             </div>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto scrollbar-thin">
-        <div className={cx('mx-auto px-8 py-8 xl:px-10', wide ? 'max-w-none' : 'max-w-6xl')}>
-          <Outlet />
-        </div>
-      </main>
-
-      {offer && !tourActive && (
-        <div role="dialog" aria-label="Guided tour" className="material materialize fixed bottom-6 left-[17rem] z-40 w-80 origin-bottom-left rounded-2xl border border-line p-5 xl:left-[19rem]">
-          <p className="flex items-center gap-2 font-bold"><Icon name="compass" /> New here?</p>
-          <p className="mt-1 text-muted">Take a two-minute guided tour of everything on this screen. You can restart it later from the sidebar.</p>
-          <div className="mt-4 flex gap-2">
-            <Button variant="primary" size="sm" onClick={() => { setOffer(false); startTour(user?.role) }}>Start the tour</Button>
-            <Button variant="ghost" size="sm" onClick={dismissOffer}>No thanks</Button>
+        <main ref={main} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 2)} className="relative min-w-0 flex-1 overflow-y-auto scrollbar-thin">
+          {/* Title bar: invisible at rest, a translucent material once content scrolls under it. */}
+          <div className="sticky top-0 z-30 h-0">
+            <div className="relative flex h-13 items-center px-3 md:px-6">
+              <div
+                aria-hidden
+                className={cx(
+                  'material-bar pointer-events-none absolute inset-x-0 top-0 h-[calc(100%+0.75rem)] transition-opacity duration-300 [mask-image:linear-gradient(to_bottom,black_75%,transparent)]',
+                  scrolled ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+              <IconButton icon="sidebar" label="Show sidebar" className="relative text-accent md:hidden" onClick={() => setDrawer(true)} />
+              <p
+                aria-hidden
+                className={cx(
+                  'pointer-events-none absolute inset-x-16 truncate text-center font-semibold transition-[opacity,translate] duration-300 ease-[var(--ease-fluid)]',
+                  compact?.visible ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+                )}
+              >
+                {compact?.title}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+
+          <div className={cx('mx-auto px-5 pt-16 pb-10 md:px-8 md:pt-9 xl:px-10', wide ? 'max-w-none' : 'max-w-6xl')}>
+            <Outlet />
+          </div>
+        </main>
+
+        {offer && !tourActive && (
+          <div
+            role="dialog"
+            aria-label="Guided tour"
+            className="material materialize fixed right-4 bottom-4 left-4 z-40 origin-bottom-left rounded-3xl p-5 md:right-auto md:left-[19rem] md:w-80 xl:left-[20rem]"
+          >
+            <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-[0.75rem] bg-accent-soft text-accent"><Icon name="compass" size={24} /></span>
+            <p className="text-lg font-bold">New here?</p>
+            <p className="mt-1 text-muted">Take a two-minute guided tour of everything on this screen. You can restart it later from the sidebar.</p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="primary" size="sm" onClick={() => { setOffer(false); startTour(user?.role) }}>Start the tour</Button>
+              <Button variant="ghost" size="sm" onClick={dismissOffer}>Not now</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </TitleBarContext.Provider>
   )
 }

@@ -11,10 +11,10 @@ const THUMB_TEXT = { pdf: 'PDF document', map: 'Interactive map', chart: 'Intera
 
 export function ExhibitThumb({ exhibit, className = 'h-36' }) {
   if (exhibit.type === 'image') {
-    return <img src={exhibitFileUrl(exhibit.id)} alt="" loading="lazy" className={`${className} w-full rounded-t-xl object-cover`} />
+    return <img src={exhibitFileUrl(exhibit.id)} alt="" loading="lazy" className={`${className} w-full object-cover`} />
   }
   return (
-    <div className={`${className} flex w-full flex-col items-center justify-center gap-2 rounded-t-xl bg-surface-2 text-muted`}>
+    <div className={`${className} flex w-full flex-col items-center justify-center gap-2 bg-surface-2 text-muted`}>
       <Icon name={TYPE_ICON[exhibit.type]} size={40} strokeWidth={1.4} />
       <span className="text-sm">{exhibit.type === 'transcript' ? `${exhibit.lineCount} lines` : THUMB_TEXT[exhibit.type]}</span>
     </div>
@@ -25,7 +25,7 @@ function Highlight({ text, q }) {
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return text
   const re = new RegExp(`(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
-  return text.split(re).map((p, i) => (i % 2 ? <mark key={i} className="rounded bg-warn-soft px-0.5 text-ink">{p}</mark> : p))
+  return text.split(re).map((p, i) => (i % 2 ? <mark key={i} className="rounded-sm bg-[#ffd60a]/50 px-0.5 text-ink">{p}</mark> : p))
 }
 
 export default function ExhibitLocker() {
@@ -82,14 +82,14 @@ export default function ExhibitLocker() {
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-5" data-tour="locker-grid">
         {results?.map((e) => (
           <li key={e.id}>
-            <Link to={`/juror/evidence/${e.id}`} className="pressable pressable-soft flex h-full flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent hover:shadow-[0_6px_24px_-12px_rgb(0_0_0/0.25)]">
+            <Link to={`/juror/evidence/${e.id}`} className="pressable pressable-soft flex h-full flex-col overflow-hidden rounded-2xl bg-surface shadow-card hover:shadow-[var(--shadow-lift)]">
               <ExhibitThumb exhibit={e} />
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <Badge tone="accent">{e.number}</Badge>
                   <span className="text-sm text-muted">{PARTY_LABEL[e.party]}</span>
                 </div>
-                <h2 className="leading-snug font-bold"><Highlight text={e.title} q={q} /></h2>
+                <h2 className="text-[1.0625rem] leading-snug font-semibold"><Highlight text={e.title} q={q} /></h2>
                 <p className="text-sm text-muted">{TYPE_LABEL[e.type]} · Admitted {fmtCalendarDate(e.dateAdmitted)}</p>
                 {notes.some((n) => n.exhibitId === e.id) && (
                   <p className="flex items-center gap-1 text-sm text-accent"><Icon name="note" size={14} /> {notes.filter((n) => n.exhibitId === e.id).length} jury note{notes.filter((n) => n.exhibitId === e.id).length === 1 ? '' : 's'}</p>

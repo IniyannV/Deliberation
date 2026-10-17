@@ -23,8 +23,8 @@ export default function ExhibitPage() {
     <div className="flex h-[calc(100vh-4rem)] flex-col">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link to="/juror/evidence" className="rounded-lg p-2 text-muted hover:bg-surface-2" aria-label="Back to exhibit locker">
-            <Icon name="chevronLeft" />
+          <Link to="/juror/evidence" className="pressable -ml-2 flex items-center rounded-full py-1.5 pr-3 pl-1 font-medium text-accent hover:bg-fill" aria-label="Back to exhibit locker">
+            <Icon name="chevronLeft" size={24} strokeWidth={2.2} /> Locker
           </Link>
           <Badge tone="accent" className="text-base">{exhibit.number}</Badge>
           <h1 className="text-2xl font-bold">{exhibit.title}</h1>

@@ -28,7 +28,7 @@ function Popover({ x, y, children, onClose }) {
   return (
     <div
       ref={ref}
-      className="absolute z-20 w-72 rounded-xl border border-line bg-surface p-3 text-left shadow-xl"
+      className="material materialize absolute z-20 w-72 rounded-2xl p-3 text-left"
       style={{ left: `${x * 100}%`, top: `${y * 100}%`, transform: `translate(${x > 0.6 ? 'calc(-100% - 14px)' : '14px'}, ${y > 0.6 ? '-100%' : '0'})` }}
       onContextMenu={(e) => e.stopPropagation()}
     >
@@ -79,13 +79,13 @@ export default function ImageViewer({ exhibit, url, title }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
         <p className="flex items-center gap-2 text-sm text-muted"><Icon name="note" size={16} /> Right-click the image to pin a note for the jury</p>
         <div className="flex items-center gap-2">
           {notes.length > 0 && (
-            <label className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" checked={showNotes} onChange={(e) => setShowNotes(e.target.checked)} className="h-4 w-4 accent-[var(--color-accent)]" />
+            <label className="flex items-center gap-2 text-sm font-medium">
               Notes ({notes.length})
+              <input type="checkbox" role="switch" checked={showNotes} onChange={(e) => setShowNotes(e.target.checked)} className="switch scale-90" />
             </label>
           )}
           <Segmented label="Image size" value={mode} onChange={setMode} options={[{ value: 'fit', label: 'Fit' }, { value: 'full', label: 'Actual size' }]} />

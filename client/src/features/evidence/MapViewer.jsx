@@ -218,13 +218,13 @@ export default function MapViewer({ spec, onOpenExhibitNumber }) {
         </svg>
 
         {/* Controls */}
-        <div className="absolute top-3 left-3 flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
+        <div className="material absolute top-3 left-3 flex flex-col overflow-hidden rounded-xl">
           <IconButton icon="plus" label="Zoom in" onClick={() => zoomAt(1 / 1.4)} className="rounded-none" />
           <IconButton icon="minus" label="Zoom out" onClick={() => zoomAt(1.4)} className="rounded-none" />
           <IconButton icon="compass" label="Reset view" onClick={() => setView(full)} className="rounded-none" />
         </div>
         {spec.milesPerUnit && (
-          <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 shadow-sm">
+          <div className="material absolute bottom-3 left-3 flex items-center gap-3 rounded-full p-1.5 pr-4">
             <Button size="sm" variant={measuring ? 'primary' : 'secondary'} icon="ruler" onClick={() => { setMeasuring(!measuring); setMeasurePts([]) }} aria-pressed={measuring}>
               {measuring ? 'Measuring' : 'Measure distance'}
             </Button>
@@ -241,13 +241,13 @@ export default function MapViewer({ spec, onOpenExhibitNumber }) {
       {/* Side panel: layers, selection, places */}
       <aside className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-line bg-surface p-4 scrollbar-thin">
         <section>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold tracking-wide text-muted uppercase"><Icon name="layers" size={16} /> Layers</h3>
+          <h3 className="mb-2 flex items-center gap-2 text-[0.8125rem] font-semibold text-muted"><Icon name="layers" size={16} /> Layers</h3>
           <ul className="flex flex-col gap-1.5">
             {spec.layers.map((l) => (
               <li key={l.id}>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={!!layers[l.id]} onChange={(e) => setLayers({ ...layers, [l.id]: e.target.checked })} className="h-4 w-4 accent-[var(--color-accent)]" />
+                <label className="flex items-center justify-between gap-2">
                   {l.label}
+                  <input type="checkbox" checked={!!layers[l.id]} onChange={(e) => setLayers({ ...layers, [l.id]: e.target.checked })} role="switch" className="switch scale-90" />
                 </label>
               </li>
             ))}
@@ -255,7 +255,7 @@ export default function MapViewer({ spec, onOpenExhibitNumber }) {
         </section>
 
         {selected ? (
-          <section className="rounded-lg bg-accent-soft/50 p-3" aria-live="polite">
+          <section className="rounded-xl bg-accent-soft p-3" aria-live="polite">
             <h3 className="font-bold">{selected.label}</h3>
             {selected.time && <p className="text-sm font-semibold text-accent">{selected.time}</p>}
             {selected.detail && <p className="mt-1 text-sm">{selected.detail}</p>}
@@ -279,7 +279,7 @@ export default function MapViewer({ spec, onOpenExhibitNumber }) {
         )}
 
         <section>
-          <h3 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">Places</h3>
+          <h3 className="mb-2 text-[0.8125rem] font-semibold text-muted">Places</h3>
           <ul className="flex flex-col gap-0.5">
             {markers.map((m) => (
               <li key={m.id}>
@@ -289,9 +289,9 @@ export default function MapViewer({ spec, onOpenExhibitNumber }) {
                     setSelectedId(m.id)
                     if (m.layer) setLayers((l) => ({ ...l, [m.layer]: true }))
                   }}
-                  className={cx('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm', selectedId === m.id ? 'bg-accent-soft font-semibold' : 'hover:bg-surface-2')}
+                  className={cx('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm', selectedId === m.id ? 'bg-accent font-semibold text-accent-ink' : 'hover:bg-fill')}
                 >
-                  <Icon name={m.icon} size={16} className="shrink-0 text-muted" /> {m.label}
+                  <Icon name={m.icon} size={16} className={cx('shrink-0', selectedId === m.id ? 'text-accent-ink' : 'text-accent')} /> {m.label}
                 </button>
               </li>
             ))}

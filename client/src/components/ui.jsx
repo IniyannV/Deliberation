@@ -1,15 +1,18 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from './icons'
 import { useUi } from '../store/ui'
+import { useCompactTitle } from './titleBar'
 
 const cx = (...c) => c.filter(Boolean).join(' ')
 export { cx }
 
+// iOS button styles: filled, gray (tinted fill with accent label), plain, destructive.
+// Disabled buttons go gray, the way UIKit draws them, rather than a faded tint.
 const BUTTON = {
-  primary: 'bg-accent text-accent-ink hover:bg-accent-strong border-transparent',
-  secondary: 'bg-surface text-ink border-line hover:bg-surface-2',
-  ghost: 'bg-transparent text-ink border-transparent hover:bg-surface-2',
-  danger: 'bg-surface text-danger border-danger/40 hover:bg-danger-soft',
+  primary: 'bg-accent text-accent-ink hover:bg-accent-strong disabled:bg-fill disabled:text-muted',
+  secondary: 'bg-fill text-accent hover:bg-fill-strong disabled:bg-fill disabled:text-muted',
+  ghost: 'bg-transparent text-accent hover:bg-fill disabled:bg-transparent disabled:text-muted',
+  danger: 'bg-danger-soft text-danger hover:bg-danger/20 disabled:bg-fill disabled:text-muted',
 }
 
 export function Button({ variant = 'secondary', size = 'md', icon, className, children, ...props }) {
@@ -17,14 +20,14 @@ export function Button({ variant = 'secondary', size = 'md', icon, className, ch
     <button
       type="button"
       className={cx(
-        'pressable inline-flex items-center justify-center gap-2 rounded-lg border font-semibold disabled:opacity-50',
-        size === 'sm' ? 'px-3 py-1.5 text-sm' : size === 'lg' ? 'px-6 py-3 text-lg' : 'px-4 py-2',
+        'pressable inline-flex items-center justify-center gap-1.5 rounded-full font-semibold whitespace-nowrap disabled:opacity-70',
+        size === 'sm' ? 'min-h-8 px-3.5 py-1 text-sm' : size === 'lg' ? 'min-h-12 px-7 py-2.5 text-[1.0625rem]' : 'min-h-10 px-5 py-1.5',
         BUTTON[variant],
         className,
       )}
       {...props}
     >
-      {icon && <Icon name={icon} size={size === 'sm' ? 16 : 20} />}
+      {icon && <Icon name={icon} size={size === 'sm' ? 16 : 19} strokeWidth={2} />}
       {children}
     </button>
   )
@@ -36,7 +39,7 @@ export function IconButton({ icon, label, className, size = 20, ...props }) {
       type="button"
       aria-label={label}
       title={label}
-      className={cx('pressable inline-flex items-center justify-center rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40', className)}
+      className={cx('pressable inline-flex items-center justify-center rounded-full p-2 text-muted hover:bg-fill hover:text-ink disabled:opacity-40', className)}
       {...props}
     >
       <Icon name={icon} size={size} />
@@ -44,16 +47,17 @@ export function IconButton({ icon, label, className, size = 20, ...props }) {
   )
 }
 
+/** A white rounded "inset grouped" card on the gray page background. */
 export function Card({ className, children, ...props }) {
   return (
-    <div className={cx('rounded-xl border border-line bg-surface', className)} {...props}>
+    <div className={cx('rounded-2xl border border-transparent bg-surface shadow-card', className)} {...props}>
       {children}
     </div>
   )
 }
 
 const BADGE = {
-  neutral: 'bg-surface-2 text-muted',
+  neutral: 'bg-fill text-muted',
   accent: 'bg-accent-soft text-accent',
   warn: 'bg-warn-soft text-warn',
   danger: 'bg-danger-soft text-danger',
@@ -61,15 +65,18 @@ const BADGE = {
 }
 
 export function Badge({ tone = 'neutral', className, children }) {
-  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold whitespace-nowrap', BADGE[tone], className)}>{children}</span>
+  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.8125rem] font-semibold whitespace-nowrap tabular-nums', BADGE[tone], className)}>{children}</span>
 }
 
+/** Large title. Hands off to the compact title bar when scrolled away. */
 export function PageHeader({ title, subtitle, actions }) {
+  const titleRef = useRef(null)
+  useCompactTitle(title, titleRef)
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-bold">{title}</h1>
-        {subtitle && <p className="mt-1 max-w-3xl text-muted">{subtitle}</p>}
+        <h1 ref={titleRef} className="text-[2.125rem] font-bold">{title}</h1>
+        {subtitle && <p className="mt-1.5 max-w-3xl text-[1.0625rem] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -80,17 +87,18 @@ export function Field({ label, hint, children, className }) {
   const id = useId()
   return (
     <div className={cx('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="font-semibold">{label}</label>
+      <label htmlFor={id} className="px-1 text-sm font-semibold text-muted">{label}</label>
       {typeof children === 'function' ? children(id) : children}
-      {hint && <p className="text-sm text-muted">{hint}</p>}
+      {hint && <p className="px-1 text-sm text-muted">{hint}</p>}
     </div>
   )
 }
 
-const INPUT = 'w-full rounded-lg border border-line bg-surface px-3 py-2 text-ink transition-[border-color,box-shadow] duration-150 placeholder:text-muted/70 focus:border-accent focus:shadow-[0_0_0_4px_var(--color-accent-soft)] focus:outline-none'
+// Filled fields, as in iOS forms and search bars: no border until focused.
+const INPUT = 'w-full rounded-lg border border-transparent bg-fill px-3.5 py-2 text-ink transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:bg-surface focus:shadow-[0_0_0_4px_var(--color-accent-soft)] focus:outline-none'
 export const Input = ({ className, ...p }) => <input className={cx(INPUT, className)} {...p} />
 export const Textarea = ({ className, ...p }) => <textarea className={cx(INPUT, 'min-h-28', className)} {...p} />
-export const Select = ({ className, children, ...p }) => <select className={cx(INPUT, 'pr-8', className)} {...p}>{children}</select>
+export const Select = ({ className, children, ...p }) => <select className={cx(INPUT, 'select-apple pr-9', className)} {...p}>{children}</select>
 
 /**
  * The selected option is marked by a thumb that slides between options,
@@ -119,11 +127,11 @@ export function Segmented({ value, onChange, options, label, className }) {
   }, [thumb, ready])
 
   return (
-    <div ref={group} role="radiogroup" aria-label={label} className={cx('relative inline-flex rounded-lg border border-line bg-surface-2 p-1', className)}>
+    <div ref={group} role="radiogroup" aria-label={label} className={cx('relative inline-flex max-w-full overflow-x-auto rounded-[0.6rem] bg-fill p-0.5 [scrollbar-width:none]', className)}>
       {thumb && (
         <span
           aria-hidden
-          className={cx('motion-travel absolute top-1 bottom-1 left-0 rounded-md bg-surface shadow-sm ring-1 ring-black/5 dark:ring-white/5', ready && 'transition-[transform,width] duration-[var(--duration-ui)] ease-[var(--ease-fluid)]')}
+          className={cx('motion-travel absolute top-0.5 bottom-0.5 left-0 rounded-[0.5rem] bg-surface shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)] dark:bg-[#636366]', ready && 'transition-[transform,width] duration-[var(--duration-ui)] ease-[var(--ease-fluid)]')}
           style={{ width: thumb.w, transform: `translateX(${thumb.x}px)` }}
         />
       )}
@@ -134,7 +142,7 @@ export function Segmented({ value, onChange, options, label, className }) {
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('pressable pressable-soft relative rounded-md px-3 py-1.5 text-sm font-semibold', value === o.value ? 'text-ink' : 'text-muted hover:text-ink', !thumb && value === o.value && 'bg-surface shadow-sm')}
+          className={cx('pressable pressable-soft relative shrink-0 rounded-[0.5rem] px-3.5 py-1 text-sm', value === o.value ? 'font-semibold text-ink' : 'font-medium text-ink/80 hover:text-ink', !thumb && value === o.value && 'bg-surface shadow-sm')}
         >
           {o.label}
         </button>
@@ -170,61 +178,79 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
       onClose={onClose}
       onCancel={(e) => { e.preventDefault(); onClose() }}
       className={cx(
-        'sheet m-auto w-full rounded-2xl border border-line bg-surface p-0 text-ink shadow-[0_24px_64px_-12px_rgb(0_0_0/0.35)]',
+        'sheet m-auto w-[calc(100%-2rem)] rounded-3xl bg-elevated p-0 text-ink shadow-[var(--shadow-float)]',
         wide ? 'max-w-3xl' : 'max-w-lg',
         !open && 'pointer-events-none',
       )}
     >
       {shown && (
         <div className="flex max-h-[85vh] flex-col">
-          <div className="flex items-center justify-between border-b border-line px-6 py-4">
-            <h2 className="text-xl font-bold">{shown.title}</h2>
-            <IconButton icon="x" label="Close" onClick={onClose} />
+          <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-2">
+            <h2 className="text-[1.375rem] font-bold">{shown.title}</h2>
+            <IconButton icon="x" label="Close" size={16} className="bg-fill p-1.5 text-muted" onClick={onClose} />
           </div>
-          <div className="overflow-y-auto px-6 py-5 scrollbar-thin">{shown.children}</div>
-          {shown.footer && <div className="flex justify-end gap-2 border-t border-line px-6 py-4">{shown.footer}</div>}
+          <div className="overflow-y-auto px-6 py-3 scrollbar-thin">{shown.children}</div>
+          {shown.footer && <div className="flex justify-end gap-2 px-6 pt-3 pb-5">{shown.footer}</div>}
         </div>
       )}
     </dialog>
   )
 }
 
+/** Like ContentUnavailableView: a large quiet symbol, a title, a hint. */
 export function EmptyState({ icon = 'folder', title, children }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line px-6 py-14 text-center">
-      <Icon name={icon} size={36} className="mb-3 text-muted" />
-      <p className="text-lg font-semibold">{title}</p>
-      {children && <div className="mt-1 max-w-md text-muted">{children}</div>}
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <Icon name={icon} size={52} strokeWidth={1.4} className="mb-4 text-muted/70" />
+      <p className="text-[1.375rem] font-bold tracking-tight">{title}</p>
+      {children && <div className="mt-1.5 max-w-md text-muted">{children}</div>}
     </div>
   )
 }
 
 export function ErrorText({ children }) {
   if (!children) return null
-  return <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-danger">{children}</p>
+  return (
+    <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-danger">
+      <Icon name="alert" size={20} className="mt-0.5 shrink-0" /> {children}
+    </p>
+  )
 }
 
+const TOAST_ICON = { error: ['alert', 'text-danger'], warn: ['alert', 'text-warn'], info: ['info', 'text-accent'] }
+
+/** Notification-style banners that rise from the corner they live in. */
 export function Toaster() {
   const { toasts, dismiss } = useUi()
   return (
-    <div aria-live="polite" className="pointer-events-none fixed right-6 bottom-6 z-50 flex w-96 max-w-[90vw] flex-col gap-2">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={cx(
-            'pointer-events-auto flex origin-bottom-right items-start gap-3 rounded-xl border px-4 py-3',
-            t.leaving ? 'toast-out' : 'toast-in',
-            t.tone === 'error' ? 'border-danger/40 bg-danger-soft text-danger shadow-lg' : t.tone === 'warn' ? 'border-warn/40 bg-warn-soft text-warn shadow-lg' : 'material border-line text-ink',
-          )}
-        >
-          <p className="flex-1">{t.message}</p>
-          <IconButton icon="x" label="Dismiss" size={16} className="-m-1" onClick={() => dismiss(t.id)} />
-        </div>
-      ))}
+    <div aria-live="polite" className="pointer-events-none fixed right-5 bottom-5 z-50 flex w-96 max-w-[calc(100vw-2.5rem)] flex-col gap-2.5">
+      {toasts.map((t) => {
+        const [icon, color] = TOAST_ICON[t.tone] ?? TOAST_ICON.info
+        return (
+          <div
+            key={t.id}
+            className={cx('material pointer-events-auto flex origin-bottom-right items-start gap-3 rounded-2xl py-3 pr-2.5 pl-4 text-ink', t.leaving ? 'toast-out' : 'toast-in')}
+          >
+            <Icon name={icon} size={22} className={cx('mt-0.5 shrink-0', color)} />
+            <p className="flex-1 font-medium">{t.message}</p>
+            <IconButton icon="x" label="Dismiss" size={14} className="mt-0.5 bg-fill p-1" onClick={() => dismiss(t.id)} />
+          </div>
+        )
+      })}
     </div>
   )
 }
 
+/** A quiet activity indicator, like UIActivityIndicatorView. */
 export function Spinner({ label = 'Loading…' }) {
-  return <p className="py-10 text-center text-muted" role="status">{label}</p>
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 text-muted" role="status">
+      <svg viewBox="0 0 24 24" className="spinner h-6 w-6" aria-hidden>
+        {Array.from({ length: 8 }, (_, i) => (
+          <rect key={i} x="11" y="2" width="2" height="6" rx="1" fill="currentColor" opacity={0.25 + (i / 8) * 0.75} transform={`rotate(${i * 45} 12 12)`} />
+        ))}
+      </svg>
+      <span className="text-sm">{label}</span>
+    </div>
+  )
 }

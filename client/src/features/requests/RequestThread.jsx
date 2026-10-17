@@ -41,7 +41,7 @@ export default function RequestThread({ request, viewer }) {
             const mine = m.from === viewer
             return (
               <li key={m.id} className={cx('flex flex-col', mine ? 'items-end' : 'items-start')}>
-                <span className={cx('max-w-[85%] rounded-2xl px-3 py-2 whitespace-pre-wrap', mine ? 'rounded-br-sm bg-accent text-accent-ink' : 'rounded-bl-sm bg-surface-2')}>{m.text}</span>
+                <span className={cx('max-w-[85%] rounded-2xl px-3 py-2 whitespace-pre-wrap', mine ? 'rounded-br-md bg-accent text-accent-ink' : 'rounded-bl-md bg-fill')}>{m.text}</span>
                 <span className="mt-0.5 text-xs text-muted">{mine ? 'You' : m.from === 'bailiff' ? 'Bailiff' : `Juror ${request.seat}`} · {fmtTime(m.at)}</span>
               </li>
             )
@@ -56,10 +56,10 @@ export default function RequestThread({ request, viewer }) {
           onChange={(e) => setText(e.target.value)}
           maxLength={500}
           placeholder={`Message ${other}…`}
-          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-base focus:border-accent focus:outline-none"
+          className="min-w-0 flex-1 rounded-full border border-transparent bg-fill px-4 py-1.5 text-base placeholder:text-muted focus:border-accent focus:bg-surface focus:outline-none"
         />
-        <button type="submit" disabled={busy || !text.trim()} className="rounded-lg bg-accent px-3 text-accent-ink disabled:opacity-40" aria-label="Send message">
-          <Icon name="send" size={18} />
+        <button type="submit" disabled={busy || !text.trim()} className="pressable flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full bg-accent text-accent-ink disabled:bg-fill-strong disabled:text-muted" aria-label="Send message">
+          <Icon name="arrowUp" size={18} strokeWidth={2.6} />
         </button>
       </form>
     </div>

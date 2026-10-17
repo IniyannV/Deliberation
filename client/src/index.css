@@ -2,63 +2,54 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Self-hosted fonts: nothing is fetched from the internet. */
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("./assets/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url("./assets/fonts/atkinson-hyperlegible-latin-400-italic.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("./assets/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Atkinson Hyperlegible";
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-  src: url("./assets/fonts/atkinson-hyperlegible-latin-700-italic.woff2") format("woff2");
-}
-
-/* Calm, low-contrast-glare palette. Utilities read these variables, so
-   overriding them under .dark switches the whole app. */
+/* Apple system palette. Utilities read these variables, so overriding
+   them under .dark switches the whole app. Text colours use Apple's
+   accessible variants so small text keeps WCAG AA contrast. */
 @theme {
-  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  /* The platform's own UI face: SF Pro on Apple devices (with its optical
+     sizes and tracking tables), Segoe UI / Roboto elsewhere. Nothing is
+     downloaded. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --color-bg: #f4f3ef;
-  --color-surface: #fbfaf7;
-  --color-surface-2: #ecebe5;
-  --color-line: #d9d6cc;
-  --color-ink: #26292c;
-  --color-muted: #5f656b;
-  --color-accent: #3f6b64;
-  --color-accent-strong: #345a54;
-  --color-accent-ink: #ffffff;
-  --color-accent-soft: #dfe9e6;
-  --color-warn: #8a5f26;
-  --color-warn-soft: #f3e9d6;
-  --color-danger: #974545;
-  --color-danger-soft: #f2e1df;
-  --color-ok: #4b6f45;
-  --color-ok-soft: #e2ecdf;
+  /* Continuous-corner-ish radii, a step rounder than web defaults. */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
 
-  /* Timeline event types */
-  --color-testimony: #56708f;
-  --color-physical: #9c6548;
-  --color-document: #6c7a3c;
+  /* Grouped backgrounds: content sits on white cards over a soft gray. */
+  --color-bg: #f2f2f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #ececf1;
+  --color-elevated: #ffffff;
+  --color-sidebar: rgb(246 246 248 / 0.78);
+  --color-fill: rgb(118 118 128 / 0.12);
+  --color-fill-strong: rgb(118 118 128 / 0.2);
+  --color-line: rgb(60 60 67 / 0.16);
+  --color-ink: #1d1d1f;
+  --color-muted: #6e6e73;
+  --color-accent: #0071e3;
+  --color-accent-strong: #0062c4;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgb(0 113 227 / 0.1);
+  --color-warn: #b25000;
+  --color-warn-soft: rgb(255 149 0 / 0.14);
+  --color-danger: #d70015;
+  --color-danger-soft: rgb(255 59 48 / 0.11);
+  --color-ok: #248a3d;
+  --color-ok-soft: rgb(52 199 89 / 0.14);
+
+  --shadow-card: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04);
+  --shadow-lift: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px -12px rgb(0 0 0 / 0.16);
+  --shadow-float: 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.1), 0 32px 64px -16px rgb(0 0 0 / 0.24);
+
+  /* Timeline event types: system indigo, orange and green. */
+  --color-testimony: #5856d6;
+  --color-physical: #c93400;
+  --color-document: #248a3d;
 
   /* Chart series: first three slots of the validated reference palette
      (CVD-safe for all pairs in both modes). Max three series per chart. */
@@ -66,49 +57,57 @@
   --color-viz-2: #eb6834;
   --color-viz-3: #1baf7a;
 
-  /* Interactive map surfaces */
-  --color-map-land: #f1efe8;
-  --color-map-block: #e3e0d6;
-  --color-map-park: #d7e4cf;
-  --color-map-water: #cddfee;
-  --color-map-industrial: #e6dfd5;
+  /* Interactive map surfaces, in the spirit of Apple Maps. */
+  --color-map-land: #f5f3ee;
+  --color-map-block: #e9e6df;
+  --color-map-park: #d4ecc8;
+  --color-map-water: #b5d9f5;
+  --color-map-industrial: #ebe4dc;
   --color-map-road: #ffffff;
-  --color-map-road-edge: #cfcabd;
+  --color-map-road-edge: #d6d2c8;
 }
 
 .dark {
-  --color-bg: #161819;
-  --color-surface: #1e2123;
-  --color-surface-2: #272b2e;
-  --color-line: #373c40;
-  --color-ink: #e2e0da;
-  --color-muted: #a0a6ab;
-  --color-accent: #86b0a8;
-  --color-accent-strong: #9cc2ba;
-  --color-accent-ink: #12201d;
-  --color-accent-soft: #24332f;
-  --color-warn: #d6b07a;
-  --color-warn-soft: #3a3020;
-  --color-danger: #d99a92;
-  --color-danger-soft: #3d2826;
-  --color-ok: #a3c79a;
-  --color-ok-soft: #26331f;
+  --color-bg: #000000;
+  --color-surface: #1c1c1e;
+  --color-surface-2: #2c2c2e;
+  --color-elevated: #2c2c2e;
+  --color-sidebar: rgb(30 30 32 / 0.8);
+  --color-fill: rgb(118 118 128 / 0.24);
+  --color-fill-strong: rgb(118 118 128 / 0.36);
+  --color-line: rgb(84 84 88 / 0.6);
+  --color-ink: #f5f5f7;
+  --color-muted: #a1a1a6;
+  --color-accent: #0a84ff;
+  --color-accent-strong: #409cff;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgb(10 132 255 / 0.18);
+  --color-warn: #ffb340;
+  --color-warn-soft: rgb(255 159 10 / 0.18);
+  --color-danger: #ff6961;
+  --color-danger-soft: rgb(255 69 58 / 0.18);
+  --color-ok: #30d158;
+  --color-ok-soft: rgb(48 209 88 / 0.16);
 
-  --color-testimony: #8ea6c4;
-  --color-physical: #cf9878;
-  --color-document: #aab875;
+  --shadow-card: 0 0 0 0.5px rgb(255 255 255 / 0.06);
+  --shadow-lift: 0 0 0 0.5px rgb(255 255 255 / 0.08), 0 16px 40px -12px rgb(0 0 0 / 0.7);
+  --shadow-float: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 32px 64px -16px rgb(0 0 0 / 0.8);
+
+  --color-testimony: #7d7aff;
+  --color-physical: #ff9f0a;
+  --color-document: #30d158;
 
   --color-viz-1: #3987e5;
   --color-viz-2: #d95926;
   --color-viz-3: #199e70;
 
-  --color-map-land: #1f2325;
-  --color-map-block: #2a2f32;
-  --color-map-park: #263326;
-  --color-map-water: #1d2c3a;
-  --color-map-industrial: #2e2b27;
-  --color-map-road: #3d4347;
-  --color-map-road-edge: #2a2f32;
+  --color-map-land: #1e2022;
+  --color-map-block: #2a2d30;
+  --color-map-park: #1f3324;
+  --color-map-water: #142a3d;
+  --color-map-industrial: #2c2a27;
+  --color-map-road: #45484c;
+  --color-map-road-edge: #2a2d30;
 }
 
 @theme {
@@ -123,39 +122,58 @@
 
 @layer base {
   html {
-    font-size: 112.5%; /* 18px base: large, readable type */
+    font-size: 106.25%; /* 17px: the iOS body size */
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    font-optical-sizing: auto;
   }
   body {
-    @apply bg-bg text-ink font-sans leading-relaxed;
+    @apply bg-bg text-ink font-sans;
+    line-height: 1.47; /* Apple's body leading */
+    letter-spacing: -0.01em; /* SF Text at 17px tracks slightly tight */
   }
   /* Tracking and leading change with size: large type is set tighter,
      body copy stays open. */
-  h1 {
-    letter-spacing: -0.022em;
-    line-height: 1.15;
+  h1, h2 {
+    font-family: var(--font-display);
     text-wrap: balance;
+  }
+  h1 {
+    letter-spacing: -0.025em;
+    line-height: 1.1;
   }
   h2 {
-    letter-spacing: -0.012em;
-    line-height: 1.25;
-    text-wrap: balance;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
   }
   h3 {
-    letter-spacing: -0.006em;
+    letter-spacing: -0.012em;
     line-height: 1.3;
+  }
+  /* Small text tracks open, like SF's caption sizes. */
+  .text-xs, .text-sm {
+    letter-spacing: -0.003em;
+  }
+  .text-xs {
+    letter-spacing: 0.005em;
+  }
+  input, select, textarea, button {
+    letter-spacing: inherit;
   }
   p {
     text-wrap: pretty;
   }
+  /* macOS-style focus ring: a soft accent halo hugging the control. */
   :focus-visible {
-    outline: 3px solid var(--color-accent);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 3.5px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+    outline-offset: 1px;
   }
   ::selection {
-    background: var(--color-accent-soft);
+    background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  }
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: var(--color-accent);
   }
   button {
     cursor: pointer;
@@ -183,23 +201,88 @@
   --press-scale: 0.985;
 }
 
-/* Translucent floating layers. Content keeps reading through them while
-   they stay clearly in front. */
+/* Translucent floating layers (Apple's "regular" material). Content keeps
+   reading through them while they stay clearly in front. */
 .material {
-  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-  backdrop-filter: blur(24px) saturate(170%);
-  -webkit-backdrop-filter: blur(24px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.35),
-    0 1px 2px rgb(0 0 0 / 0.06),
-    0 12px 40px -8px rgb(0 0 0 / 0.22);
+  background: color-mix(in srgb, var(--color-elevated) 76%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.5), var(--shadow-float);
 }
 .dark .material {
-  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.06),
-    0 1px 2px rgb(0 0 0 / 0.3),
-    0 16px 48px -8px rgb(0 0 0 / 0.6);
+  background: color-mix(in srgb, var(--color-elevated) 72%, transparent);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.08), var(--shadow-float);
+}
+/* Bars (sidebar, title bar) use a heavier, quieter material with no shadow. */
+.material-bar {
+  background: var(--color-sidebar);
+  backdrop-filter: blur(40px) saturate(190%);
+}
+
+/* On a phone the sidebar floats over busy content as a drawer, so it
+   needs a thicker material to stay legible. */
+@media (max-width: 47.99rem) {
+  .drawer.material-bar {
+    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  }
+}
+
+/* iOS switch for on/off settings. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 2.65rem !important;
+  height: 1.6rem !important;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--color-fill-strong);
+  cursor: pointer;
+  transition: background-color 220ms var(--ease-fluid);
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.6rem - 4px);
+  height: calc(1.6rem - 4px);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 3px 8px rgb(0 0 0 / 0.15), 0 3px 1px rgb(0 0 0 / 0.06);
+  transition: translate var(--duration-ui) var(--ease-spring), width 160ms var(--ease-fluid);
+}
+.switch:checked {
+  background: var(--color-ok);
+}
+.dark .switch:checked {
+  background: #30d158;
+}
+.switch:checked::before {
+  translate: calc(2.65rem - 1.6rem) 0;
+}
+/* The knob stretches toward where it's going while pressed. */
+.switch:active::before {
+  width: calc(1.6rem + 2px);
+}
+.switch:checked:active::before {
+  translate: calc(2.65rem - 1.6rem - 6px) 0;
+}
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Inset-grouped tables: hairline row separators, no grid. */
+.apple-table th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  letter-spacing: 0;
+}
+.apple-table tbody tr + tr td,
+.apple-table tbody tr td {
+  border-color: var(--color-line);
 }
 
 /* Floating surfaces materialize: scale, blur and opacity arrive together,
@@ -301,6 +384,9 @@ dialog.sheet[open]::backdrop {
   :root {
     --press-scale: 1;
   }
+  .switch::before {
+    transition: none;
+  }
   *, *::before, *::after {
     scroll-behavior: auto !important;
   }
@@ -330,11 +416,14 @@ dialog.sheet[open]::backdrop {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .material-bar {
+    background: var(--color-surface);
+    backdrop-filter: none;
+  }
   .material,
   .dark .material {
     background: var(--color-surface);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
   dialog.sheet[open]::backdrop {
     backdrop-filter: none;
@@ -343,11 +432,22 @@ dialog.sheet[open]::backdrop {
 }
 
 @media (prefers-contrast: more) {
+  :root {
+    --color-line: rgb(60 60 67 / 0.45);
+    --color-muted: #48484d;
+  }
+  .dark {
+    --color-line: rgb(235 235 245 / 0.4);
+    --color-muted: #c7c7cc;
+  }
+  .material-bar {
+    background: var(--color-surface);
+    backdrop-filter: none;
+  }
   .material,
   .dark .material {
     background: var(--color-surface);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     outline: 2px solid var(--color-ink);
   }
 }
@@ -360,5 +460,46 @@ dialog.sheet[open]::backdrop {
 /* react-pdf text layer sits on top of the canvas; keep selection subtle. */
 .react-pdf__Page {
   margin: 0 auto 1rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+}
+
+/* Popup buttons get an SF-style chevron instead of the native arrow. */
+.select-apple {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238e8e93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 6.5l3-3 3 3M5 9.5l3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1rem;
+}
+
+/* Activity indicator: steps round in eighths like the system spinner. */
+@keyframes spinner {
+  to { rotate: 360deg; }
+}
+.spinner {
+  animation: spinner 0.9s steps(8) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* Wrong PIN: the field group shakes side to side, like the macOS login. */
+@keyframes shake {
+  10%, 90% { translate: -2px 0; }
+  20%, 80% { translate: 4px 0; }
+  30%, 50%, 70% { translate: -8px 0; }
+  40%, 60% { translate: 8px 0; }
+}
+.shake {
+  animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shake {
+    animation: none;
+  }
 }

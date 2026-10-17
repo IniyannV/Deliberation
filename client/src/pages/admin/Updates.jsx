@@ -56,7 +56,7 @@ export default function Updates() {
             <Field label="Message" hint={`${body.length} / ${MAX}. Plain text only; links and formatting are not shown.`}>
               {(id) => <Textarea id={id} value={body} onChange={(e) => setBody(e.target.value.slice(0, MAX))} required className="min-h-44" />}
             </Field>
-            <label className="flex items-start gap-3 rounded-lg bg-warn-soft px-4 py-3 text-warn">
+            <label className="flex items-start gap-3 rounded-xl bg-warn-soft px-4 py-3 text-warn">
               <input type="checkbox" checked={vetted} onChange={(e) => setVetted(e.target.checked)} className="mt-1 h-4 w-4" />
               I have reviewed this message. It contains no information about the case, the trial, or media coverage.
             </label>

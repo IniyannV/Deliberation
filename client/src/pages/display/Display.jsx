@@ -3,6 +3,7 @@ import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { useUi } from '../../store/ui'
 import { Icon } from '../../components/icons'
+import { Card } from '../../components/ui'
 import Timeline from '../../features/timeline/Timeline'
 import ResultsBars, { VoteProgress } from '../../features/voting/ResultsBars'
 
@@ -24,8 +25,8 @@ function VotesView({ votes, counts, voteId }) {
   const title = vote.kind === 'ballot' ? counts.find((c) => c.id === vote.countId)?.label ?? vote.question : vote.question
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <p className="mb-2 text-2xl font-semibold text-muted">{vote.kind === 'ballot' ? 'Secret ballot' : 'Poll'}</p>
-      <h2 className="mb-12 text-5xl leading-tight font-bold">{title}</h2>
+      <p className="mb-3 text-2xl font-semibold text-accent">{vote.kind === 'ballot' ? 'Secret ballot' : 'Poll'}</p>
+      <h2 className="mb-12 text-6xl leading-[1.05] font-bold tracking-tight">{title}</h2>
       {vote.status === 'open' && vote.kind === 'ballot' ? (
         // No running count for secret ballots (the server doesn't send one to the display).
         <p className="text-3xl text-muted">Voting is in progress. The result will appear here once every juror has voted.</p>
@@ -45,9 +46,12 @@ function VotesView({ votes, counts, voteId }) {
 
 function IdleView({ caseInfo }) {
   return (
-    <div className="text-center">
+    <div className="flex flex-col items-center text-center">
+      <span className="mb-8 flex h-28 w-28 items-center justify-center rounded-[1.75rem] bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.4),0_16px_48px_-12px_rgb(0_113_227/0.55)]">
+        <Icon name="scale" size={60} strokeWidth={1.5} />
+      </span>
       <p className="text-2xl font-semibold text-muted">{caseInfo?.caption}</p>
-      <p className="mt-4 text-5xl font-bold">Jury deliberation in progress</p>
+      <h1 className="mt-3 text-7xl font-bold tracking-tight">Jury deliberation in progress</h1>
     </div>
   )
 }
@@ -60,18 +64,18 @@ export default function Display() {
 
   return (
     <div className="flex h-screen flex-col bg-bg">
-      <header className="group flex items-center justify-between border-b border-line px-10 py-5 text-xl">
+      <header className="group flex items-center justify-between px-10 py-6 text-xl">
         <div>
-          <span className="font-bold">{caseInfo?.caption}</span>
+          <span className="font-semibold">{caseInfo?.caption}</span>
           <span className="ml-4 text-muted">Jury deliberation room</span>
         </div>
         <div className="flex items-center gap-6 text-muted">
           {!connected && <span className="text-warn">Reconnecting…</span>}
-          <Clock />
-          <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-            <button type="button" className="rounded-lg p-2 hover:bg-surface-2" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="Full screen"><Icon name="maximize" /></button>
-            <button type="button" className="rounded-lg p-2 hover:bg-surface-2" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
-            <button type="button" className="rounded-lg p-2 hover:bg-surface-2" onClick={logout} aria-label="Sign out"><Icon name="logout" /></button>
+          <span className="text-2xl font-semibold text-ink"><Clock /></span>
+          <div className="material flex gap-1 rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="Full screen"><Icon name="maximize" /></button>
+            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
+            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={logout} aria-label="Sign out"><Icon name="logout" /></button>
           </div>
         </div>
       </header>
@@ -79,7 +83,7 @@ export default function Display() {
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-8 scrollbar-thin">
         {display.view === 'timeline' && (
           timeline.length
-            ? <div><h1 className="mb-4 text-3xl font-bold">Timeline</h1><Timeline events={timeline} zoom="fit" /></div>
+            ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><Timeline events={timeline} zoom="fit" /></Card></div>
             : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
         )}
         {display.view === 'votes' && <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>}

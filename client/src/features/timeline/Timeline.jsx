@@ -163,11 +163,11 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
               onContextMenu={(e) => cardMenu(e, ev)}
               onKeyDown={(e) => keyDown(e, ev)}
               className={cx(
-                'absolute flex touch-none overflow-hidden rounded-lg border bg-surface text-left shadow-sm transition-[box-shadow,scale,border-color] duration-200 ease-[var(--ease-fluid)]',
+                'absolute flex touch-none overflow-hidden rounded-xl border bg-surface text-left shadow-card transition-[box-shadow,scale,border-color] duration-200 ease-[var(--ease-fluid)]',
                 onMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-                selectedId === ev.id ? 'border-accent ring-2 ring-accent/40' : 'border-line hover:border-muted',
+                selectedId === ev.id ? 'border-accent ring-2 ring-accent/40' : 'border-transparent hover:shadow-[var(--shadow-lift)]',
                 // A dragged card lifts off the board: slightly larger, deeper shadow.
-                dragging && 'z-20 scale-[1.03] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)] ring-2 ring-accent/50',
+                dragging && 'z-20 scale-[1.03] shadow-[var(--shadow-float)] ring-2 ring-accent/50',
               )}
               style={{ left: dragging ? dragX : axis.xById.get(ev.id), top: lane.y + LANE_PAD, width: CARD_W, height: CARD_H }}
             >
