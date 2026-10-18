@@ -8,6 +8,15 @@ const SERVER = `http://localhost:${process.env.SERVER_PORT || 4000}`
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    // pdf.js's default build calls JS APIs (Map.getOrInsertComputed and others)
+    // that iPad Safari doesn't have yet; the throw blanks the whole page. The
+    // legacy build is the same version with those APIs polyfilled.
+    alias: [
+      { find: /^pdfjs-dist$/, replacement: 'pdfjs-dist/legacy/build/pdf.mjs' },
+      { find: /^pdfjs-dist\/(build|web)\//, replacement: 'pdfjs-dist/legacy/$1/' },
+    ],
+  },
   server: {
     host: true,
     port: 5173,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
 import { Button, IconButton, cx } from './ui'
+import ErrorBoundary from './ErrorBoundary'
 import { TitleBarContext } from './titleBar'
 import TextSize from './TextSize'
 import { useAuth } from '../store/auth'
@@ -273,7 +274,9 @@ export default function AppShell({ nav, wide = false }) {
               wide ? 'max-w-none' : 'max-w-6xl',
             )}
           >
-            <Outlet />
+            <ErrorBoundary resetKey={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
 

@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell'
+import ErrorBoundary from './components/ErrorBoundary'
 import RequireRole from './components/RequireRole'
 import { Spinner, Toaster } from './components/ui'
 import { homeFor, useAuth } from './store/auth'
@@ -69,7 +70,7 @@ function RootRedirect() {
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary fullScreen>
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -98,6 +99,6 @@ export default function App() {
       </Suspense>
       <Tour />
       <Toaster />
-    </>
+    </ErrorBoundary>
   )
 }
