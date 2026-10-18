@@ -61,6 +61,8 @@ router.get('/:id/file', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
   const e = findExhibit(req.params.id);
   if (!e.file) throw new HttpError(404, 'This exhibit has no file');
   const filePath = filePathOf(e);
+  // A database and uploads folder out of step (seeding while the server ran) leaves records without files.
+  if (!fs.existsSync(filePath)) throw new HttpError(404, 'This exhibit’s file is missing from the court server. Ask the bailiff to upload it again.');
   res.setHeader('Content-Type', e.file.mime);
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Cache-Control', 'private, max-age=300');

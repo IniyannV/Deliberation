@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { fileProblem } from '../../lib/api'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { useLongPress } from '../../lib/touch'
@@ -19,6 +20,7 @@ export default function ImageViewer({ exhibit, url, title }) {
   const box = useRef(null)
   const img = useRef(null)
   const [boxH, setBoxH] = useState(600)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const ro = new ResizeObserver(([e]) => setBoxH(e.contentRect.height))
@@ -92,7 +94,8 @@ export default function ImageViewer({ exhibit, url, title }) {
         </div>
       </div>
       <div ref={box} className="min-h-0 flex-1 overflow-auto bg-surface-2 p-4 text-center scrollbar-thin">
-        <div className="relative inline-block align-top">
+        {error && <p className="py-8 text-danger">{error}</p>}
+        <div className={cx('relative inline-block align-top', error && 'hidden')}>
           <img
             ref={img}
             src={url}
@@ -101,6 +104,7 @@ export default function ImageViewer({ exhibit, url, title }) {
             className={cx('no-callout block', mode === 'fit' ? 'max-w-full' : 'max-w-none')}
             style={mode === 'fit' ? { maxHeight: Math.max(200, boxH - 32) } : undefined}
             draggable={false}
+            onError={async () => setError((await fileProblem(url)) ?? 'Could not open this image.')}
           />
 
           {showNotes && placed.map((n) => (

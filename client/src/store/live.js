@@ -31,7 +31,9 @@ const initial = {
   exhibitsLoaded: false,
   updates: [],
   myRequests: [],
+  myChat: null, // this juror's chat with the bailiff: { seatId, seat, messages }
   queue: [],
+  chats: [], // bailiff: every juror chat with messages, newest first
   alertAt: 0,
   updatesVersion: 0,
 }
@@ -85,8 +87,12 @@ export const useLive = create((set, get) => ({
       if (isJuror(s.role)) {
         get().loadUpdates()
         get().loadMyRequests()
+        get().loadMyChat()
       }
-      if (s.role === 'bailiff') get().loadQueue()
+      if (s.role === 'bailiff') {
+        get().loadQueue()
+        get().loadChats()
+      }
     })
 
     socket.on('timeline:changed', (timeline) => set({ timeline }))
@@ -127,6 +133,19 @@ export const useLive = create((set, get) => ({
       else {
         if (get().soundOn) chime()
         toast(`Juror ${m.seat} sent a message about their ${what}.`, { tone: 'warn', timeout: 8000 })
+      }
+    })
+    socket.on('chat:updated', (c) => {
+      const last = c.messages.at(-1)
+      if (isJuror(get().role)) {
+        set({ myChat: c })
+        if (last?.from === 'bailiff') toast('The bailiff sent you a message.')
+      } else {
+        set({ chats: [c, ...get().chats.filter((x) => x.seatId !== c.seatId)] })
+        if (last?.from === 'juror') {
+          if (get().soundOn) chime()
+          toast(`Juror ${c.seat} sent you a message.`, { tone: 'warn', timeout: 8000 })
+        }
       }
     })
     socket.on('updates:changed', () => set({ updatesVersion: get().updatesVersion + 1 }))
@@ -170,6 +189,14 @@ export const useLive = create((set, get) => ({
   async loadMyRequests() {
     const { requests } = await api('/requests')
     set({ myRequests: requests })
+  },
+  async loadMyChat() {
+    const { chat } = await api('/chat')
+    set({ myChat: chat })
+  },
+  async loadChats() {
+    const { chats } = await api('/admin/chats')
+    set({ chats })
   },
   async loadQueue() {
     const { requests } = await api('/admin/requests')

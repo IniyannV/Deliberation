@@ -25,8 +25,9 @@ const PAPER = 'mx-auto mt-4 w-[78%] overflow-hidden rounded-t-[3px] bg-white sha
 /** A static preview of any exhibit: the image, a PDF's first page, a video frame, or a transcript's opening lines. */
 export function ExhibitThumb({ exhibit, className = 'h-36' }) {
   const url = exhibitFileUrl(exhibit.id)
-  if (exhibit.type === 'image') {
-    return <img src={url} alt="" loading="lazy" className={`${className} w-full object-cover`} />
+  const [broken, setBroken] = useState(false)
+  if (exhibit.type === 'image' && !broken) {
+    return <img src={url} alt="" loading="lazy" onError={() => setBroken(true)} className={`${className} w-full object-cover`} />
   }
   if (exhibit.type === 'video') {
     return (

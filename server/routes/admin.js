@@ -6,7 +6,7 @@ import { emit, disconnectUser } from '../realtime.js';
 import { getPresence } from '../sockets/index.js';
 import { withSummary } from '../lib/auditText.js';
 import { HttpError, bad, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { REQUEST_STATUSES, addRequestMessage, canAdvance, publicRequest } from '../lib/requests.js';
+import { REQUEST_STATUSES, addChatMessage, addRequestMessage, canAdvance, publicChat, publicRequest } from '../lib/requests.js';
 
 const router = Router();
 router.use(requireRole(ROLES.BAILIFF));
@@ -124,6 +124,24 @@ router.post('/requests/:id/messages', async (req, res) => {
   const r = db.data.requests.find((x) => x.id === req.params.id);
   if (!r) throw new HttpError(404, 'Request not found');
   res.status(201).json({ request: await addRequestMessage(r, req.user, req.role, req.body?.text) });
+});
+
+/* ── Juror chats ──────────────────────────────────────────────────── */
+
+const lastAt = (c) => c.messages.at(-1)?.at ?? '';
+
+router.get('/chats', (_req, res) => {
+  const chats = db.data.users
+    .filter((u) => u.kind === 'juror' && db.data.chats[u.id]?.length)
+    .map(publicChat)
+    .sort((a, b) => lastAt(b).localeCompare(lastAt(a)));
+  res.json({ chats });
+});
+
+router.post('/chats/:seatId/messages', async (req, res) => {
+  const seat = db.data.users.find((u) => u.id === req.params.seatId && u.kind === 'juror');
+  if (!seat) throw new HttpError(404, 'Juror seat not found');
+  res.status(201).json({ chat: await addChatMessage(seat, req.user, req.role, req.body?.text) });
 });
 
 /* ── Family updates (bailiff → one seat, text only) ───────────────── */

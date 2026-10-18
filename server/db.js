@@ -13,6 +13,7 @@ export const defaultData = () => ({
   timeline: [],
   votes: [], // polls and ballots: metadata + final tallies only (see services/voting.js)
   requests: [],
+  chats: {}, // seatId → messages: open chat between one juror and the bailiff, apart from any request
   menu: [],
   supplies: [],
   updates: [],

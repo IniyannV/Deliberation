@@ -7,24 +7,20 @@ import { cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 
 /**
- * Short back-and-forth between a juror and the bailiff about one request
- * ("We're out of lentil soup, would tomato do?"). `viewer` is 'juror' or 'bailiff'.
+ * Message bubbles plus a send box, between one juror (`seat`) and the bailiff.
+ * `viewer` is 'juror' or 'bailiff'; `onSend(text)` posts the message.
  */
-export default function RequestThread({ request, viewer }) {
+export function MessageThread({ id, messages, viewer, seat, onSend, className }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const messages = request.messages ?? []
-  const other = viewer === 'bailiff' ? `Juror ${request.seat}` : 'the bailiff'
+  const other = viewer === 'bailiff' ? `Juror ${seat}` : 'the bailiff'
 
   async function send(e) {
     e.preventDefault()
     if (!text.trim()) return
     setBusy(true)
     try {
-      const path = viewer === 'bailiff' ? `/admin/requests/${request.id}/messages` : `/requests/${request.id}/messages`
-      const { request: updated } = await api(path, { method: 'POST', body: { text } })
-      const key = viewer === 'bailiff' ? 'queue' : 'myRequests'
-      useLive.setState((s) => ({ [key]: s[key].map((r) => (r.id === updated.id ? updated : r)) }))
+      await onSend(text)
       setText('')
     } catch (err) {
       toast(err.message, { tone: 'error' })
@@ -34,7 +30,7 @@ export default function RequestThread({ request, viewer }) {
   }
 
   return (
-    <div className="mt-3 border-t border-line pt-3">
+    <div className={className}>
       {messages.length > 0 && (
         <ul className="mb-3 flex flex-col gap-2" aria-label="Messages">
           {messages.map((m) => {
@@ -42,16 +38,16 @@ export default function RequestThread({ request, viewer }) {
             return (
               <li key={m.id} className={cx('flex flex-col', mine ? 'items-end' : 'items-start')}>
                 <span className={cx('max-w-[85%] rounded-2xl px-3 py-2 whitespace-pre-wrap', mine ? 'rounded-br-md bg-accent text-accent-ink' : 'rounded-bl-md bg-fill')}>{m.text}</span>
-                <span className="mt-0.5 text-xs text-muted">{mine ? 'You' : m.from === 'bailiff' ? 'Bailiff' : `Juror ${request.seat}`} · {fmtTime(m.at)}</span>
+                <span className="mt-0.5 text-xs text-muted">{mine ? 'You' : m.from === 'bailiff' ? 'Bailiff' : `Juror ${seat}`} · {fmtTime(m.at)}</span>
               </li>
             )
           })}
         </ul>
       )}
       <form onSubmit={send} className="flex gap-2">
-        <label className="sr-only" htmlFor={`msg-${request.id}`}>Message {other}</label>
+        <label className="sr-only" htmlFor={`msg-${id}`}>Message {other}</label>
         <input
-          id={`msg-${request.id}`}
+          id={`msg-${id}`}
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={500}
@@ -63,5 +59,29 @@ export default function RequestThread({ request, viewer }) {
         </button>
       </form>
     </div>
+  )
+}
+
+/**
+ * Short back-and-forth between a juror and the bailiff about one request
+ * ("We're out of lentil soup, would tomato do?"). `viewer` is 'juror' or 'bailiff'.
+ */
+export default function RequestThread({ request, viewer }) {
+  async function send(text) {
+    const path = viewer === 'bailiff' ? `/admin/requests/${request.id}/messages` : `/requests/${request.id}/messages`
+    const { request: updated } = await api(path, { method: 'POST', body: { text } })
+    const key = viewer === 'bailiff' ? 'queue' : 'myRequests'
+    useLive.setState((s) => ({ [key]: s[key].map((r) => (r.id === updated.id ? updated : r)) }))
+  }
+
+  return (
+    <MessageThread
+      id={request.id}
+      messages={request.messages ?? []}
+      viewer={viewer}
+      seat={request.seat}
+      onSend={send}
+      className="mt-3 border-t border-line pt-3"
+    />
   )
 }

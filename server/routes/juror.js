@@ -5,11 +5,11 @@ import { auditAs } from '../services/audit.js';
 import { listVotes } from '../services/voting.js';
 import { emit } from '../realtime.js';
 import { HttpError, bad, int, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { addRequestMessage, publicRequest } from '../lib/requests.js';
+import { addChatMessage, addRequestMessage, publicChat, publicRequest } from '../lib/requests.js';
 
 /*
  * Juror-facing REST routes: family updates (read + mark read only, so no
- * reply route exists), bailiff requests, and closed vote history.
+ * reply route exists), bailiff requests and chat, and closed vote history.
  */
 
 const router = Router();
@@ -93,6 +93,16 @@ router.post('/requests/:id/messages', juror, async (req, res) => {
   const r = db.data.requests.find((x) => x.id === req.params.id && x.seatId === req.user.id);
   if (!r) throw new HttpError(404, 'Request not found');
   res.status(201).json({ request: await addRequestMessage(r, req.user, req.role, req.body?.text) });
+});
+
+/* ── Chat with the bailiff ─────────────────────────────────────────── */
+
+router.get('/chat', juror, (req, res) => {
+  res.json({ chat: publicChat(req.user) });
+});
+
+router.post('/chat', juror, async (req, res) => {
+  res.status(201).json({ chat: await addChatMessage(req.user, req.user, req.role, req.body?.text) });
 });
 
 /* ── Vote history (tallies + timestamps only) ─────────────────────── */

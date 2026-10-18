@@ -6,7 +6,7 @@ import { REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, PageHeader, Segmented, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { RequestSummary, STATUS_TONE } from '../../features/requests/RequestsPage'
-import RequestThread from '../../features/requests/RequestThread'
+import RequestThread, { MessageThread } from '../../features/requests/RequestThread'
 
 const ICON = { break: 'coffee', meal: 'utensils', supplies: 'box', judge_question: 'question' }
 const NEXT = { pending: ['acknowledged', 'Acknowledge'], acknowledged: ['fulfilled', 'Mark fulfilled'] }
@@ -86,6 +86,39 @@ export default function Requests() {
       ) : (
         <EmptyState icon="check" title={filter === 'active' ? 'All caught up' : 'No requests yet'}>New requests appear here instantly, with a soft chime.</EmptyState>
       )}
+
+      <JurorChats />
     </div>
+  )
+}
+
+/** Open chats jurors started from the bottom of their Requests page. */
+function JurorChats() {
+  const chats = useLive((s) => s.chats)
+
+  async function send(seatId, text) {
+    const { chat } = await api(`/admin/chats/${seatId}/messages`, { method: 'POST', body: { text } })
+    useLive.setState((s) => ({ chats: s.chats.map((c) => (c.seatId === chat.seatId ? chat : c)) }))
+  }
+
+  return (
+    <section className="mt-10" aria-labelledby="juror-chats">
+      <h2 id="juror-chats" className="mb-1 text-xl font-bold">Juror chats</h2>
+      <p className="mb-4 text-muted">Messages jurors send you outside of a request. Message text is not recorded in the audit log.</p>
+      {chats.length ? (
+        <ul className="grid gap-3 lg:grid-cols-2">
+          {chats.map((c) => (
+            <li key={c.seatId}>
+              <Card className="p-5">
+                <p className="mb-3 text-lg font-bold">Juror {c.seat}</p>
+                <MessageThread id={`chat-${c.seatId}`} messages={c.messages} viewer="bailiff" seat={c.seat} onSend={(text) => send(c.seatId, text)} />
+              </Card>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState icon="mail" title="No chats yet">When a juror messages you from their Requests page, it appears here.</EmptyState>
+      )}
+    </section>
   )
 }
