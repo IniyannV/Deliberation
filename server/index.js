@@ -5,7 +5,7 @@ import path from 'node:path';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { Server } from 'socket.io';
-import { CLIENT_DIST, DATA_DIR, HOST, IS_PROD, PORT } from './config.js';
+import { CLIENT_DIST, HOST, IS_PROD, PORT } from './config.js';
 import { initDb } from './db.js';
 import { authenticate } from './auth.js';
 import { initAudit } from './services/audit.js';
@@ -61,55 +61,10 @@ function lanAddresses() {
     .map((a) => a.address);
 }
 
-const MAX_PORT_ATTEMPTS = 50;
-let currentPort = PORT;
-let attempts = 0;
-
-function cleanupPortFile(port) {
-  try {
-    const file = path.join(DATA_DIR, '.port');
-    if (fs.existsSync(file) && (!port || fs.readFileSync(file, 'utf8').trim() === String(port))) {
-      fs.unlinkSync(file);
-    }
-  } catch {}
-}
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    attempts++;
-    if (attempts < MAX_PORT_ATTEMPTS && currentPort < 65535) {
-      console.warn(`Port ${currentPort} is in use, trying ${currentPort + 1}...`);
-      currentPort++;
-      server.listen(currentPort, HOST);
-      return;
-    }
-    console.error(`Could not find an available port after ${attempts} attempts starting from ${PORT}.`);
-    process.exit(1);
-  } else {
-    console.error('Server error:', err);
-    process.exit(1);
-  }
-});
-
-server.once('listening', () => {
-  const actualPort = server.address().port;
-  try {
-    fs.writeFileSync(path.join(DATA_DIR, '.port'), String(actualPort));
-  } catch {}
-
-  process.on('exit', () => cleanupPortFile(actualPort));
-  process.on('SIGINT', () => {
-    cleanupPortFile(actualPort);
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    cleanupPortFile(actualPort);
-    process.exit(0);
-  });
-
-  const urls = lanAddresses().map((ip) => `http://${ip}:${actualPort}`);
+server.listen(PORT, HOST, () => {
+  const urls = lanAddresses().map((ip) => `http://${ip}:${PORT}`);
   console.log('\n  Deliberation server is running (offline / LAN only)\n');
-  console.log(`  This machine:  http://localhost:${actualPort}`);
+  console.log(`  This machine:  http://localhost:${PORT}`);
   if (urls.length) {
     console.log('  Juror devices on the LAN can connect at:');
     for (const u of urls) console.log(`    → ${u}`);
@@ -119,5 +74,3 @@ server.once('listening', () => {
   if (!hasClientBuild) console.log('\n  (No client build found. In development, open the Vite URL instead.)');
   console.log('');
 });
-
-server.listen(currentPort, HOST);
