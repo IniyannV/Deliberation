@@ -3,9 +3,11 @@ import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { useUi } from '../../store/ui'
 import { Icon } from '../../components/icons'
-import { Card } from '../../components/ui'
+import { Card, Spinner } from '../../components/ui'
+import { PARTY_LABEL, TYPE_LABEL, fmtCalendarDate } from '../../lib/format'
 import Timeline from '../../features/timeline/Timeline'
 import ResultsBars, { VoteProgress } from '../../features/voting/ResultsBars'
+import ExhibitViewer from '../../features/evidence/ExhibitViewer'
 
 /** Read-only projector view. The foreperson chooses what it shows. */
 
@@ -44,6 +46,57 @@ function VotesView({ votes, counts, voteId }) {
   )
 }
 
+function EvidenceView({ exhibitId, exhibits }) {
+  const loaded = useLive((s) => s.exhibitsLoaded)
+  const exhibit = exhibits.find((e) => e.id === exhibitId)
+
+  if (!exhibitId) {
+    return (
+      <div className="my-auto flex flex-col items-center justify-center text-center">
+        <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-surface shadow-xs text-muted">
+          <Icon name="folder" size={40} strokeWidth={1.5} />
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-ink">No exhibit selected</h2>
+        <p className="mt-2 text-lg text-muted">The foreperson can select an exhibit to project here.</p>
+      </div>
+    )
+  }
+
+  if (!exhibit) {
+    return loaded ? (
+      <div className="my-auto flex flex-col items-center justify-center text-center">
+        <h2 className="text-2xl font-bold text-muted">Selected exhibit is no longer available</h2>
+      </div>
+    ) : (
+      <div className="my-auto flex justify-center">
+        <Spinner label="Loading exhibit…" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="rounded-xl bg-accent px-3 py-1 text-lg font-bold text-white shadow-xs">
+            Exhibit {exhibit.number}
+          </span>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">{exhibit.title}</h1>
+        </div>
+        <p className="text-base text-muted">
+          {TYPE_LABEL[exhibit.type]} · Introduced by {PARTY_LABEL[exhibit.party]} · Admitted {fmtCalendarDate(exhibit.dateAdmitted)}
+        </p>
+      </div>
+      {exhibit.description && (
+        <p className="-mt-1 mb-3 text-sm text-muted/90">{exhibit.description}</p>
+      )}
+      <Card className="min-h-0 flex-1 overflow-hidden p-0 relative shadow-card">
+        <ExhibitViewer exhibitId={exhibit.id} />
+      </Card>
+    </div>
+  )
+}
+
 function IdleView({ caseInfo }) {
   return (
     <div className="flex flex-col items-center text-center">
@@ -73,7 +126,7 @@ function BlackoutView() {
 export default function Display() {
   const caseInfo = useAuth((s) => s.caseInfo)
   const logout = useAuth((s) => s.logout)
-  const { connected, display, timeline, votes, counts } = useLive()
+  const { connected, display, timeline, votes, counts, exhibits } = useLive()
   const { theme, toggleTheme } = useUi()
 
   return (
@@ -82,6 +135,11 @@ export default function Display() {
         <div>
           <span className="font-semibold">{caseInfo?.caption}</span>
           <span className="ml-4 text-muted">Deliberation</span>
+          {display.view === 'evidence' && (
+            <span className="ml-4 rounded-full bg-accent/15 px-3 py-0.5 text-sm font-semibold text-accent">
+              Exhibit Projector
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-6 text-muted">
           {!connected && <span className="text-warn">Reconnecting…</span>}
@@ -102,7 +160,8 @@ export default function Display() {
             : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
         )}
         {display.view === 'votes' && <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>}
-        {display.view !== 'blackout' && display.view !== 'timeline' && display.view !== 'votes' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
+        {display.view === 'evidence' && <EvidenceView exhibitId={display.exhibitId} exhibits={exhibits} />}
+        {display.view !== 'blackout' && display.view !== 'timeline' && display.view !== 'votes' && display.view !== 'evidence' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
       </main>
     </div>
   )

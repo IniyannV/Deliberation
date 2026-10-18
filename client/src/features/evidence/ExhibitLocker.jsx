@@ -77,6 +77,7 @@ function Highlight({ text, q }) {
 export default function ExhibitLocker() {
   const version = useLive((s) => s.exhibits)
   const notes = useLive((s) => s.notes)
+  const display = useLive((s) => s.display)
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [party, setParty] = useState('')
@@ -132,7 +133,14 @@ export default function ExhibitLocker() {
               <ExhibitThumb exhibit={e} />
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge tone="accent">{e.number}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="accent">{e.number}</Badge>
+                    {display?.view === 'evidence' && display?.exhibitId === e.id && (
+                      <Badge tone="ok" className="flex items-center gap-1">
+                        <Icon name="monitor" size={12} /> On Projector
+                      </Badge>
+                    )}
+                  </div>
                   <span className="text-sm text-muted">{PARTY_LABEL[e.party]}</span>
                 </div>
                 <h2 className="text-[1.0625rem] leading-snug font-semibold"><Highlight text={e.title} q={q} /></h2>

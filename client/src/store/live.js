@@ -24,7 +24,7 @@ const initial = {
   burden: '',
   votes: [],
   votedIn: [],
-  display: { view: 'timeline', voteId: null },
+  display: { view: 'timeline', voteId: null, exhibitId: null },
   counts: [],
   presence: [],
   exhibits: [],

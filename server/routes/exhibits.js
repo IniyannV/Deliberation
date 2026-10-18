@@ -50,14 +50,14 @@ router.get('/', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, re
 
 const filePathOf = (e) => path.join(UPLOAD_DIR, path.basename(e.file.stored));
 
-router.get('/:id', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
+router.get('/:id', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, res) => {
   const e = findExhibit(req.params.id);
   // Videos uploaded before frame rates were recorded: read it once, now.
   if (e.type === 'video' && e.fps === undefined) e.fps = probeVideoFps(filePathOf(e));
   res.json({ exhibit: { ...exhibitSummary(e), lines: e.lines ?? null } });
 });
 
-router.get('/:id/file', requireRole(ROLES.JUROR, ROLES.BAILIFF), (req, res) => {
+router.get('/:id/file', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, res) => {
   const e = findExhibit(req.params.id);
   if (!e.file) throw new HttpError(404, 'This exhibit has no file');
   const filePath = filePathOf(e);
@@ -141,10 +141,16 @@ router.delete('/:id', requireRole(ROLES.BAILIFF), async (req, res) => {
   db.data.transcriptLinks = db.data.transcriptLinks.filter((l) => l.exhibitId !== e.id && l.transcriptId !== e.id);
   db.data.imageNotes = db.data.imageNotes.filter((n) => n.exhibitId !== e.id);
   for (const mine of Object.values(db.data.personal)) delete mine.highlights?.[e.id];
+  let displayUpdated = false;
+  if (db.data.display?.exhibitId === e.id) {
+    db.data.display.exhibitId = null;
+    displayUpdated = true;
+  }
   await save();
   if (e.file) fs.rmSync(filePathOf(e), { force: true });
   auditAs(req.user, req.role, 'exhibit.removed', e.id, { exhibitNumber: e.number });
   broadcastChange();
+  if (displayUpdated) emit(['jurors', 'display'], 'display:changed', db.data.display);
   emit(['jurors'], 'links:changed', db.data.transcriptLinks);
   emit(['jurors'], 'notes:changed', db.data.imageNotes);
   res.json({ ok: true });

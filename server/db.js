@@ -16,7 +16,7 @@ export const defaultData = () => ({
   menu: [],
   supplies: [],
   updates: [],
-  display: { view: 'timeline', voteId: null },
+  display: { view: 'timeline', voteId: null, exhibitId: null },
 });
 
 /** @type {import('lowdb').Low<ReturnType<typeof defaultData>>} */

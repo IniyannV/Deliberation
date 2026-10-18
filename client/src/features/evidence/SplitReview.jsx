@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
@@ -30,6 +31,9 @@ function ExhibitPicker({ value, onChange, exhibits, label }) {
 export default function SplitReview() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const user = useAuth((s) => s.user)
+  const isForeperson = user?.role === 'foreperson'
+  const display = useLive((s) => s.display)
   const exhibits = useLive((s) => s.exhibits)
   const links = useLive((s) => s.links)
   const emit = useLive((s) => s.emit)
@@ -178,6 +182,26 @@ export default function SplitReview() {
                     <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find…" className="py-1.5 pl-8" />
                   </label>
                 )}
+                {leftId && isForeperson && (
+                  <IconButton
+                    icon="monitor"
+                    label={display?.view === 'evidence' && display?.exhibitId === leftId ? 'Projecting on room display (tap to stop)' : 'Show on room display'}
+                    className={display?.view === 'evidence' && display?.exhibitId === leftId ? '!text-accent bg-accent/15' : undefined}
+                    onClick={async () => {
+                      try {
+                        if (display?.view === 'evidence' && display?.exhibitId === leftId) {
+                          await emit('display:set', { view: 'timeline', exhibitId: null, voteId: display?.voteId })
+                          toast('Stopped projecting to room display.')
+                        } else {
+                          await emit('display:set', { view: 'evidence', exhibitId: leftId, voteId: display?.voteId })
+                          toast(`Exhibit ${leftSummary?.number ?? ''} is now on the room display.`)
+                        }
+                      } catch (err) {
+                        toast(err.message, { tone: 'error' })
+                      }
+                    }}
+                  />
+                )}
                 {leftId && enlarged !== 'left' && <IconButton icon="maximize" label="Full screen" onClick={() => setEnlarged('left')} />}
               </div>
               {transcript && selection && (
@@ -255,6 +279,26 @@ export default function SplitReview() {
             <div className="flex h-full flex-col">
               <div className="flex items-center gap-2 border-b border-line p-3">
                 <ExhibitPicker value={rightId} onChange={(v) => setParam('ex', v)} exhibits={exhibits} label="Choose an exhibit" />
+                {rightId && isForeperson && (
+                  <IconButton
+                    icon="monitor"
+                    label={display?.view === 'evidence' && display?.exhibitId === rightId ? 'Projecting on room display (tap to stop)' : 'Show on room display'}
+                    className={display?.view === 'evidence' && display?.exhibitId === rightId ? '!text-accent bg-accent/15' : undefined}
+                    onClick={async () => {
+                      try {
+                        if (display?.view === 'evidence' && display?.exhibitId === rightId) {
+                          await emit('display:set', { view: 'timeline', exhibitId: null, voteId: display?.voteId })
+                          toast('Stopped projecting to room display.')
+                        } else {
+                          await emit('display:set', { view: 'evidence', exhibitId: rightId, voteId: display?.voteId })
+                          toast(`Exhibit ${rightSummary?.number ?? ''} is now on the room display.`)
+                        }
+                      } catch (err) {
+                        toast(err.message, { tone: 'error' })
+                      }
+                    }}
+                  />
+                )}
                 {rightId && enlarged !== 'right' && <IconButton icon="maximize" label="Full screen" onClick={() => setEnlarged('right')} />}
                 {rightId && (
                   <Button size="sm" variant="ghost" icon="external" onClick={() => navigate(`/juror/evidence/${rightId}`)}>Open</Button>

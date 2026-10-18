@@ -12,7 +12,7 @@ import {
  */
 
 const EVENT_TYPES = ['testimony', 'physical', 'document'];
-const DISPLAY_VIEWS = ['timeline', 'votes', 'idle', 'blackout'];
+const DISPLAY_VIEWS = ['timeline', 'votes', 'idle', 'blackout', 'evidence'];
 
 // Note pins are stored as fractions of the image, so they stay put at any zoom.
 const noteCoord = (v) => {
@@ -376,8 +376,13 @@ export const deliberationHandlers = {
 
 async function setDisplay(io, p) {
   const view = oneOf(p.view, DISPLAY_VIEWS, 'View');
-  const voteId = view === 'votes' && p.voteId && db.data.votes.some((v) => v.id === p.voteId) ? p.voteId : null;
-  db.data.display = { view, voteId };
+  const prevVoteId = db.data.display?.voteId ?? null;
+  const prevExhibitId = db.data.display?.exhibitId ?? null;
+  const candidateVoteId = p.voteId !== undefined ? p.voteId : prevVoteId;
+  const candidateExhibitId = p.exhibitId !== undefined ? p.exhibitId : prevExhibitId;
+  const voteId = candidateVoteId && db.data.votes.some((v) => v.id === candidateVoteId) ? candidateVoteId : null;
+  const exhibitId = candidateExhibitId && db.data.exhibits.some((e) => e.id === candidateExhibitId) ? candidateExhibitId : null;
+  db.data.display = { view, voteId, exhibitId };
   await save();
   toJurorsAndDisplay(io, 'display:changed', db.data.display);
 }

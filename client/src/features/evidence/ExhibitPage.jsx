@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
+import { toast } from '../../store/ui'
 import { PARTY_LABEL, TYPE_LABEL, fmtBytes, fmtCalendarDate } from '../../lib/format'
 import { Badge, Button, Card, Spinner } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -11,6 +13,10 @@ export default function ExhibitPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const user = useAuth((s) => s.user)
+  const isForeperson = user?.role === 'foreperson'
+  const display = useLive((s) => s.display)
+  const emit = useLive((s) => s.emit)
   const exhibits = useLive((s) => s.exhibits)
   const loaded = useLive((s) => s.exhibitsLoaded)
   const [enlarged, setEnlarged] = useState(false)
@@ -19,6 +25,21 @@ export default function ExhibitPage() {
   if (!exhibit) return loaded ? <p className="text-muted">This exhibit is no longer available. <Link className="text-accent underline" to="/juror/evidence">Back to the locker</Link></p> : <Spinner />
 
   const reviewHref = exhibit.type === 'transcript' ? `/juror/review?t=${exhibit.id}` : `/juror/review?ex=${exhibit.id}`
+  const isProjecting = display?.view === 'evidence' && display?.exhibitId === exhibit.id
+
+  async function toggleProject() {
+    try {
+      if (isProjecting) {
+        await emit('display:set', { view: 'timeline', exhibitId: null, voteId: display?.voteId })
+        toast('Stopped projecting to room display.')
+      } else {
+        await emit('display:set', { view: 'evidence', exhibitId: exhibit.id, voteId: display?.voteId })
+        toast(`Exhibit ${exhibit.number} is now on the room display.`)
+      }
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  }
 
   return (
     <div className="flex h-[calc(100dvh-var(--page-chrome,4rem))] flex-col">
@@ -29,8 +50,23 @@ export default function ExhibitPage() {
           </Link>
           <Badge tone="accent" className="text-base">{exhibit.number}</Badge>
           <h1 className="text-2xl font-bold">{exhibit.title}</h1>
+          {isProjecting && (
+            <Badge tone="ok" className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-ok animate-pulse" />
+              Live on room display
+            </Badge>
+          )}
         </div>
         <div className="flex gap-2">
+          {isForeperson && (
+            <Button
+              icon="monitor"
+              variant={isProjecting ? 'primary' : 'outline'}
+              onClick={toggleProject}
+            >
+              {isProjecting ? 'Projecting on room display' : 'Show on room display'}
+            </Button>
+          )}
           <Button icon="maximize" onClick={() => setEnlarged(true)}>Full screen</Button>
           <Button icon="columns" onClick={() => navigate(reviewHref)}>Open side by side</Button>
         </div>

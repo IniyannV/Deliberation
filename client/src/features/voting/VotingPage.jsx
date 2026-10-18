@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
-import { fmtDateTime } from '../../lib/format'
+import { TYPE_LABEL, fmtDateTime } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Segmented, Select, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import ResultsBars, { VoteProgress } from './ResultsBars'
@@ -94,6 +95,7 @@ function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
 
 function ForepersonPanel({ counts, votes, display }) {
   const emit = useLive((s) => s.emit)
+  const exhibits = useLive((s) => s.exhibits)
   const [pollOpen, setPollOpen] = useState(false)
   const [question, setQuestion] = useState('Where are you leaning right now?')
   const [options, setOptions] = useState(DEFAULT_OPTIONS)
@@ -229,17 +231,18 @@ function ForepersonPanel({ counts, votes, display }) {
               <Segmented
                 label="Room display shows"
                 value={display.view === 'blackout' ? 'idle' : display.view}
-                onChange={(view) => run('display:set', { view, voteId: display.voteId })}
+                onChange={(view) => run('display:set', { view, voteId: display.voteId, exhibitId: display.exhibitId })}
                 options={[
                   { value: 'timeline', label: 'Timeline' },
                   { value: 'votes', label: 'Votes' },
+                  { value: 'evidence', label: 'Evidence' },
                   { value: 'idle', label: 'Idle' },
                 ]}
               />
               {display.view === 'votes' && (
                 <Select
                   value={display.voteId ?? ''}
-                  onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null })}
+                  onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null, exhibitId: display.exhibitId })}
                   aria-label="Vote shown on the display"
                 >
                   <option value="">Latest vote</option>
@@ -250,6 +253,30 @@ function ForepersonPanel({ counts, votes, display }) {
                   ))}
                 </Select>
               )}
+              {display.view === 'evidence' && (
+                <div className="flex flex-col gap-1.5">
+                  <Select
+                    value={display.exhibitId ?? ''}
+                    onChange={(e) => run('display:set', { view: 'evidence', exhibitId: e.target.value || null, voteId: display.voteId })}
+                    aria-label="Exhibit shown on the display"
+                  >
+                    <option value="">Choose an exhibit to project…</option>
+                    {exhibits.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.number ? `Exhibit ${e.number}: ` : ''}{e.title} ({TYPE_LABEL[e.type]})
+                      </option>
+                    ))}
+                  </Select>
+                  {display.exhibitId && (
+                    <div className="flex items-center justify-between text-xs text-muted px-1">
+                      <span>Live: {exhibits.find((e) => e.id === display.exhibitId)?.title?.slice(0, 24)}…</span>
+                      <Link to={`/juror/evidence/${display.exhibitId}`} className="text-accent hover:underline flex items-center gap-1 font-medium">
+                        Open <Icon name="external" size={12} />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-line/30">
@@ -257,7 +284,11 @@ function ForepersonPanel({ counts, votes, display }) {
               className="w-full"
               variant={display.view === 'blackout' ? 'primary' : 'outline'}
               icon={display.view === 'blackout' ? 'eye' : 'eyeOff'}
-              onClick={() => run('display:set', { view: display.view === 'blackout' ? 'timeline' : 'blackout', voteId: display.voteId })}
+              onClick={() => run('display:set', {
+                view: display.view === 'blackout' ? (display.exhibitId ? 'evidence' : 'timeline') : 'blackout',
+                voteId: display.voteId,
+                exhibitId: display.exhibitId,
+              })}
             >
               {display.view === 'blackout' ? 'Resume projector' : 'Blackout projector'}
             </Button>
