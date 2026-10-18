@@ -12,12 +12,12 @@ import {
  */
 
 const EVENT_TYPES = ['testimony', 'physical', 'document'];
-const DISPLAY_VIEWS = ['timeline', 'votes', 'idle'];
+const DISPLAY_VIEWS = ['timeline', 'votes', 'idle', 'blackout'];
 
 // Note pins are stored as fractions of the image, so they stay put at any zoom.
 const noteCoord = (v) => {
   const n = Number(v);
-  if (!Number.isFinite(n) || n < 0 || n > 1) throw bad('Position is off the image');
+  if (!Number.isFinite(n) || n < 0 || n > 1) throw bad('Position is invalid');
   return Math.round(n * 10000) / 10000;
 };
 
@@ -178,12 +178,43 @@ export const deliberationHandlers = {
     },
   },
 
-  /* ── Image notes (shared with the jury, never logged) ── */
+  /* ── Exhibit notes & annotations (images and PDFs, shared with the jury, never logged) ── */
   'note:create': {
     roles: [ROLES.JUROR],
     async handler({ io }, p) {
-      if (!db.data.exhibits.some((e) => e.id === p.exhibitId && e.type === 'image')) throw bad('Notes can only be added to image exhibits');
-      const note = { id: newId('note'), exhibitId: p.exhibitId, x: noteCoord(p.x), y: noteCoord(p.y), text: str(p.text, { min: 1, max: 500, field: 'Note' }), createdAt: nowIso() };
+      const exhibit = db.data.exhibits.find((e) => e.id === p.exhibitId);
+      if (!exhibit || (exhibit.type !== 'image' && exhibit.type !== 'pdf')) {
+        throw bad('Notes can only be added to image or PDF exhibits');
+      }
+      const kind = p.kind && ['note', 'highlight', 'drawing'].includes(p.kind) ? p.kind : 'note';
+      const page = p.page ? int(p.page, { min: 1, max: 10000, field: 'Page' }) : 1;
+      const color = p.color && typeof p.color === 'string' ? p.color.slice(0, 20) : 'yellow';
+
+      const note = {
+        id: newId('note'),
+        exhibitId: p.exhibitId,
+        page,
+        kind,
+        color,
+        createdAt: nowIso(),
+      };
+
+      if (kind === 'drawing') {
+        if (!Array.isArray(p.points) || p.points.length < 2) throw bad('Invalid drawing');
+        note.points = p.points.slice(0, 500).map(([x, y]) => [noteCoord(x), noteCoord(y)]);
+      } else {
+        note.x = noteCoord(p.x);
+        note.y = noteCoord(p.y);
+      }
+
+      if (kind === 'highlight') {
+        note.width = noteCoord(p.width ?? 0.2);
+        note.height = noteCoord(p.height ?? 0.05);
+      }
+
+      note.text = optStr(p.text, { max: 500, field: 'Note' }) || (kind === 'note' ? str(p.text, { min: 1, max: 500, field: 'Note' }) : '');
+      if (p.quote) note.quote = optStr(p.quote, { max: 500, field: 'Quote' });
+
       db.data.imageNotes.push(note);
       await save();
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
@@ -195,7 +226,9 @@ export const deliberationHandlers = {
     async handler({ io }, p) {
       const note = db.data.imageNotes.find((n) => n.id === p.id);
       if (!note) throw new HttpError(404, 'That note was removed');
-      note.text = str(p.text, { min: 1, max: 500, field: 'Note' });
+      if (p.text !== undefined) note.text = optStr(p.text, { max: 500, field: 'Note' }) || '';
+      if (p.quote !== undefined) note.quote = optStr(p.quote, { max: 500, field: 'Quote' }) || '';
+      if (p.color !== undefined) note.color = str(p.color, { min: 1, max: 20, field: 'Color' });
       await save();
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
     },
@@ -205,8 +238,11 @@ export const deliberationHandlers = {
     async handler({ io }, p) {
       const note = db.data.imageNotes.find((n) => n.id === p.id);
       if (!note) throw new HttpError(404, 'That note was removed');
-      note.x = noteCoord(p.x);
-      note.y = noteCoord(p.y);
+      if (p.x !== undefined) note.x = noteCoord(p.x);
+      if (p.y !== undefined) note.y = noteCoord(p.y);
+      if (p.width !== undefined) note.width = noteCoord(p.width);
+      if (p.height !== undefined) note.height = noteCoord(p.height);
+      if (p.page !== undefined) note.page = int(p.page, { min: 1, max: 10000, field: 'Page' });
       await save();
       io.to('jurors').emit('notes:changed', db.data.imageNotes);
     },
@@ -252,9 +288,27 @@ export const deliberationHandlers = {
       if (!count) throw bad('Count not found');
       const element = int(p.element, { min: 0, max: (count.elements?.length ?? 1) - 1, field: 'Element' });
       const mine = personalFor(user.id);
-      const set = new Set(mine.checks[count.id] ?? []);
-      if (p.checked) set.add(element); else set.delete(element);
-      mine.checks[count.id] = [...set].sort((a, b) => a - b);
+
+      let currentMap = {};
+      const existing = mine.checks[count.id];
+      if (Array.isArray(existing)) {
+        existing.forEach((idx) => { currentMap[idx] = 'proven'; });
+      } else if (existing && typeof existing === 'object') {
+        currentMap = { ...existing };
+      }
+
+      if (p.state) {
+        if (p.state === 'unproven') {
+          delete currentMap[element];
+        } else {
+          currentMap[element] = p.state; // 'proven' | 'disputed'
+        }
+      } else if (p.checked != null) {
+        if (p.checked) currentMap[element] = 'proven';
+        else delete currentMap[element];
+      }
+
+      mine.checks[count.id] = currentMap;
       await save();
       io.to(`user:${user.id}`).emit('personal:changed', mine);
     },

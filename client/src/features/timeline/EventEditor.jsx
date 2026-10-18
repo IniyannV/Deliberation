@@ -154,7 +154,7 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
           {form.attachments.map((a, i) => a.kind === 'excerpt' && (
             <div key={i} className="rounded-xl bg-fill p-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold">{byId[a.transcriptId]?.number}, lines {a.fromLine}{a.toLine !== a.fromLine ? `–${a.toLine}` : ''}</span>
+                <span className="font-semibold">{byId[a.transcriptId]?.number}, {a.toLine !== a.fromLine ? `lines ${a.fromLine}–${a.toLine}` : `line ${a.fromLine}`}</span>
                 <Button size="sm" variant="ghost" icon="x" onClick={() => setForm((f) => ({ ...f, attachments: f.attachments.filter((_, j) => j !== i) }))}>Remove</Button>
               </div>
               <ExcerptPreview {...a} />

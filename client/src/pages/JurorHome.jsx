@@ -66,20 +66,29 @@ export default function JurorHome() {
     })
   }
 
+function getElementStatus(checks, idx) {
+  if (Array.isArray(checks)) return checks.includes(idx) ? 'proven' : 'unproven'
+  if (checks && typeof checks === 'object') return checks[idx] || 'unproven'
+  return 'unproven'
+}
+
   async function toggleElementCheck(countId, elementIdx) {
     const live = useLive.getState()
-    const checks = live.personal?.checks?.[countId] ?? []
-    const ticked = new Set(checks)
-    const checked = !ticked.has(elementIdx)
-    const next = checked ? [...ticked, elementIdx].sort((a, b) => a - b) : [...ticked].filter((x) => x !== elementIdx)
+    const rawChecks = live.personal?.checks?.[countId]
+    const current = getElementStatus(rawChecks, elementIdx)
+    const nextState = current === 'unproven' ? 'disputed' : current === 'disputed' ? 'proven' : 'unproven'
+    const currentMap = typeof rawChecks === 'object' && !Array.isArray(rawChecks) ? { ...rawChecks } : {}
+    if (nextState === 'unproven') delete currentMap[elementIdx]
+    else currentMap[elementIdx] = nextState
+
     useLive.setState({
       personal: {
         ...live.personal,
-        checks: { ...live.personal?.checks, [countId]: next },
+        checks: { ...live.personal?.checks, [countId]: currentMap },
       },
     })
     try {
-      await live.emit('check:set', { countId, element: elementIdx, checked })
+      await live.emit('check:set', { countId, element: elementIdx, state: nextState })
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -203,9 +212,17 @@ export default function JurorHome() {
             <div className="flex flex-col gap-4">
               {counts.map((c) => {
                 const isExpanded = expandedCounts.has(c.id)
-                const tickedIndices = new Set(personalChecks[c.id] ?? [])
-                const tickedCount = tickedIndices.size
+                const rawChecks = personalChecks[c.id]
                 const totalElements = c.elements?.length ?? 0
+                let provenCount = 0
+                let disputedCount = 0
+                if (totalElements > 0) {
+                  for (let i = 0; i < totalElements; i++) {
+                    const st = getElementStatus(rawChecks, i)
+                    if (st === 'proven') provenCount++
+                    else if (st === 'disputed') disputedCount++
+                  }
+                }
 
                 return (
                   <div key={c.id} className="rounded-xl border border-line/70 bg-fill/25 p-4 transition-colors">
@@ -215,8 +232,12 @@ export default function JurorHome() {
                         {c.statute && <span className="text-xs font-mono text-muted">{c.statute}</span>}
                       </div>
                       {totalElements > 0 && (
-                        tickedCount > 0 ? (
-                          <Badge tone="ok">{tickedCount} of {totalElements} elements verified</Badge>
+                        provenCount === totalElements ? (
+                          <Badge tone="ok">All {totalElements} elements proven</Badge>
+                        ) : provenCount > 0 || disputedCount > 0 ? (
+                          <Badge tone={disputedCount > 0 ? 'warn' : 'accent'}>
+                            {provenCount}/{totalElements} proven{disputedCount > 0 ? ` · ${disputedCount} deliberating` : ''}
+                          </Badge>
                         ) : (
                           <Badge tone="neutral">{totalElements} elements to prove</Badge>
                         )
@@ -247,33 +268,64 @@ export default function JurorHome() {
 
                         {isExpanded && (
                           <div className="mt-3 flex flex-col gap-2.5">
-                            <p className="text-xs font-semibold text-muted">
-                              Private element tracker (only visible to your seat):
+                            <p className="text-xs text-muted">
+                              Private element tracker: Tap to cycle <b>Pending</b> → <b className="text-warn">Under Deliberation</b> → <b className="text-ok">Proven</b>. (Only visible to your seat).
                             </p>
-                            <ol className="flex flex-col gap-1.5">
+                            <ol className="flex flex-col gap-2">
                               {c.elements.map((el, i) => {
-                                const on = tickedIndices.has(i)
+                                const status = getElementStatus(rawChecks, i)
                                 return (
                                   <li key={i}>
                                     <button
                                       type="button"
-                                      role="checkbox"
-                                      aria-checked={on}
+                                      role="button"
                                       onClick={() => toggleElementCheck(c.id, i)}
-                                      className="pressable pressable-soft flex w-full items-start gap-3 rounded-lg p-2 text-left hover:bg-fill/60"
+                                      className={cx(
+                                        'pressable pressable-soft flex w-full items-start gap-3 rounded-xl p-2.5 text-left border transition-all',
+                                        status === 'proven'
+                                          ? 'border-ok/30 bg-ok-soft/30 hover:bg-ok-soft/50'
+                                          : status === 'disputed'
+                                          ? 'border-warn/30 bg-warn-soft/30 hover:bg-warn-soft/50'
+                                          : 'border-line/40 bg-surface/60 hover:bg-fill/60',
+                                      )}
                                     >
                                       <span
                                         className={cx(
-                                          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold transition-colors',
-                                          on ? 'border-ok bg-ok text-white' : 'border-line bg-surface text-muted',
+                                          'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 text-xs font-bold transition-colors duration-200',
+                                          status === 'proven'
+                                            ? 'border-ok bg-ok text-white'
+                                            : status === 'disputed'
+                                            ? 'border-warn bg-warn text-white'
+                                            : 'border-line bg-surface text-muted',
                                         )}
                                         aria-hidden
                                       >
-                                        {on ? <Icon name="check" size={13} strokeWidth={3} /> : i + 1}
+                                        {status === 'proven' ? (
+                                          <Icon name="check" size={14} strokeWidth={3} />
+                                        ) : status === 'disputed' ? (
+                                          '?'
+                                        ) : (
+                                          i + 1
+                                        )}
                                       </span>
-                                      <span className={cx('text-sm leading-snug', on ? 'text-muted line-through' : 'text-ink')}>
-                                        {el}
-                                      </span>
+                                      <div className="flex flex-1 flex-col gap-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="text-xs font-semibold text-muted">Element {i + 1}</span>
+                                          <span
+                                            className={cx(
+                                              'rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide uppercase',
+                                              status === 'proven'
+                                                ? 'bg-ok-soft text-ok'
+                                                : status === 'disputed'
+                                                ? 'bg-warn-soft text-warn'
+                                                : 'bg-fill text-muted',
+                                            )}
+                                          >
+                                            {status === 'proven' ? 'Proven' : status === 'disputed' ? 'Under Deliberation' : 'Pending'}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm leading-snug text-ink">{el}</p>
+                                      </div>
                                     </button>
                                   </li>
                                 )

@@ -3,7 +3,7 @@
 
 const JUROR = [
   { route: '/juror', title: 'Welcome to Deliberation', body: 'This short tour walks through what the jury can do here. The app stays usable while the tour runs, so try things as you go. Use Next or the arrow keys; Esc ends the tour.' },
-  { route: '/juror', target: 'sidebar', title: 'Everything is in the sidebar', body: 'Evidence, the shared timeline, voting, requests to the bailiff and messages from home. The dot at the bottom shows the connection to the court’s own server. Nothing in this app touches the internet.' },
+  { route: '/juror', target: 'sidebar', title: 'Everything is in the sidebar', body: 'Evidence, the shared timeline, voting, requests to the bailiff and messages from home. The presence dot beside your seat profile shows the live connection to the court’s own server. Nothing in this app touches the internet.' },
   { route: '/juror/evidence', target: 'locker-search', title: 'Search every exhibit', body: 'Search covers titles, descriptions and every transcript line. Try “glove” or “door”.' },
   { route: '/juror/evidence', target: 'locker-grid', title: 'The exhibit locker', body: 'Open any exhibit to view it, or make it full screen. P-8 is the surveillance video: the arrow keys step through it one frame at a time. On photos, right-click or long-press to pin a note the whole jury can see.' },
   { route: '/juror/review', target: 'review-transcript', title: 'Side-by-side review', body: 'Read a transcript here. Click a line number (Shift-click for a range), then “Add to timeline”. The link icon on a line ties it to an exhibit.' },

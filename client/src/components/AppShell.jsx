@@ -154,7 +154,7 @@ export default function AppShell({ nav, wide = false }) {
             />
           </div>
 
-          <nav aria-label="Main" className="flex-1 overflow-y-auto px-2.5 pb-3 scrollbar-thin" data-tour="sidebar">
+          <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 scrollbar-thin" data-tour="sidebar">
             <ul className="flex flex-col gap-px">
               {nav.map((item) =>
                 item.section ? (
@@ -166,8 +166,6 @@ export default function AppShell({ nav, wide = false }) {
                     <NavLink
                       to={item.to}
                       end={item.end}
-                      // Choosing a section puts the sidebar away so the page gets the whole width.
-                      onClick={() => { if (window.matchMedia(DOCKED).matches) setSidebarCollapsed(true) }}
                       className={({ isActive }) =>
                         cx(
                           'pressable pressable-soft group flex items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem]',
@@ -206,31 +204,33 @@ export default function AppShell({ nav, wide = false }) {
             </ul>
           </nav>
 
-          <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
-            <span className="text-sm font-medium text-muted">Text size</span>
-            <TextSize />
-          </div>
-          <div className="mx-2.5 mb-2.5 rounded-[0.875rem] bg-fill/60 p-2.5">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#a1a1a6] to-[#7c7c80] text-sm font-semibold text-white" aria-hidden>
-                {initials}
-                {/* Presence dot: green while connected to the court server. */}
-                <span className={cx('absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-surface transition-colors duration-500', connected ? 'bg-ok' : 'bg-warn')} />
-              </span>
-              <div className="min-w-0 flex-1" title={connected ? 'Connected to court server' : 'Reconnecting to court server'}>
-                <p className="truncate leading-tight font-semibold">{user?.name}</p>
-                <p className={cx('truncate text-xs', connected ? 'text-muted capitalize' : 'font-semibold text-warn')}>
-                  {connected ? user?.role : 'Reconnecting…'}
-                  <span className="sr-only">{connected ? ', connected to court server' : ''}</span>
-                </p>
+          <div className="shrink-0 border-t border-line/40 pt-2.5">
+            <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
+              <span className="text-sm font-medium text-muted">Text size</span>
+              <TextSize />
+            </div>
+            <div className="mx-2.5 mb-2.5 rounded-[0.875rem] bg-fill/60 p-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#a1a1a6] to-[#7c7c80] text-sm font-semibold text-white" aria-hidden>
+                  {initials}
+                  {/* Presence dot: green while connected to the court server. */}
+                  <span className={cx('absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-surface transition-colors duration-500', connected ? 'bg-ok' : 'bg-warn')} />
+                </span>
+                <div className="min-w-0 flex-1" title={connected ? 'Connected to court server' : 'Reconnecting to court server'}>
+                  <p className="truncate leading-tight font-semibold">{user?.name}</p>
+                  <p className={cx('truncate text-xs', connected ? 'text-muted capitalize' : 'font-semibold text-warn')}>
+                    {connected ? user?.role : 'Reconnecting…'}
+                    <span className="sr-only">{connected ? ', connected to court server' : ''}</span>
+                  </p>
+                </div>
+                <IconButton
+                  icon={theme === 'dark' ? 'sun' : 'moon'}
+                  size={18}
+                  label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  onClick={toggleTheme}
+                />
+                <IconButton icon="logout" size={18} label="Sign out" onClick={async () => { await logout(); navigate('/login') }} />
               </div>
-              <IconButton
-                icon={theme === 'dark' ? 'sun' : 'moon'}
-                size={18}
-                label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                onClick={toggleTheme}
-              />
-              <IconButton icon="logout" size={18} label="Sign out" onClick={async () => { await logout(); navigate('/login') }} />
             </div>
           </div>
         </aside>

@@ -185,12 +185,12 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
     >
       {shown && (
         <div className="flex max-h-[85vh] flex-col">
-          <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-2">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-line/40 px-6 pt-5 pb-3">
             <h2 className="text-[1.375rem] font-bold">{shown.title}</h2>
-            <IconButton icon="x" label="Close" size={16} className="bg-fill p-1.5 text-muted" onClick={onClose} />
+            <IconButton icon="x" label="Close" size={16} className="bg-fill p-1.5 text-muted hover:text-ink" onClick={onClose} />
           </div>
-          <div className="overflow-y-auto px-6 py-3 scrollbar-thin">{shown.children}</div>
-          {shown.footer && <div className="flex justify-end gap-2 px-6 pt-3 pb-5">{shown.footer}</div>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">{shown.children}</div>
+          {shown.footer && <div className="flex shrink-0 justify-end gap-2 border-t border-line/40 px-6 pt-3 pb-5">{shown.footer}</div>}
         </div>
       )}
     </dialog>
@@ -219,21 +219,21 @@ export function ErrorText({ children }) {
 
 const TOAST_ICON = { error: ['alert', 'text-danger'], warn: ['alert', 'text-warn'], info: ['info', 'text-accent'] }
 
-/** Notification-style banners that rise from the corner they live in. */
+/** Notification-style banners centered at the top as frosted glass pills. */
 export function Toaster() {
   const { toasts, dismiss } = useUi()
   return (
-    <div aria-live="polite" className="pointer-events-none fixed right-5 bottom-5 z-50 flex w-96 max-w-[calc(100vw-2.5rem)] flex-col gap-2.5">
+    <div aria-live="polite" className="pointer-events-none fixed top-5 left-1/2 z-50 flex w-auto max-w-[calc(100vw-2.5rem)] -translate-x-1/2 flex-col gap-2.5 items-center">
       {toasts.map((t) => {
         const [icon, color] = TOAST_ICON[t.tone] ?? TOAST_ICON.info
         return (
           <div
             key={t.id}
-            className={cx('material pointer-events-auto flex origin-bottom-right items-start gap-3 rounded-2xl py-3 pr-2.5 pl-4 text-ink', t.leaving ? 'toast-out' : 'toast-in')}
+            className={cx('material pointer-events-auto flex items-center gap-3 rounded-full py-2 pr-2.5 pl-4 text-ink shadow-[var(--shadow-float)] border border-line/40 text-sm font-medium', t.leaving ? 'toast-out' : 'toast-in')}
           >
-            <Icon name={icon} size={22} className={cx('mt-0.5 shrink-0', color)} />
-            <p className="flex-1 font-medium">{t.message}</p>
-            <IconButton icon="x" label="Dismiss" size={14} className="mt-0.5 bg-fill p-1" onClick={() => dismiss(t.id)} />
+            <Icon name={icon} size={18} className={cx('shrink-0', color)} />
+            <p className="flex-1">{t.message}</p>
+            <IconButton icon="x" label="Dismiss" size={14} className="bg-fill p-1" onClick={() => dismiss(t.id)} />
           </div>
         )
       })}

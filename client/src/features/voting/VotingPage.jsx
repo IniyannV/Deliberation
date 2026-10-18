@@ -99,8 +99,10 @@ function ForepersonPanel({ counts, votes, display }) {
   const [options, setOptions] = useState(DEFAULT_OPTIONS)
   const [countId, setCountId] = useState('')
   const [showOnDisplay, setShowOnDisplay] = useState(true)
+  const [deliberatedInPerson, setDeliberatedInPerson] = useState(false)
   const pollIsOpen = votes.some((v) => v.kind === 'poll' && v.status === 'open')
   const ballotIsOpen = votes.some((v) => v.kind === 'ballot' && v.status === 'open')
+  const hasStrawPoll = votes.some((v) => v.kind === 'poll')
 
   async function run(event, payload, after) {
     try {
@@ -112,55 +114,175 @@ function ForepersonPanel({ counts, votes, display }) {
   }
 
   const voteChoices = [...votes].reverse().filter((v) => v.status !== 'voided')
+  const canOpenBallot = Boolean(countId && !ballotIsOpen && (hasStrawPoll || deliberatedInPerson))
 
   return (
     <Card className="border-accent/40 p-6" data-tour="foreperson-panel">
-      <h2 className="mb-1 flex items-center gap-2.5 text-xl font-bold"><span className="flex h-8 w-8 items-center justify-center rounded-[0.55rem] bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white"><Icon name="shield" size={18} strokeWidth={2} /></span> Foreperson controls</h2>
-      <p className="mb-5 text-muted">Only the foreperson sees these controls.</p>
+      <div className="mb-4">
+        <h2 className="flex items-center gap-2.5 text-xl font-bold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-[0.55rem] bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white shadow-xs">
+            <Icon name="shield" size={18} strokeWidth={2} />
+          </span>
+          Foreperson Deliberation Controls
+        </h2>
+        <p className="mt-0.5 text-sm text-muted">Manage chamber polls, formal ballots, and the jury room projector.</p>
+      </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="flex flex-col gap-3">
-          <h3 className="font-bold">Poll</h3>
-          <p className="text-sm text-muted">A quick, informal check of where the room stands.</p>
-          <Button icon="plus" disabled={pollIsOpen} onClick={() => setPollOpen(true)}>{pollIsOpen ? 'A poll is open' : 'New poll…'}</Button>
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Card 1: Informal Poll */}
+        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-ink">Informal Straw Poll</h3>
+              <Badge tone="accent">Non-binding</Badge>
+            </div>
+            <p className="text-xs text-muted leading-relaxed">
+              Gauge sentiment or identify sticking points across the room.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-line/30">
+            <Button
+              className="w-full"
+              icon="plus"
+              disabled={pollIsOpen}
+              onClick={() => setPollOpen(true)}
+            >
+              {pollIsOpen ? 'A poll is currently open' : 'New straw poll…'}
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <h3 className="font-bold">Secret ballot</h3>
-          <Select value={countId} onChange={(e) => setCountId(e.target.value)} aria-label="Count">
-            <option value="">Choose a count…</option>
-            {counts.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </Select>
-          <Button
-            variant="primary"
-            disabled={!countId || ballotIsOpen}
-            onClick={() => run('ballot:open', { countId, showOnDisplay }, () => setCountId(''))}
-          >
-            {ballotIsOpen ? 'A ballot is open' : 'Open ballot'}
-          </Button>
+        {/* Card 2: Secret Ballot */}
+        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-ink">Formal Secret Ballot</h3>
+              <Badge tone="warn">Binding</Badge>
+            </div>
+            <p className="text-xs text-muted leading-relaxed">
+              Official verdict vote on a count. Anonymity is guaranteed.
+            </p>
+            <div className="mt-1 flex flex-col gap-2">
+              <Select
+                value={countId}
+                onChange={(e) => {
+                  setCountId(e.target.value)
+                  setDeliberatedInPerson(false)
+                }}
+                aria-label="Count"
+              >
+                <option value="">Choose a count to vote on…</option>
+                {counts.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </Select>
+
+              {countId && !hasStrawPoll && (
+                <div className="rounded-xl border border-line/50 bg-surface/80 p-2.5 text-xs">
+                  <label className="flex items-start gap-2 cursor-pointer text-muted hover:text-ink">
+                    <input
+                      type="checkbox"
+                      checked={deliberatedInPerson}
+                      onChange={(e) => setDeliberatedInPerson(e.target.checked)}
+                      className="mt-0.5 rounded border-line accent-[var(--color-accent)]"
+                    />
+                    <span>Jury has discussed elements in person without a straw poll</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-line/30">
+            <Button
+              className="w-full"
+              variant="primary"
+              disabled={!canOpenBallot}
+              onClick={() => run('ballot:open', { countId, showOnDisplay }, () => {
+                setCountId('')
+                setDeliberatedInPerson(false)
+              })}
+            >
+              {ballotIsOpen
+                ? 'A ballot is open'
+                : !countId
+                ? 'Choose a count'
+                : !canOpenBallot
+                ? 'Discussion required'
+                : 'Open formal ballot'}
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <h3 className="flex items-center gap-2 font-bold"><Icon name="monitor" size={18} /> Room display</h3>
-          <Segmented
-            label="Room display shows"
-            value={display.view}
-            onChange={(view) => run('display:set', { view, voteId: display.voteId })}
-            options={[{ value: 'timeline', label: 'Timeline' }, { value: 'votes', label: 'Votes' }, { value: 'idle', label: 'Idle screen' }]}
-          />
-          {display.view === 'votes' && (
-            <Select value={display.voteId ?? ''} onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null })} aria-label="Vote shown on the display">
-              <option value="">Latest vote</option>
-              {voteChoices.map((v) => <option key={v.id} value={v.id}>{v.kind === 'ballot' ? 'Ballot' : 'Poll'}: {v.question.slice(0, 50)} ({fmtDateTime(v.openedAt)})</option>)}
-            </Select>
-          )}
+        {/* Card 3: Room Projector */}
+        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-bold text-ink">
+                <Icon name="monitor" size={17} /> Room Projector
+              </h3>
+              <Badge tone={display.view === 'blackout' ? 'danger' : 'ok'}>
+                {display.view === 'blackout' ? 'Blacked out' : 'Live'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted leading-relaxed">
+              Select what is shown on the wall display during deliberation.
+            </p>
+            <div className="mt-1 flex flex-col gap-2">
+              <Segmented
+                label="Room display shows"
+                value={display.view === 'blackout' ? 'idle' : display.view}
+                onChange={(view) => run('display:set', { view, voteId: display.voteId })}
+                options={[
+                  { value: 'timeline', label: 'Timeline' },
+                  { value: 'votes', label: 'Votes' },
+                  { value: 'idle', label: 'Idle' },
+                ]}
+              />
+              {display.view === 'votes' && (
+                <Select
+                  value={display.voteId ?? ''}
+                  onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null })}
+                  aria-label="Vote shown on the display"
+                >
+                  <option value="">Latest vote</option>
+                  {voteChoices.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.kind === 'ballot' ? 'Ballot' : 'Poll'}: {v.question.slice(0, 40)} ({fmtDateTime(v.openedAt)})
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-line/30">
+            <Button
+              className="w-full"
+              variant={display.view === 'blackout' ? 'primary' : 'outline'}
+              icon={display.view === 'blackout' ? 'eye' : 'eyeOff'}
+              onClick={() => run('display:set', { view: display.view === 'blackout' ? 'timeline' : 'blackout', voteId: display.voteId })}
+            >
+              {display.view === 'blackout' ? 'Resume projector' : 'Blackout projector'}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <label className="mt-5 flex items-center gap-3">
-        <input type="checkbox" checked={showOnDisplay} onChange={(e) => setShowOnDisplay(e.target.checked)} role="switch" className="switch" />
-        Switch the room display to new polls and ballots automatically
-      </label>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line/40 text-xs text-muted">
+        <label className="flex items-center gap-2.5 cursor-pointer hover:text-ink">
+          <input
+            type="checkbox"
+            checked={showOnDisplay}
+            onChange={(e) => setShowOnDisplay(e.target.checked)}
+            role="switch"
+            className="switch scale-90"
+          />
+          Automatically switch room projector to new polls and ballots
+        </label>
+        {display.view === 'blackout' && (
+          <span className="font-semibold text-warn flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-warn animate-pulse" />
+            Projector is blacked out (confidential)
+          </span>
+        )}
+      </div>
 
       <Modal
         open={pollOpen}

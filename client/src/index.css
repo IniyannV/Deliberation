@@ -166,6 +166,15 @@
   a {
     -webkit-tap-highlight-color: transparent;
   }
+  code, kbd {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    padding: 0.15em 0.4em;
+    border-radius: var(--radius-md);
+    background-color: var(--color-fill);
+    border: 0.5px solid var(--color-line);
+    color: var(--color-ink);
+  }
 }
 
 /* Press feedback fires on pointer-down and is instant; release eases back. */

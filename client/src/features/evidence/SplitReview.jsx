@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
-import { Button, Card, EmptyState, Field, IconButton, Input, Modal, Select, Spinner, cx } from '../../components/ui'
+import { Button, Card, EmptyState, Field, IconButton, Input, Modal, Segmented, Select, Spinner, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { useExhibit } from './useExhibit'
 import ExhibitViewer from './ExhibitViewer'
@@ -51,7 +51,16 @@ export default function SplitReview() {
   const [linkLine, setLinkLine] = useState(null)
   const [linkTarget, setLinkTarget] = useState('')
   const [split, setSplit] = useState(() => load('splitPct', 50))
+  const [mobileTab, setMobileTab] = useState('left')
+  const [isWide, setIsWide] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : true))
   const container = useRef(null)
+
+  useEffect(() => {
+    const m = window.matchMedia('(min-width: 1024px)')
+    const handler = (e) => setIsWide(e.matches)
+    m.addEventListener('change', handler)
+    return () => m.removeEventListener('change', handler)
+  }, [])
 
   const setParam = (k, v) => {
     const next = new URLSearchParams(params)
@@ -120,19 +129,41 @@ export default function SplitReview() {
 
   return (
     <div className="flex h-[calc(100dvh-var(--page-chrome,4rem))] flex-col">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Side-by-side review</h1>
-        <p className="text-muted">
-          Choose any exhibit for either side.
-          {transcript && <> Tap a line number to select it (Shift-click for a range); use <Icon name="link" size={16} className="inline" /> to link a line to an exhibit.</>}
-        </p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Side-by-side review</h1>
+          <p className="text-sm text-muted">
+            Choose any exhibit for either side.
+            {transcript && <> Tap a line number to select it (Shift-click for a range); use <Icon name="link" size={15} className="inline align-text-bottom" /> to link a line to an exhibit.</>}
+          </p>
+        </div>
       </div>
 
+      {!isWide && (
+        <div className="mb-3 flex w-full">
+          <Segmented
+            label="Active review pane"
+            value={mobileTab}
+            onChange={setMobileTab}
+            className="w-full"
+            options={[
+              { value: 'left', label: leftSummary ? `${leftSummary.number}: ${leftSummary.title.slice(0, 22)}` : 'Left Pane' },
+              { value: 'right', label: rightSummary ? `${rightSummary.number}: ${rightSummary.title.slice(0, 22)}` : 'Right Pane' },
+            ]}
+          />
+        </div>
+      )}
+
       <div ref={container} className="flex min-h-0 flex-1">
-        {/* Left: transcript */}
+        {/* Left: transcript or exhibit */}
         <Card
-          className={cx('flex min-h-0 min-w-0 flex-col overflow-hidden', settling && 'motion-travel transition-[width] duration-500 ease-[var(--ease-spring)]')}
-          style={{ width: `${split}%` }}
+          className={cx(
+            'min-h-0 min-w-0 flex-col overflow-hidden',
+            !isWide && mobileTab !== 'left' ? 'hidden' : 'flex',
+            isWide ? undefined : 'w-full',
+            settling && 'motion-travel transition-[width] duration-500 ease-[var(--ease-spring)]',
+          )}
+          style={isWide ? { width: `${split}%` } : undefined}
           onTransitionEnd={() => setSettling(false)}
           data-tour="review-transcript"
         >
@@ -152,7 +183,7 @@ export default function SplitReview() {
               {transcript && selection && (
                 <div className="flex items-center justify-between gap-2 border-b border-line bg-accent-soft px-3 py-2 text-sm">
                   <span className="font-semibold text-accent">
-                    Lines {selection.from}{selection.to !== selection.from ? `–${selection.to}` : ''} selected
+                    {selection.to === selection.from ? `Line ${selection.from}` : `Lines ${selection.from}–${selection.to}`} selected
                   </span>
                   <div className="flex gap-2">
                     <Button
@@ -177,7 +208,7 @@ export default function SplitReview() {
                     query={query}
                     links={links}
                     exhibitsById={exhibitsById}
-                    onOpenExhibit={(id) => setParam('ex', id)}
+                    onOpenExhibit={(id) => { setParam('ex', id); setMobileTab('right') }}
                     onUnlink={unlink}
                     selection={selection}
                     onSelect={onSelect}
@@ -187,7 +218,7 @@ export default function SplitReview() {
                 </div>
               ) : left ? (
                 <div className="min-h-0 flex-1">
-                  <ExhibitViewer key={leftId} exhibitId={leftId} onOpenExhibit={(id) => setParam('ex', id)} />
+                  <ExhibitViewer key={leftId} exhibitId={leftId} onOpenExhibit={(id) => { setParam('ex', id); setMobileTab('right') }} />
                 </div>
               ) : <Spinner />}
             </div>
@@ -206,13 +237,20 @@ export default function SplitReview() {
             if (e.key === 'ArrowLeft') { setSettling(true); setSplit((s) => Math.max(25, s - 5)) }
             if (e.key === 'ArrowRight') { setSettling(true); setSplit((s) => Math.min(75, s + 5)) }
           }}
-          className="group flex w-4 shrink-0 cursor-col-resize touch-none items-center justify-center"
+          className={cx('group w-4 shrink-0 cursor-col-resize touch-none items-center justify-center', isWide ? 'flex' : 'hidden')}
         >
           <div className="h-16 w-1 rounded-full bg-line transition-[background-color,height,width] duration-200 ease-[var(--ease-fluid)] group-hover:bg-accent group-active:h-24 group-active:w-1.5 group-active:bg-accent" />
         </div>
 
         {/* Right: exhibit */}
-        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-tour="review-exhibit">
+        <Card
+          className={cx(
+            'min-h-0 min-w-0 flex-col overflow-hidden',
+            !isWide && mobileTab !== 'right' ? 'hidden' : 'flex',
+            isWide ? 'flex-1' : 'w-full',
+          )}
+          data-tour="review-exhibit"
+        >
           <Enlargeable exhibit={rightSummary ?? { number: '', title: '' }} enlarged={enlarged === 'right'} onExit={() => setEnlarged(null)} className="min-h-0 flex-1">
             <div className="flex h-full flex-col">
               <div className="flex items-center gap-2 border-b border-line p-3">

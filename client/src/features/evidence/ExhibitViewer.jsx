@@ -19,7 +19,7 @@ export default function ExhibitViewer({ exhibitId, focusLine, onOpenExhibit }) {
   if (!exhibit) return <Spinner label="Opening exhibit…" />
   const title = `${exhibit.number}: ${exhibit.title}`
 
-  if (exhibit.type === 'pdf') return <Suspense fallback={<Spinner />}><PdfViewer url={exhibitFileUrl(exhibit.id)} title={title} /></Suspense>
+  if (exhibit.type === 'pdf') return <Suspense fallback={<Spinner />}><PdfViewer exhibit={exhibit} url={exhibitFileUrl(exhibit.id)} title={title} /></Suspense>
   if (exhibit.type === 'image') return <ImageViewer exhibit={exhibit} url={exhibitFileUrl(exhibit.id)} title={title} />
   if (exhibit.type === 'video') return <VideoViewer url={exhibitFileUrl(exhibit.id)} title={title} fps={exhibit.fps} />
   if (exhibit.type === 'youtube') return <YouTubeViewer videoId={exhibit.youtubeId} title={title} />

@@ -1,10 +1,26 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 
-// In development the Vite server proxies API and socket traffic to the
-// local Express server. In production Express serves client/dist itself.
-const SERVER = `http://localhost:${process.env.SERVER_PORT || 4000}`
+const here = path.dirname(fileURLToPath(import.meta.url))
+const portFile = path.resolve(here, '../server/data/.port')
+
+function getServerTarget() {
+  if (process.env.SERVER_PORT) return `http://localhost:${process.env.SERVER_PORT}`
+  try {
+    if (fs.existsSync(portFile)) {
+      const p = fs.readFileSync(portFile, 'utf8').trim()
+      if (p) return `http://localhost:${p}`
+    }
+  } catch {}
+  return 'http://localhost:4000'
+}
+
+let apiProxy
+let wsProxy
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -21,8 +37,25 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      '/api': SERVER,
-      '/socket.io': { target: SERVER, ws: true },
+      '/api': {
+        target: getServerTarget(),
+        configure: (proxy) => { apiProxy = proxy },
+        bypass: (_req, _res, opts) => {
+          const target = getServerTarget()
+          opts.target = target
+          if (apiProxy) apiProxy.options.target = target
+        },
+      },
+      '/socket.io': {
+        target: getServerTarget(),
+        ws: true,
+        configure: (proxy) => { wsProxy = proxy },
+        bypass: (_req, _res, opts) => {
+          const target = getServerTarget()
+          opts.target = target
+          if (wsProxy) wsProxy.options.target = target
+        },
+      },
     },
   },
   build: {

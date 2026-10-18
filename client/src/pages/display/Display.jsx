@@ -56,6 +56,20 @@ function IdleView({ caseInfo }) {
   )
 }
 
+function BlackoutView() {
+  return (
+    <div className="flex flex-col items-center justify-center text-center my-auto select-none">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface/50 border border-line/40 text-muted shadow-xs mb-4">
+        <Icon name="eyeOff" size={32} strokeWidth={1.5} />
+      </div>
+      <h2 className="text-2xl font-bold tracking-tight text-ink/70">Deliberation Display Paused</h2>
+      <p className="mt-2 text-base text-muted/70 max-w-md">
+        Screen is blacked out for jury confidentiality. The foreperson will resume the display when appropriate.
+      </p>
+    </div>
+  )
+}
+
 export default function Display() {
   const caseInfo = useAuth((s) => s.caseInfo)
   const logout = useAuth((s) => s.logout)
@@ -81,13 +95,14 @@ export default function Display() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-8 scrollbar-thin">
+        {display.view === 'blackout' && <BlackoutView />}
         {display.view === 'timeline' && (
           timeline.length
             ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><Timeline events={timeline} zoom="fit" /></Card></div>
             : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
         )}
         {display.view === 'votes' && <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>}
-        {display.view !== 'timeline' && display.view !== 'votes' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
+        {display.view !== 'blackout' && display.view !== 'timeline' && display.view !== 'votes' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
       </main>
     </div>
   )
