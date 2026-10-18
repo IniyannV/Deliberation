@@ -38,6 +38,7 @@ export function describe(e) {
         : `${juror(m.seat)} sent a ${req}${m.itemCount ? ` (${m.itemCount} item${m.itemCount === 1 ? '' : 's'})` : ''}`;
     case 'request.status': return `${who} marked ${juror(m.seat)}’s ${req} as ${STATUS[m.status] ?? m.status}`;
     case 'request.message': return who === juror(m.seat) ? `${who} sent the bailiff a message about their ${req}` : `${who} sent ${juror(m.seat)} a message about their ${req}`;
+    case 'chat.message': return who === juror(m.seat) ? `${who} sent the bailiff a chat message` : `${who} sent ${juror(m.seat)} a chat message`;
     case 'update.sent': return `${who} delivered a family update to ${juror(m.seat)}`;
     case 'update.read': return `${juror(m.seat)} read a family update`;
     case 'seat.foreperson_set': return `${who} made ${juror(m.seat)} the foreperson`;

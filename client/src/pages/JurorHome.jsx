@@ -416,8 +416,8 @@ function getElementStatus(checks, idx) {
                 {exhibits.filter((e) => e.type === 'transcript').length} transcripts ·{' '}
                 {exhibits.filter((e) => e.type === 'video' || e.type === 'youtube').length} video
               </span>
-              <Link to="/juror/review" className="font-semibold text-accent hover:underline">
-                Open side-by-side review →
+              <Link to="/juror/evidence" className="font-semibold text-accent hover:underline">
+                Open exhibit locker →
               </Link>
             </div>
           </Card>
@@ -443,22 +443,6 @@ function getElementStatus(checks, idx) {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink">Exhibit Locker</p>
                     <p className="text-xs text-muted truncate">{exhibits.length} admitted exhibits</p>
-                  </div>
-                </div>
-                <Icon name="chevronRight" size={16} className="text-muted/60 shrink-0" />
-              </Link>
-
-              <Link
-                to="/juror/review"
-                className="pressable pressable-soft flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-fill/50"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                    <Icon name="columns" size={18} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Side-by-Side Review</p>
-                    <p className="text-xs text-muted truncate">Examine testimony with physical evidence</p>
                   </div>
                 </div>
                 <Icon name="chevronRight" size={16} className="text-muted/60 shrink-0" />

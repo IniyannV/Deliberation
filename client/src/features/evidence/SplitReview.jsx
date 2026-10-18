@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
@@ -31,6 +31,7 @@ function ExhibitPicker({ value, onChange, exhibits, label }) {
 export default function SplitReview() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const user = useAuth((s) => s.user)
   const isForeperson = user?.role === 'foreperson'
   const display = useLive((s) => s.display)
@@ -135,6 +136,14 @@ export default function SplitReview() {
     <div className="flex h-[calc(100dvh-var(--page-chrome,4rem))] flex-col">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
+          {/* Opened from an exhibit, so there's no sidebar tab for this view: go back the way you came. */}
+          <button
+            type="button"
+            onClick={() => (location.key !== 'default' ? navigate(-1) : navigate('/juror/evidence'))}
+            className="pressable -ml-2 flex items-center rounded-full py-1 pr-3 pl-1 font-medium text-accent hover:bg-fill"
+          >
+            <Icon name="chevronLeft" size={22} strokeWidth={2.2} /> Back
+          </button>
           <h1 className="text-2xl font-bold">Side-by-side review</h1>
           <p className="text-sm text-muted">
             Choose any exhibit for either side.

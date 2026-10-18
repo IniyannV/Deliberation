@@ -21,3 +21,15 @@ export async function api(path, { method = 'GET', body, form } = {}) {
 }
 
 export const exhibitFileUrl = (id) => `/api/exhibits/${id}/file`
+
+/** Why a file the browser couldn't load failed, in words a juror can act on. Null if it downloads fine. */
+export async function fileProblem(url) {
+  try {
+    const res = await fetch(url, { credentials: 'same-origin' })
+    if (res.ok) return null
+    const data = await res.json().catch(() => ({}))
+    return data.error || `The court server could not send this file (error ${res.status}).`
+  } catch {
+    return 'Could not reach the court server. Check the connection and try again.'
+  }
+}

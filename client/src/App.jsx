@@ -35,7 +35,6 @@ function JurorShell() {
     { to: '/juror', label: 'Overview', icon: 'home', end: true },
     { section: 'Evidence' },
     { to: '/juror/evidence', label: 'Exhibit locker', icon: 'folder' },
-    { to: '/juror/review', label: 'Side-by-side review', icon: 'columns' },
     { to: '/juror/timeline', label: 'Timeline', icon: 'timeline' },
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },

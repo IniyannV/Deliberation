@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
+import { fileProblem } from '../../lib/api'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { useLongPress } from '../../lib/touch'
@@ -591,7 +592,7 @@ export default function PdfViewer({ exhibit, url, title }) {
             options={PDF_OPTIONS}
             suspense={false}
             onLoadSuccess={({ numPages }) => setPages(numPages)}
-            onLoadError={(e) => setError(`Could not open this PDF (${e.message}).`)}
+            onLoadError={async (e) => setError((await fileProblem(url)) ?? `Could not open this PDF (${e.message}).`)}
             loading={<p className="text-muted py-8">Opening document…</p>}
           >
             {Array.from({ length: pages }, (_, i) => {

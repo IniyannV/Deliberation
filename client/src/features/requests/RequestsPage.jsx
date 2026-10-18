@@ -6,7 +6,7 @@ import { toast } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import RequestThread from './RequestThread'
+import RequestThread, { MessageThread } from './RequestThread'
 
 const TEMPLATES = [
   { type: 'break', icon: 'coffee', title: 'Take a break', text: 'Ask for a short recess.' },
@@ -91,9 +91,9 @@ function RequestForm({ type, catalog, onDone }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-5">
+    <form onSubmit={submit} className={cx('flex flex-col gap-5', type === 'break' && 'items-center text-center')}>
       {type === 'break' && (
-        <div>
+        <div className="flex flex-col items-center">
           <p className="mb-2 font-semibold">How long?</p>
           <Segmented label="Break length" value={minutes} onChange={setMinutes} options={[5, 10, 15, 30].map((m) => ({ value: m, label: `${m} min` }))} />
         </div>
@@ -111,7 +111,7 @@ function RequestForm({ type, catalog, onDone }) {
         </Field>
       )}
       <ErrorText>{error}</ErrorText>
-      <div className="flex gap-2">
+      <div className={cx('flex gap-2', type === 'break' && 'justify-center')}>
         <Button type="submit" variant="primary" disabled={busy}>Send request</Button>
         <Button variant="ghost" onClick={onDone}>Cancel</Button>
       </div>
@@ -130,51 +130,76 @@ export default function RequestsPage() {
   const templates = TEMPLATES.filter((t) => !t.foreperson || role === 'foreperson')
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
-      <div>
-        <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal, supplies, or (foreperson only) send a question to the judge. You can message the bailiff about any request." />
-        {!active ? (
-          <div className="grid gap-4 sm:grid-cols-2" data-tour="request-templates">
-            {templates.map((t) => (
-              <button key={t.type} type="button" onClick={() => setActive(t.type)} className="pressable pressable-soft flex items-start gap-4 rounded-2xl bg-surface p-5 text-left shadow-card hover:shadow-[var(--shadow-lift)]">
-                <span className="rounded-xl bg-accent-soft p-3 text-accent"><Icon name={t.icon} size={26} /></span>
-                <span>
-                  <span className="block text-lg font-bold">{t.title}</span>
-                  <span className="text-muted">{t.text}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <Card className="p-6">
-            <h2 className="mb-5 text-xl font-bold">{REQUEST_LABEL[active]}</h2>
-            <RequestForm type={active} catalog={catalog} onDone={() => setActive(null)} />
-          </Card>
-        )}
-      </div>
+    <div>
+      <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
+        <div>
+          <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal, supplies, or (foreperson only) send a question to the judge. You can message the bailiff about any request." />
+          {!active ? (
+            <div className="grid gap-4 sm:grid-cols-2" data-tour="request-templates">
+              {templates.map((t) => (
+                <button key={t.type} type="button" onClick={() => setActive(t.type)} className="pressable pressable-soft flex items-start gap-4 rounded-2xl bg-surface p-5 text-left shadow-card hover:shadow-[var(--shadow-lift)]">
+                  <span className="rounded-xl bg-accent-soft p-3 text-accent"><Icon name={t.icon} size={26} /></span>
+                  <span>
+                    <span className="block text-lg font-bold">{t.title}</span>
+                    <span className="text-muted">{t.text}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Card className={cx('p-6', active === 'break' && 'text-center')}>
+              <h2 className="mb-5 text-xl font-bold">{REQUEST_LABEL[active]}</h2>
+              <RequestForm type={active} catalog={catalog} onDone={() => setActive(null)} />
+            </Card>
+          )}
+        </div>
 
-      <aside>
-        <h2 className="mb-4 text-xl font-bold">Your requests</h2>
-        {mine.length ? (
-          <ul className="flex flex-col gap-3">
-            {mine.map((r) => (
-              <li key={r.id}>
-                <Card className="p-4">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="font-bold">{REQUEST_LABEL[r.type]}</span>
-                    <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                  </div>
-                  <RequestSummary r={r} />
-                  <p className="mt-2 text-sm text-muted">Sent {timeAgo(r.createdAt)}</p>
-                  <RequestThread request={r} viewer="juror" />
-                </Card>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState icon="bell" title="No requests yet" />
-        )}
-      </aside>
+        <aside>
+          <h2 className="mb-4 text-xl font-bold">Your requests</h2>
+          {mine.length ? (
+            <ul className="flex flex-col gap-3">
+              {mine.map((r) => (
+                <li key={r.id}>
+                  <Card className="p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="font-bold">{REQUEST_LABEL[r.type]}</span>
+                      <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+                    </div>
+                    <RequestSummary r={r} />
+                    <p className="mt-2 text-sm text-muted">Sent {timeAgo(r.createdAt)}</p>
+                    <RequestThread request={r} viewer="juror" />
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon="bell" title="No requests yet" />
+          )}
+        </aside>
+      </div>
+      <BailiffChat />
     </div>
+  )
+}
+
+/** An open line to the bailiff for anything that isn't one of the requests above. */
+function BailiffChat() {
+  const chat = useLive((s) => s.myChat)
+  const messages = chat?.messages ?? []
+
+  async function send(text) {
+    const { chat: updated } = await api('/chat', { method: 'POST', body: { text } })
+    useLive.setState({ myChat: updated })
+  }
+
+  return (
+    <section className="mt-10" aria-labelledby="bailiff-chat">
+      <h2 id="bailiff-chat" className="mb-1 text-xl font-bold">Chat with the bailiff</h2>
+      <p className="mb-4 text-muted">For anything that isn’t a request above. Don’t discuss the case or how the jury is leaning.</p>
+      <Card className="p-5">
+        {!messages.length && <p className="mb-3 text-muted">No messages yet.</p>}
+        <MessageThread id="bailiff-chat" messages={messages} viewer="juror" seat={chat?.seat} onSend={send} />
+      </Card>
+    </section>
   )
 }

@@ -7,9 +7,10 @@
  * /admin/evidence (or edit CASE in scripts/lib/case-content.js).
  */
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DATA_DIR, DB_FILE, AUDIT_FILE, UPLOAD_DIR } from '../config.js';
+import { DATA_DIR, DB_FILE, AUDIT_FILE, PORT, UPLOAD_DIR } from '../config.js';
 import { defaultData, initDb, db } from '../db.js';
 import { hashPin, randomPin } from '../auth.js';
 import { audit, initAudit } from '../services/audit.js';
@@ -22,6 +23,18 @@ import { IMAGE_EXHIBITS, PDF_EXHIBITS } from './lib/documents.js';
 
 const FOREPERSON_SEAT = 1;
 const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets');
+
+// A running server keeps the old database in memory and writes it back over
+// this one, leaving every exhibit pointing at a file this script deleted.
+const serverUp = await new Promise((resolve) => {
+  const socket = net.connect(PORT, '127.0.0.1')
+    .once('connect', () => { socket.destroy(); resolve(true); })
+    .once('error', () => resolve(false));
+});
+if (serverUp) {
+  console.error(`The server is running on port ${PORT}. Stop it first, then run the seed again.`);
+  process.exit(1);
+}
 
 // Never delete the audit trail: archive the old one alongside the new.
 fs.mkdirSync(DATA_DIR, { recursive: true });

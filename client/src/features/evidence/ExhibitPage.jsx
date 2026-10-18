@@ -24,7 +24,8 @@ export default function ExhibitPage() {
 
   if (!exhibit) return loaded ? <p className="text-muted">This exhibit is no longer available. <Link className="text-accent underline" to="/juror/evidence">Back to the locker</Link></p> : <Spinner />
 
-  const reviewHref = exhibit.type === 'transcript' ? `/juror/review?t=${exhibit.id}` : `/juror/review?ex=${exhibit.id}`
+  // The exhibit you were just on stays on the left; pick something to compare on the right.
+  const reviewHref = `/juror/review?t=${exhibit.id}`
   const isProjecting = display?.view === 'evidence' && display?.exhibitId === exhibit.id
 
   async function toggleProject() {
