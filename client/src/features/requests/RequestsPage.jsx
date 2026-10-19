@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../store/auth'
-import { useLive } from '../../store/live'
-import { toast } from '../../store/ui'
+import { unreadChat, unreadRequestReplies, useLive } from '../../store/live'
+import { toast, useUi } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, timeAgo } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
+import { Badge, Button, Card, CountBadge, EmptyState, ErrorText, Field, Input, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import RequestThread, { MessageThread } from './RequestThread'
+import RequestThread from './RequestThread'
 
 const TEMPLATES = [
   { type: 'break', icon: 'coffee', title: 'Take a break', text: 'Ask for a short recess.' },
@@ -125,6 +125,11 @@ export default function RequestsPage() {
   const [active, setActive] = useState(null)
   const [catalog, setCatalog] = useState({ menu: [], supplies: [] })
 
+  // Being on this page counts as having seen the bailiff's replies to requests,
+  // including ones that arrive while it's open.
+  const replies = useLive(unreadRequestReplies)
+  useEffect(() => { if (replies) useLive.getState().markSeen('requests') }, [replies])
+
   useEffect(() => { api('/requests/options').then(setCatalog).catch(() => {}) }, [active])
 
   const templates = TEMPLATES.filter((t) => !t.foreperson || role === 'foreperson')
@@ -155,7 +160,8 @@ export default function RequestsPage() {
         </div>
 
         <aside>
-          <h2 className="mb-4 text-xl font-bold">Your requests</h2>
+          <BailiffChat />
+          <h2 className="mt-8 mb-4 text-xl font-bold">Your requests</h2>
           {mine.length ? (
             <ul className="flex flex-col gap-3">
               {mine.map((r) => (
@@ -177,29 +183,27 @@ export default function RequestsPage() {
           )}
         </aside>
       </div>
-      <BailiffChat />
     </div>
   )
 }
 
-/** An open line to the bailiff for anything that isn't one of the requests above. */
+/** The open line to the bailiff lives in a floating window; this opens it. */
 function BailiffChat() {
-  const chat = useLive((s) => s.myChat)
-  const messages = chat?.messages ?? []
-
-  async function send(text) {
-    const { chat: updated } = await api('/chat', { method: 'POST', body: { text } })
-    useLive.setState({ myChat: updated })
-  }
+  const unread = useLive(unreadChat)
+  const { chatOpen, openChat } = useUi()
 
   return (
-    <section className="mt-10" aria-labelledby="bailiff-chat">
-      <h2 id="bailiff-chat" className="mb-1 text-xl font-bold">Chat with the bailiff</h2>
-      <p className="mb-4 text-muted">For anything that isn’t a request above. Don’t discuss the case or how the jury is leaning.</p>
-      <Card className="p-5">
-        {!messages.length && <p className="mb-3 text-muted">No messages yet.</p>}
-        <MessageThread id="bailiff-chat" messages={messages} viewer="juror" seat={chat?.seat} onSend={send} />
-      </Card>
-    </section>
+    <Card className="flex items-center gap-3 p-4">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4)]">
+        <Icon name="chat" size={20} strokeWidth={2} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 className="flex items-center gap-2 leading-tight font-bold">Chat with the bailiff <CountBadge count={unread} /></h2>
+        <p className="text-sm text-muted">For anything that isn’t a request. Stays open as you move around.</p>
+      </div>
+      <Button size="sm" variant={chatOpen ? 'secondary' : 'primary'} onClick={() => openChat()} disabled={chatOpen}>
+        {chatOpen ? 'Chat open' : 'Open chat'}
+      </Button>
+    </Card>
   )
 }

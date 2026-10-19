@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
-import { Button, IconButton, cx } from './ui'
+import { Button, CountBadge, IconButton, Switch, cx } from './ui'
 import ErrorBoundary from './ErrorBoundary'
 import { TitleBarContext } from './titleBar'
 import TextSize from './TextSize'
 import { useAuth } from '../store/auth'
-import { useLive } from '../store/live'
+import { unreadChat, useLive } from '../store/live'
 import { useUi } from '../store/ui'
 import { tourOffered, useTour } from '../features/tour/Tour'
 import { store } from '../lib/storage'
+import ChatWindow from '../features/requests/ChatWindow'
 
 // Apple's momentum projection: where a flick would come to rest.
 const project = (v, d = 0.998) => ((v / 1000) * d) / (1 - d)
@@ -72,6 +73,9 @@ function useDrawerDrag(open, setOpen) {
 export default function AppShell({ nav, wide = false }) {
   const { user, caseInfo, logout } = useAuth()
   const connected = useLive((s) => s.connected)
+  const { dnd, setDnd } = useLive()
+  const chatUnread = useLive(unreadChat)
+  const { chatOpen, openChat, closeChat } = useUi()
   const { theme, toggleTheme, sidebarCollapsed: collapsed, setSidebarCollapsed } = useUi()
   const navigate = useNavigate()
   const location = useLocation()
@@ -85,6 +89,9 @@ export default function AppShell({ nav, wide = false }) {
   const [drawer, setDrawer] = useState(false)
   const main = useRef(null)
   const { dx, onPointerDown } = useDrawerDrag(drawer, setDrawer)
+
+  // The chat window belongs to this sign-in; don't carry it over to the next.
+  useEffect(() => () => useUi.getState().closeChat(), [])
 
   // Each page starts at the top, with the sidebar put away (unless the tour,
   // which walks through pages, needs it showing).
@@ -179,14 +186,7 @@ export default function AppShell({ nav, wide = false }) {
                         <>
                           <Icon name={item.icon} size={20} strokeWidth={2} className={isActive ? 'text-accent-ink' : 'text-accent'} />
                           <span className="flex-1 truncate">{item.label}</span>
-                          {item.badge ? (
-                            <span
-                              className={cx('min-w-6 rounded-full px-1.5 text-center text-sm font-semibold tabular-nums', isActive ? 'bg-white/25 text-accent-ink' : 'bg-accent text-accent-ink')}
-                              aria-label={`${item.badge} new`}
-                            >
-                              {item.badge}
-                            </span>
-                          ) : null}
+                          <CountBadge count={item.badge} />
                         </>
                       )}
                     </NavLink>
@@ -207,6 +207,12 @@ export default function AppShell({ nav, wide = false }) {
           </nav>
 
           <div className="shrink-0 border-t border-line/40 pt-2.5">
+            <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
+              <span id="dnd-label" className="flex items-center gap-1.5 text-sm font-medium text-muted">
+                <Icon name="bellOff" size={16} /> Do not disturb
+              </span>
+              <Switch checked={dnd} onChange={setDnd} labelledBy="dnd-label" />
+            </div>
             <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
               <span className="text-sm font-medium text-muted">Text size</span>
               <TextSize />
@@ -263,8 +269,23 @@ export default function AppShell({ nav, wide = false }) {
               >
                 {compact?.title}
               </p>
-              {/* With the sidebar showing, text size lives at its foot instead. */}
-              <TextSize className={cx('relative ml-auto', !collapsed && 'lg:hidden')} />
+              <div className="relative ml-auto flex items-center gap-1">
+                {dnd && (
+                  <IconButton icon="bellOff" label="Do not disturb is on. Turn it off" className="material-bar text-accent shadow-card" onClick={() => setDnd(false)} />
+                )}
+                <span className="relative">
+                  <IconButton
+                    icon="chat"
+                    label={user?.role === 'bailiff' ? 'Juror chats' : 'Chat with the bailiff'}
+                    aria-pressed={chatOpen}
+                    className={cx('shadow-card', chatOpen ? 'bg-accent text-accent-ink hover:bg-accent hover:text-accent-ink' : 'material-bar text-accent')}
+                    onClick={() => (chatOpen ? closeChat() : openChat())}
+                  />
+                  <CountBadge count={chatUnread} className="pointer-events-none absolute -top-0.5 -right-0.5" />
+                </span>
+                {/* With the sidebar showing, text size lives at its foot instead. */}
+                <TextSize className={cx(!collapsed && 'lg:hidden')} />
+              </div>
             </div>
           </div>
 
@@ -281,6 +302,8 @@ export default function AppShell({ nav, wide = false }) {
             </ErrorBoundary>
           </div>
         </main>
+
+        <ChatWindow />
 
         {offer && !tourActive && (
           <div

@@ -60,6 +60,17 @@ export const useUi = create((set, get) => ({
     set({ sidebarCollapsed })
   },
 
+  // The floating chat window, which stays open from page to page. For the
+  // bailiff, `chatSeat` is the juror seat it shows (null: the latest chat).
+  chatOpen: false,
+  chatSeat: null,
+  openChat(chatSeat = null) {
+    set({ chatOpen: true, chatSeat })
+  },
+  closeChat() {
+    set({ chatOpen: false })
+  },
+
   toasts: [],
   toast(message, { tone = 'info', timeout = 5000 } = {}) {
     const id = ++toastId

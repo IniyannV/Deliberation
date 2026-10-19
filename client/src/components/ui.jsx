@@ -68,6 +68,34 @@ export function Badge({ tone = 'neutral', className, children }) {
   return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.8125rem] font-semibold whitespace-nowrap tabular-nums', BADGE[tone], className)}>{children}</span>
 }
 
+/** An on/off switch, iOS style. Pass `label` or `labelledBy` for its name. */
+export function Switch({ checked, onChange, label, labelledBy, className }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      aria-labelledby={labelledBy}
+      onClick={() => onChange(!checked)}
+      className={cx('pressable relative inline-flex h-[1.625rem] w-[2.75rem] shrink-0 items-center rounded-full p-0.5 transition-colors duration-200', checked ? 'bg-ok' : 'bg-fill-strong', className)}
+    >
+      <span className={cx('h-[1.375rem] w-[1.375rem] rounded-full bg-white shadow-[0_2px_4px_rgb(0_0_0/0.2)] transition-transform duration-[var(--duration-ui)] ease-[var(--ease-fluid)]', checked && 'translate-x-[1.125rem]')} />
+    </button>
+  )
+}
+
+/** A red notification count, like an app icon badge. Renders nothing at zero. */
+export function CountBadge({ count, className }) {
+  if (!count) return null
+  return (
+    <span className={cx('inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-alert px-1.5 text-xs leading-none font-semibold text-white tabular-nums shadow-[0_1px_2px_rgb(0_0_0/0.15)]', className)}>
+      {count > 99 ? '99+' : count}
+      <span className="sr-only"> new</span>
+    </span>
+  )
+}
+
 /** Large title. Hands off to the compact title bar when scrolled away. */
 export function PageHeader({ title, subtitle, actions }) {
   const titleRef = useRef(null)

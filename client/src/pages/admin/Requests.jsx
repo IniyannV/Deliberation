@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { useLive } from '../../store/live'
-import { toast } from '../../store/ui'
+import { toast, useUi } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, PageHeader, Segmented, cx } from '../../components/ui'
+import { Badge, Button, Card, EmptyState, IconButton, PageHeader, Segmented, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { RequestSummary, STATUS_TONE } from '../../features/requests/RequestsPage'
 import RequestThread, { MessageThread } from '../../features/requests/RequestThread'
@@ -92,9 +92,10 @@ export default function Requests() {
   )
 }
 
-/** Open chats jurors started from the bottom of their Requests page. */
+/** Open chats jurors started from their Requests page. */
 function JurorChats() {
   const chats = useLive((s) => s.chats)
+  const openChat = useUi((s) => s.openChat)
 
   async function send(seatId, text) {
     const { chat } = await api(`/admin/chats/${seatId}/messages`, { method: 'POST', body: { text } })
@@ -109,9 +110,12 @@ function JurorChats() {
         <ul className="grid gap-3 lg:grid-cols-2">
           {chats.map((c) => (
             <li key={c.seatId}>
-              <Card className="p-5">
-                <p className="mb-3 text-lg font-bold">Juror {c.seat}</p>
-                <MessageThread id={`chat-${c.seatId}`} messages={c.messages} viewer="bailiff" seat={c.seat} onSend={(text) => send(c.seatId, text)} />
+              <Card className="flex h-[26rem] flex-col overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-line/60 py-2 pr-2 pl-4">
+                  <p className="text-lg font-bold">Juror {c.seat}</p>
+                  <IconButton icon="external" label={`Open Juror ${c.seat}’s chat in a window`} className="text-accent" onClick={() => openChat(c.seatId)} />
+                </div>
+                <MessageThread id={`chat-${c.seatId}`} panel messages={c.messages} viewer="bailiff" seat={c.seat} onSend={(text) => send(c.seatId, text)} className="min-h-0 flex-1" />
               </Card>
             </li>
           ))}

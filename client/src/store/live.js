@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import { api } from '../lib/api'
 import { chime } from '../lib/sound'
 import { load, store } from '../lib/storage'
-import { toast } from './ui'
+import { toast, useUi } from './ui'
 
 /*
  * Everything that updates in real time lives here. The socket connects to
@@ -13,6 +13,24 @@ import { toast } from './ui'
 let socket = null
 
 const isJuror = (role) => role === 'juror' || role === 'foreperson'
+
+/*
+ * What the bailiff has said to this juror, apart by where it's read: replies
+ * on request threads (read on the Requests page) and the open chat (read in
+ * the chat window). Each has its own "seen up to" server timestamp.
+ */
+const SEEN = {
+  requests: { key: 'bailiffSeenAt', messages: (s) => s.myRequests.flatMap((r) => r.messages ?? []) },
+  chat: { key: 'chatSeenAt', messages: (s) => s.myChat?.messages ?? [] },
+}
+const unseen = (s, kind) => SEEN[kind].messages(s).filter((m) => m.from === 'bailiff' && m.at > (s[SEEN[kind].key] ?? '')).length
+
+/** Bailiff replies on request threads since the juror last had the Requests page open. */
+export const unreadRequestReplies = (s) => unseen(s, 'requests')
+
+/** Juror: unseen bailiff messages in the chat. Bailiff: chats waiting on a reply. */
+export const unreadChat = (s) =>
+  isJuror(s.role) ? unseen(s, 'chat') : s.chats.filter((c) => c.messages.at(-1)?.from === 'juror').length
 
 const initial = {
   connected: false,
@@ -48,10 +66,52 @@ export const useLive = create((set, get) => ({
     if (on) chime()
   },
 
+  // Do not disturb: no pop-ups or chimes for incoming messages and requests.
+  // Counts and badges still update.
+  dnd: load('dnd', false),
+  setDnd(dnd) {
+    store('dnd', dnd)
+    set({ dnd })
+  },
+
+  // Server timestamps of the newest bailiff messages this juror has seen. Kept
+  // on the device per seat; the server doesn't track reads for messages.
+  bailiffSeenAt: null,
+  chatSeenAt: null,
+  /** `kind` is 'requests' or 'chat'. */
+  markSeen(kind) {
+    const s = get()
+    const { key, messages } = SEEN[kind]
+    const seen = s[key] ?? ''
+    const latest = messages(s).filter((m) => m.from === 'bailiff').reduce((a, m) => (m.at > a ? m.at : a), seen)
+    if (latest === seen) return
+    store(`${key}:${s.userId}`, latest)
+    set({ [key]: latest })
+  },
+
   connect(user) {
     get().disconnect()
-    set({ ...initial, role: user.role })
+    set({
+      ...initial,
+      role: user.role,
+      userId: user.id,
+      bailiffSeenAt: load(`bailiffSeenAt:${user.id}`, null),
+      chatSeenAt: load(`chatSeenAt:${user.id}`, null),
+    })
     socket = io({ withCredentials: true })
+
+    // A pop-up (and for the bailiff, a chime) for something that just arrived,
+    // unless do not disturb is on.
+    const notify = (message, { chime: ring = false, ...opts } = {}) => {
+      if (get().dnd) return
+      if (ring && get().soundOn) chime()
+      toast(message, opts)
+    }
+    // No need to announce a chat message that's already on screen in the chat window.
+    const chatShowing = (seatId) => {
+      const ui = useUi.getState()
+      return ui.chatOpen && (seatId == null || ui.chatSeat === seatId)
+    }
 
     socket.on('connect', () => set({ connected: true }))
     socket.on('disconnect', async (reason) => {
@@ -111,7 +171,7 @@ export const useLive = create((set, get) => ({
 
     socket.on('update:new', (u) => {
       set({ updates: [u, ...get().updates] })
-      toast('A new message from home has arrived on your bulletin board.')
+      notify('A new message from home has arrived on your bulletin board.')
     })
     socket.on('request:updated', (r) => {
       if (isJuror(get().role)) {
@@ -124,27 +184,22 @@ export const useLive = create((set, get) => ({
     })
     socket.on('request:new', (r) => {
       set({ queue: [r, ...get().queue.filter((x) => x.id !== r.id)], alertAt: Date.now() })
-      if (get().soundOn) chime()
-      toast(`New request from Juror ${r.seat}`, { tone: 'warn', timeout: 8000 })
+      notify(`New request from Juror ${r.seat}`, { chime: true, tone: 'warn', timeout: 8000 })
     })
     socket.on('request:message', (m) => {
       const what = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge' }[m.type] ?? 'request'
-      if (m.from === 'bailiff') toast(`The bailiff sent you a message about your ${what}.`)
-      else {
-        if (get().soundOn) chime()
-        toast(`Juror ${m.seat} sent a message about their ${what}.`, { tone: 'warn', timeout: 8000 })
-      }
+      if (m.from === 'bailiff') notify(`The bailiff sent you a message about your ${what}.`)
+      else notify(`Juror ${m.seat} sent a message about their ${what}.`, { chime: true, tone: 'warn', timeout: 8000 })
     })
     socket.on('chat:updated', (c) => {
       const last = c.messages.at(-1)
       if (isJuror(get().role)) {
         set({ myChat: c })
-        if (last?.from === 'bailiff') toast('The bailiff sent you a message.')
+        if (last?.from === 'bailiff' && !chatShowing()) notify('The bailiff sent you a message.')
       } else {
         set({ chats: [c, ...get().chats.filter((x) => x.seatId !== c.seatId)] })
-        if (last?.from === 'juror') {
-          if (get().soundOn) chime()
-          toast(`Juror ${c.seat} sent you a message.`, { tone: 'warn', timeout: 8000 })
+        if (last?.from === 'juror' && !chatShowing(c.seatId)) {
+          notify(`Juror ${c.seat} sent you a message.`, { chime: true, tone: 'warn', timeout: 8000 })
         }
       }
     })

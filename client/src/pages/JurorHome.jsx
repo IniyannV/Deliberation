@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../store/auth'
-import { useLive } from '../store/live'
+import { unreadChat, unreadRequestReplies, useLive } from '../store/live'
 import { Icon } from '../components/icons'
-import { Badge, Button, cx } from '../components/ui'
+import { Badge, Button, CountBadge, cx } from '../components/ui'
 
 export default function JurorHome() {
   const { user, caseInfo } = useAuth()
@@ -23,6 +23,7 @@ export default function JurorHome() {
   const pendingVotes = openVotes.filter((v) => !votedIn.includes(v.id))
   const toVote = pendingVotes.length
   const unread = updates.filter((u) => !u.readAt).length
+  const fromBailiff = useLive((s) => unreadRequestReplies(s) + unreadChat(s))
   const activeRequests = myRequests.filter((r) => r.status !== 'fulfilled')
 
   const docCount = exhibits.filter((e) => e.type === 'pdf').length
@@ -295,8 +296,9 @@ export default function JurorHome() {
               </span>
             </div>
 
-            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+            <h2 className="mt-1 flex items-center gap-2 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
               Ask the Bailiff
+              <CountBadge count={fromBailiff} />
             </h2>
             <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
               Request recess breaks, order meals, request supplies, or send notes to the judge.
@@ -305,7 +307,9 @@ export default function JurorHome() {
 
           <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
             <span className="text-muted truncate">
-              {activeRequests.length > 0 ? 'Staff notified' : 'Recesses & meals'}
+              {fromBailiff > 0
+                ? `${fromBailiff} new from the bailiff`
+                : activeRequests.length > 0 ? 'Staff notified' : 'Recesses & meals'}
             </span>
             <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
               Request →
@@ -329,9 +333,6 @@ export default function JurorHome() {
                 <Icon name="mail" size={20} strokeWidth={2.2} />
               </span>
               <div className="flex items-center gap-1">
-                {unread > 0 && (
-                  <Badge tone="ok" className="px-1.5 py-0.5 text-[11px]">{unread} new</Badge>
-                )}
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
                   <Icon name="chevronRight" size={14} strokeWidth={2.5} />
                 </span>
@@ -347,8 +348,9 @@ export default function JurorHome() {
               </span>
             </div>
 
-            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+            <h2 className="mt-1 flex items-center gap-2 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
               Messages from Home
+              <CountBadge count={unread} />
             </h2>
             <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
               Read personal communications vetted and approved by the court bailiff.

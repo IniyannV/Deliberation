@@ -5,7 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import RequireRole from './components/RequireRole'
 import { Spinner, Toaster } from './components/ui'
 import { homeFor, useAuth } from './store/auth'
-import { useLive } from './store/live'
+import { unreadRequestReplies, useLive } from './store/live'
 import Login from './pages/Login'
 import Tour from './features/tour/Tour'
 
@@ -31,6 +31,7 @@ const JUROR_ROLES = ['juror', 'foreperson']
 function JurorShell() {
   const unread = useLive((s) => s.updates.filter((u) => !u.readAt).length)
   const openToVote = useLive((s) => s.votes.filter((v) => v.status === 'open' && !s.votedIn.includes(v.id)).length)
+  const replies = useLive(unreadRequestReplies)
   const nav = [
     { to: '/juror', label: 'Overview', icon: 'home', end: true },
     { section: 'Evidence' },
@@ -38,7 +39,7 @@ function JurorShell() {
     { to: '/juror/timeline', label: 'Timeline', icon: 'timeline' },
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },
-    { to: '/juror/requests', label: 'Requests', icon: 'bell' },
+    { to: '/juror/requests', label: 'Requests', icon: 'bell', badge: replies },
     { to: '/juror/bulletin', label: 'Messages from home', icon: 'mail', badge: unread },
   ]
   return <AppShell nav={nav} wide />
