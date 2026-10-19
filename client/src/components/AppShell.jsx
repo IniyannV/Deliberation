@@ -86,11 +86,13 @@ export default function AppShell({ nav, wide = false }) {
   const main = useRef(null)
   const { dx, onPointerDown } = useDrawerDrag(drawer, setDrawer)
 
-  // Each page starts at the top, with the drawer put away.
+  // Each page starts at the top, with the sidebar put away (unless the tour,
+  // which walks through pages, needs it showing).
   useEffect(() => {
     setDrawer(false)
+    if (!useTour.getState().active) setSidebarCollapsed(true)
     main.current?.scrollTo({ top: 0 })
-  }, [location.pathname])
+  }, [location.pathname, setSidebarCollapsed])
 
   // The tour points at things in the sidebar, so bring it back while the tour runs.
   // Where it's a drawer (iPad portrait), slide it out just for the sidebar step.
