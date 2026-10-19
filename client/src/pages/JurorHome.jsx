@@ -1,21 +1,8 @@
-import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { useLive } from '../store/live'
-import { toast } from '../store/ui'
 import { Icon } from '../components/icons'
-import { Badge, Button, Card, cx } from '../components/ui'
-import {
-  PARTY_LABEL,
-  REQUEST_LABEL,
-  STATUS_LABEL,
-  TYPE_LABEL,
-  fmtCalendarDate,
-  timeAgo,
-} from '../lib/format'
-
-const TYPE_ICON = { pdf: 'file', image: 'image', transcript: 'text', video: 'video', youtube: 'video' }
-const STATUS_TONE = { pending: 'warn', acknowledged: 'accent', fulfilled: 'ok' }
+import { Badge, Button, cx } from '../components/ui'
 
 export default function JurorHome() {
   const { user, caseInfo } = useAuth()
@@ -27,28 +14,21 @@ export default function JurorHome() {
     exhibits,
     myRequests,
     counts: liveCounts,
-    burden: liveBurden,
-    personal,
     connected,
   } = useLive()
 
   const counts = liveCounts.length ? liveCounts : caseInfo?.counts ?? []
-  const burden = liveBurden || caseInfo?.burden || ''
-  const personalChecks = personal?.checks ?? {}
-
-  const [expandedCounts, setExpandedCounts] = useState(() => new Set())
-
-  const toVote = votes.filter((v) => v.status === 'open' && !votedIn.includes(v.id)).length
-  const unread = updates.filter((u) => !u.readAt).length
-  const activeRequests = myRequests.filter((r) => r.status !== 'fulfilled')
 
   const openVotes = votes.filter((v) => v.status === 'open')
   const pendingVotes = openVotes.filter((v) => !votedIn.includes(v.id))
-  const completedOpenVotes = openVotes.filter((v) => votedIn.includes(v.id))
+  const toVote = pendingVotes.length
+  const unread = updates.filter((u) => !u.readAt).length
+  const activeRequests = myRequests.filter((r) => r.status !== 'fulfilled')
 
-  const unreadUpdates = updates.filter((u) => !u.readAt)
-
-  const previewExhibits = useMemo(() => exhibits.slice(0, 5), [exhibits])
+  const docCount = exhibits.filter((e) => e.type === 'pdf').length
+  const photoCount = exhibits.filter((e) => e.type === 'image').length
+  const videoCount = exhibits.filter((e) => e.type === 'video' || e.type === 'youtube').length
+  const transcriptCount = exhibits.filter((e) => e.type === 'transcript').length
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
@@ -57,544 +37,352 @@ export default function JurorHome() {
     year: 'numeric',
   })
 
-  const toggleExpand = (id) => {
-    setExpandedCounts((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-function getElementStatus(checks, idx) {
-  if (Array.isArray(checks)) return checks.includes(idx) ? 'proven' : 'unproven'
-  if (checks && typeof checks === 'object') return checks[idx] || 'unproven'
-  return 'unproven'
-}
-
-  async function toggleElementCheck(countId, elementIdx) {
-    const live = useLive.getState()
-    const rawChecks = live.personal?.checks?.[countId]
-    const current = getElementStatus(rawChecks, elementIdx)
-    const nextState = current === 'unproven' ? 'disputed' : current === 'disputed' ? 'proven' : 'unproven'
-    const currentMap = typeof rawChecks === 'object' && !Array.isArray(rawChecks) ? { ...rawChecks } : {}
-    if (nextState === 'unproven') delete currentMap[elementIdx]
-    else currentMap[elementIdx] = nextState
-
-    useLive.setState({
-      personal: {
-        ...live.personal,
-        checks: { ...live.personal?.checks, [countId]: currentMap },
-      },
-    })
-    try {
-      await live.emit('check:set', { countId, element: elementIdx, state: nextState })
-    } catch (err) {
-      toast(err.message, { tone: 'error' })
-    }
-  }
-
   return (
-    <div className="max-w-6xl pb-12">
+    <div className="w-full max-w-5xl 2xl:max-w-6xl mx-auto py-1 sm:py-2">
       {/* Court session & case banner */}
-      <header className="mb-7">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wider text-muted">
-          <span>{today} · {caseInfo?.court || 'Superior Court'}</span>
-          <span className="inline-flex items-center gap-1.5 normal-case font-normal text-muted">
-            <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-ok' : 'bg-warn')} />
+      <header className="mb-4 sm:mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
+          <span>{today} · {caseInfo?.court || 'Superior Court of California'}</span>
+          <span className="inline-flex items-center gap-1.5 normal-case font-medium text-muted">
+            <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-ok shadow-[0_0_6px_rgba(48,209,88,0.5)]' : 'bg-warn')} />
             {connected ? 'Court server connected' : 'Reconnecting to court server…'}
           </span>
         </div>
-        <h1 className="mt-2 text-[2.25rem] font-bold tracking-tight text-ink">
-          {caseInfo?.caption || 'Jury Deliberation'}
+        <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-ink leading-tight">
+          {caseInfo?.caption || 'Jury Deliberation Portal'}
         </h1>
-        <p className="mt-1 text-[1.0625rem] text-muted">
-          {caseInfo?.caseNumber && <>Case {caseInfo.caseNumber} · </>}
-          Logged in as <span className="font-semibold text-ink">{user?.name}</span>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs sm:text-sm text-muted">
+          {caseInfo?.caseNumber && <span>Case {caseInfo.caseNumber} ·</span>}
+          <span>Logged in as <strong className="font-semibold text-ink">{user?.name}</strong></span>
           {user?.role === 'foreperson' && (
-            <Badge tone="accent" className="ml-2 font-semibold">Foreperson</Badge>
+            <Badge tone="accent" className="font-semibold px-2 py-0.5 text-xs">Foreperson</Badge>
           )}
-        </p>
+        </div>
       </header>
 
       {/* Action alerts: open ballots, family bulletins */}
-      <div className="mb-7 flex flex-col gap-3">
-        {pendingVotes.map((v) => (
-          <div
-            key={v.id}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-accent/40 bg-accent-soft p-5 shadow-card"
-          >
-            <div className="flex items-start gap-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-xs">
-                <Icon name="vote" size={20} strokeWidth={2} />
-              </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge tone={v.kind === 'ballot' ? 'warn' : 'accent'}>
-                    {v.kind === 'ballot' ? 'Secret ballot open' : 'Poll open'}
-                  </Badge>
-                  <span className="text-xs font-medium text-muted">Your vote is pending</span>
-                </div>
-                <h2 className="mt-1 text-lg font-bold text-ink">{v.question}</h2>
-                <p className="text-sm text-muted">
-                  {v.kind === 'ballot'
-                    ? 'Anonymous secret ballot. Your seat number is never stored alongside your choice.'
-                    : 'Informal room poll to gauge where the jury stands.'}
+      {pendingVotes.map((v) => (
+        <div
+          key={v.id}
+          className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent-soft p-3.5 sm:p-4 shadow-card"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-sm">
+              <Icon name="vote" size={20} strokeWidth={2.2} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge tone={v.kind === 'ballot' ? 'warn' : 'accent'} className="px-2 py-0.5 text-xs">
+                  {v.kind === 'ballot' ? 'Secret ballot open' : 'Poll open'}
+                </Badge>
+                <span className="text-xs font-semibold text-muted">Your vote is pending</span>
+              </div>
+              <h2 className="text-base font-bold text-ink mt-0.5">{v.question}</h2>
+              <p className="text-xs text-muted">
+                {v.kind === 'ballot'
+                  ? 'Anonymous secret ballot. Your seat number is never stored alongside your vote.'
+                  : 'Informal room poll to gauge where the jury stands.'}
+              </p>
+            </div>
+          </div>
+          <Link to="/juror/voting" className="shrink-0 w-full sm:w-auto">
+            <Button variant="primary" size="sm" className="w-full sm:w-auto px-4 text-xs">
+              Cast your vote →
+            </Button>
+          </Link>
+        </div>
+      ))}
+
+      {unread > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-ok/30 bg-ok-soft/30 p-3 sm:p-3.5 shadow-card">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ok text-white shadow-sm">
+              <Icon name="mail" size={18} strokeWidth={2} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-ink">
+                  {unread} new family message{unread === 1 ? '' : 's'} waiting
                 </p>
+                <Badge tone="ok" className="text-xs">Delivered</Badge>
               </div>
+              <p className="text-xs text-muted">Vetted and approved by the court bailiff.</p>
             </div>
-            <Link to="/juror/voting" className="shrink-0 w-full sm:w-auto">
-              <Button variant="primary" size="md" className="w-full">
-                Cast your vote →
-              </Button>
-            </Link>
           </div>
-        ))}
+          <Link to="/juror/bulletin">
+            <Button variant="secondary" size="sm" className="px-3.5 text-xs">
+              Read messages →
+            </Button>
+          </Link>
+        </div>
+      )}
 
-        {completedOpenVotes.map((v) => (
-          <div key={v.id} className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-5 py-3.5 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ok-soft text-ok">
-                <Icon name="check" size={16} strokeWidth={2.5} />
+      {/* Main Deliberation Menu Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5 sm:gap-4">
+        {/* ROW 1: PRIMARY PILLARS (50% / 50% width on large screens) */}
+        
+        {/* 1. Polls & Ballots */}
+        <Link
+          to="/juror/voting"
+          className={cx(
+            'group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 sm:p-5 shadow-card hover:shadow-lift border transition-all duration-200 lg:col-span-3 min-h-[175px]',
+            toVote > 0
+              ? 'border-accent/60 ring-2 ring-accent/30'
+              : 'border-line/40 hover:border-line'
+          )}
+        >
+          <div>
+            <div className="mb-3 flex items-start justify-between gap-2.5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(255_159_10/0.3)]">
+                <Icon name="vote" size={22} strokeWidth={2.2} />
               </span>
-              <div>
-                <p className="text-sm font-semibold text-ink">Vote recorded: {v.question}</p>
-                <p className="text-xs text-muted">Waiting on remaining jurors before results are announced.</p>
+              <div className="flex items-center gap-1.5">
+                {toVote > 0 ? (
+                  <Badge tone="warn" className="px-2 py-0.5 text-xs">Vote pending</Badge>
+                ) : (
+                  <Badge tone="neutral" className="px-2 py-0.5 text-xs">{counts.length} counts</Badge>
+                )}
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                  <Icon name="chevronRight" size={15} strokeWidth={2.5} />
+                </span>
               </div>
             </div>
-            <Link to="/juror/voting">
-              <Button variant="ghost" size="sm">View ballot status</Button>
-            </Link>
-          </div>
-        ))}
 
-        {unreadUpdates.length > 0 && (
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-accent/30 bg-surface px-5 py-3.5 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                <Icon name="mail" size={18} strokeWidth={2} />
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-ink tabular-nums">
+                {toVote > 0 ? toVote : votes.length}
               </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-ink">
-                    {unreadUpdates.length} new family message{unreadUpdates.length === 1 ? '' : 's'}
-                  </p>
-                  <Badge tone="accent">New</Badge>
-                </div>
-                <p className="text-xs text-muted">Vetted and approved by the court bailiff.</p>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                {toVote > 0 ? 'vote pending' : 'votes on record'}
+              </span>
+            </div>
+
+            <h2 className="mt-1.5 text-lg sm:text-xl font-bold text-ink group-hover:text-accent transition-colors">
+              Polls &amp; Ballots
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-muted leading-relaxed line-clamp-2">
+              {toVote > 0
+                ? 'Your vote is required on an open secret ballot or room poll.'
+                : 'Cast confidential ballots, conduct room straw polls, and track required statutory elements.'}
+            </p>
+          </div>
+
+          <div className="mt-3.5 pt-2.5 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {counts.length > 0 ? `${counts.length} statutory count${counts.length === 1 ? '' : 's'} under deliberation` : 'Verdict voting'}
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              {toVote > 0 ? 'Cast vote now' : 'View ballots'} →
+            </span>
+          </div>
+        </Link>
+
+        {/* 2. Exhibit Locker */}
+        <Link
+          to="/juror/evidence"
+          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 sm:p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 lg:col-span-3 min-h-[175px]"
+        >
+          <div>
+            <div className="mb-3 flex items-start justify-between gap-2.5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-b from-[#3b8cff] to-[#0062d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(0_113_227/0.3)]">
+                <Icon name="folder" size={22} strokeWidth={2.2} />
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Badge tone="neutral" className="px-2 py-0.5 text-xs">Admitted record</Badge>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                  <Icon name="chevronRight" size={15} strokeWidth={2.5} />
+                </span>
               </div>
             </div>
-            <Link to="/juror/bulletin">
-              <Button variant="secondary" size="sm">Open messages →</Button>
-            </Link>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-ink tabular-nums">
+                {exhibits.length}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                exhibits admitted
+              </span>
+            </div>
+
+            <h2 className="mt-1.5 text-lg sm:text-xl font-bold text-ink group-hover:text-accent transition-colors">
+              Exhibit Locker
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-muted leading-relaxed line-clamp-2">
+              Examine physical evidence, photographs, surveillance footage, audio recordings, and official transcripts.
+            </p>
           </div>
-        )}
+
+          <div className="mt-3.5 pt-2.5 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {docCount} docs · {photoCount} photos · {videoCount} video · {transcriptCount} transcripts
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              Browse locker →
+            </span>
+          </div>
+        </Link>
+
+        {/* ROW 2: WORKSPACE & SERVICE TOOLS (33% each on large screens) */}
+
+        {/* 3. Case Timeline */}
+        <Link
+          to="/juror/timeline"
+          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-2 lg:col-span-2 min-h-[160px]"
+        >
+          <div>
+            <div className="mb-2.5 flex items-start justify-between gap-2">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#8e8cff] to-[#5856d6] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(88_86_214/0.3)]">
+                <Icon name="timeline" size={20} strokeWidth={2.2} />
+              </span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                <Icon name="chevronRight" size={14} strokeWidth={2.5} />
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-ink tabular-nums">
+                {timeline.length}
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                events logged
+              </span>
+            </div>
+
+            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+              Case Timeline
+            </h2>
+            <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
+              Reconstruct and analyze chronological sequences of testimony and events.
+            </p>
+          </div>
+
+          <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {timeline.length > 0 ? 'Live room sync' : 'Chronology'}
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              Open →
+            </span>
+          </div>
+        </Link>
+
+        {/* 4. Ask the Bailiff */}
+        <Link
+          to="/juror/requests"
+          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[160px]"
+        >
+          <div>
+            <div className="mb-2.5 flex items-start justify-between gap-2">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#ff6b6b] to-[#ff3b30] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(255_59_48/0.3)]">
+                <Icon name="bell" size={20} strokeWidth={2.2} />
+              </span>
+              <div className="flex items-center gap-1">
+                {activeRequests.length > 0 && (
+                  <Badge tone="accent" className="px-1.5 py-0.5 text-[11px]">{activeRequests.length} active</Badge>
+                )}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                  <Icon name="chevronRight" size={14} strokeWidth={2.5} />
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-ink tabular-nums">
+                {activeRequests.length > 0 ? activeRequests.length : 'Direct'}
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                {activeRequests.length > 0 ? 'active' : 'staff line'}
+              </span>
+            </div>
+
+            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+              Ask the Bailiff
+            </h2>
+            <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
+              Request recess breaks, order meals, request supplies, or send notes to the judge.
+            </p>
+          </div>
+
+          <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {activeRequests.length > 0 ? 'Staff notified' : 'Recesses & meals'}
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              Request →
+            </span>
+          </div>
+        </Link>
+
+        {/* 5. Messages from Home */}
+        <Link
+          to="/juror/bulletin"
+          className={cx(
+            'group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 shadow-card hover:shadow-lift border transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[160px]',
+            unread > 0
+              ? 'border-ok/60 ring-2 ring-ok/30'
+              : 'border-line/40 hover:border-line'
+          )}
+        >
+          <div>
+            <div className="mb-2.5 flex items-start justify-between gap-2">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#34c759] to-[#248a3d] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(52_199_89/0.3)]">
+                <Icon name="mail" size={20} strokeWidth={2.2} />
+              </span>
+              <div className="flex items-center gap-1">
+                {unread > 0 && (
+                  <Badge tone="ok" className="px-1.5 py-0.5 text-[11px]">{unread} new</Badge>
+                )}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                  <Icon name="chevronRight" size={14} strokeWidth={2.5} />
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-ink tabular-nums">
+                {unread > 0 ? unread : updates.length}
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                {unread > 0 ? 'unread' : 'bulletins'}
+              </span>
+            </div>
+
+            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+              Messages from Home
+            </h2>
+            <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
+              Read personal communications vetted and approved by the court bailiff.
+            </p>
+          </div>
+
+          <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {unread > 0 ? `${unread} new update${unread === 1 ? '' : 's'}` : 'Vetted personal'}
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              Read →
+            </span>
+          </div>
+        </Link>
       </div>
 
-      {/* Main 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: The Charges and Admitted Evidence */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
-          {/* Card: The Charges Under Deliberation */}
-          <Card className="p-6">
-            <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h2 className="text-xl font-bold text-ink">The Charges Under Deliberation</h2>
-                <p className="mt-0.5 text-sm text-muted">
-                  What the prosecution must prove beyond a reasonable doubt for each count.
-                </p>
-              </div>
-              <Link to="/juror/voting" className="text-sm font-semibold text-accent hover:underline">
-                Ballots &amp; instructions →
-              </Link>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {counts.map((c) => {
-                const isExpanded = expandedCounts.has(c.id)
-                const rawChecks = personalChecks[c.id]
-                const totalElements = c.elements?.length ?? 0
-                let provenCount = 0
-                let disputedCount = 0
-                if (totalElements > 0) {
-                  for (let i = 0; i < totalElements; i++) {
-                    const st = getElementStatus(rawChecks, i)
-                    if (st === 'proven') provenCount++
-                    else if (st === 'disputed') disputedCount++
-                  }
-                }
-
-                return (
-                  <div key={c.id} className="rounded-xl border border-line/70 bg-fill/25 p-4 transition-colors">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <Badge tone="neutral">{c.label?.split(':')[0] || c.label}</Badge>
-                        {c.statute && <span className="text-xs font-mono text-muted">{c.statute}</span>}
-                      </div>
-                      {totalElements > 0 && (
-                        provenCount === totalElements ? (
-                          <Badge tone="ok">All {totalElements} elements proven</Badge>
-                        ) : provenCount > 0 || disputedCount > 0 ? (
-                          <Badge tone={disputedCount > 0 ? 'warn' : 'accent'}>
-                            {provenCount}/{totalElements} proven{disputedCount > 0 ? ` · ${disputedCount} deliberating` : ''}
-                          </Badge>
-                        ) : (
-                          <Badge tone="neutral">{totalElements} elements to prove</Badge>
-                        )
-                      )}
-                    </div>
-
-                    <h3 className="text-lg font-bold text-ink">
-                      {c.label?.includes(':') ? c.label.split(':').slice(1).join(':').trim() : c.label}
-                    </h3>
-                    <p className="mt-1 text-sm text-ink/90 leading-relaxed">{c.summary}</p>
-
-                    {totalElements > 0 && (
-                      <div className="mt-3 pt-3 border-t border-line/40">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(c.id)}
-                          aria-expanded={isExpanded}
-                          className="pressable inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
-                        >
-                          <Icon
-                            name="chevronRight"
-                            size={14}
-                            strokeWidth={2.5}
-                            className={cx('transition-transform duration-200', isExpanded && 'rotate-90')}
-                          />
-                          {isExpanded ? 'Hide required elements' : `Review statutory elements (${totalElements})`}
-                        </button>
-
-                        {isExpanded && (
-                          <div className="mt-3 flex flex-col gap-2.5">
-                            <p className="text-xs text-muted">
-                              Private element tracker: Tap to cycle <b>Pending</b> → <b className="text-warn">Under Deliberation</b> → <b className="text-ok">Proven</b>. (Only visible to your seat).
-                            </p>
-                            <ol className="flex flex-col gap-2">
-                              {c.elements.map((el, i) => {
-                                const status = getElementStatus(rawChecks, i)
-                                return (
-                                  <li key={i}>
-                                    <button
-                                      type="button"
-                                      role="button"
-                                      onClick={() => toggleElementCheck(c.id, i)}
-                                      className={cx(
-                                        'pressable pressable-soft flex w-full items-start gap-3 rounded-xl p-2.5 text-left border transition-all',
-                                        status === 'proven'
-                                          ? 'border-ok/30 bg-ok-soft/30 hover:bg-ok-soft/50'
-                                          : status === 'disputed'
-                                          ? 'border-warn/30 bg-warn-soft/30 hover:bg-warn-soft/50'
-                                          : 'border-line/40 bg-surface/60 hover:bg-fill/60',
-                                      )}
-                                    >
-                                      <span
-                                        className={cx(
-                                          'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 text-xs font-bold transition-colors duration-200',
-                                          status === 'proven'
-                                            ? 'border-ok bg-ok text-white'
-                                            : status === 'disputed'
-                                            ? 'border-warn bg-warn text-white'
-                                            : 'border-line bg-surface text-muted',
-                                        )}
-                                        aria-hidden
-                                      >
-                                        {status === 'proven' ? (
-                                          <Icon name="check" size={14} strokeWidth={3} />
-                                        ) : status === 'disputed' ? (
-                                          '?'
-                                        ) : (
-                                          i + 1
-                                        )}
-                                      </span>
-                                      <div className="flex flex-1 flex-col gap-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <span className="text-xs font-semibold text-muted">Element {i + 1}</span>
-                                          <span
-                                            className={cx(
-                                              'rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide uppercase',
-                                              status === 'proven'
-                                                ? 'bg-ok-soft text-ok'
-                                                : status === 'disputed'
-                                                ? 'bg-warn-soft text-warn'
-                                                : 'bg-fill text-muted',
-                                            )}
-                                          >
-                                            {status === 'proven' ? 'Proven' : status === 'disputed' ? 'Under Deliberation' : 'Pending'}
-                                          </span>
-                                        </div>
-                                        <p className="text-sm leading-snug text-ink">{el}</p>
-                                      </div>
-                                    </button>
-                                  </li>
-                                )
-                              })}
-                            </ol>
-                            {c.definitions?.length > 0 && (
-                              <div className="mt-2 rounded-lg bg-surface/80 p-3 text-xs border border-line/40">
-                                <p className="font-semibold text-ink mb-1">Key Legal Definitions:</p>
-                                <ul className="flex flex-col gap-1">
-                                  {c.definitions.map((d, di) => (
-                                    <li key={di} className="text-muted">
-                                      <b className="text-ink">{d.term}:</b> {d.text}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {burden && (
-              <div className="mt-5 rounded-xl border border-line/60 bg-surface-2/60 p-4">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted mb-1.5">
-                  <Icon name="scale" size={16} className="text-accent" />
-                  <span>Court Instruction: Burden of Proof</span>
-                </div>
-                <p className="text-sm text-ink leading-relaxed">
-                  "{burden}"
-                </p>
-              </div>
-            )}
-          </Card>
-
-          {/* Card: Admitted Evidence Preview */}
-          <Card className="p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold text-ink">Admitted Evidence</h2>
-                <p className="text-sm text-muted">Exhibits entered into the trial record.</p>
-              </div>
-              <Link to="/juror/evidence" className="text-sm font-semibold text-accent hover:underline shrink-0">
-                Browse all {exhibits.length} exhibits →
-              </Link>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-line/70">
-              <ul className="divide-y divide-line">
-                {previewExhibits.map((e) => (
-                  <li key={e.id}>
-                    <Link
-                      to={`/juror/evidence/${e.id}`}
-                      className="pressable pressable-soft flex items-center justify-between gap-3 p-3.5 hover:bg-fill/50"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                          <Icon name={TYPE_ICON[e.type] ?? 'file'} size={18} />
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge tone="accent">{e.number}</Badge>
-                            <p className="font-semibold text-ink text-sm truncate">{e.title}</p>
-                          </div>
-                          <p className="text-xs text-muted truncate mt-0.5">
-                            {PARTY_LABEL[e.party] ?? e.party} · {TYPE_LABEL[e.type] ?? e.type} · Admitted {fmtCalendarDate(e.dateAdmitted)}
-                          </p>
-                        </div>
-                      </div>
-                      <Icon name="chevronRight" size={16} className="text-muted/60 shrink-0" />
-                    </Link>
-                  </li>
-                ))}
-                {!previewExhibits.length && (
-                  <li className="p-6 text-center text-sm text-muted">No exhibits admitted yet.</li>
-                )}
-              </ul>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-              <span>
-                {exhibits.filter((e) => e.type === 'pdf').length} documents ·{' '}
-                {exhibits.filter((e) => e.type === 'image').length} photographs ·{' '}
-                {exhibits.filter((e) => e.type === 'transcript').length} transcripts ·{' '}
-                {exhibits.filter((e) => e.type === 'video' || e.type === 'youtube').length} video
-              </span>
-              <Link to="/juror/evidence" className="font-semibold text-accent hover:underline">
-                Open exhibit locker →
-              </Link>
-            </div>
-          </Card>
+      {/* Courtroom Admonition Footer */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-surface p-3.5 sm:p-4 shadow-card border border-line/40">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-ok-soft text-ok">
+            <Icon name="shield" size={16} />
+          </span>
+          <p className="text-xs text-muted leading-relaxed">
+            <strong className="font-semibold text-ink">Courtroom Admonition:</strong> All deliberations must remain strictly confidential. Decide solely on the evidence admitted in trial.
+          </p>
         </div>
-
-        {/* Right Column: Workspaces, Bailiff Requests, Deliberation Rules */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
-          {/* Card: Deliberation Workspaces Navigation */}
-          <Card className="overflow-hidden">
-            <div className="px-5 pt-5 pb-3">
-              <h2 className="text-lg font-bold text-ink">Deliberation Workspaces</h2>
-              <p className="text-xs text-muted">Collaborative tools for the jury room.</p>
-            </div>
-            <div className="divide-y divide-line">
-              <Link
-                to="/juror/evidence"
-                className="pressable pressable-soft flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-fill/50"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                    <Icon name="folder" size={18} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Exhibit Locker</p>
-                    <p className="text-xs text-muted truncate">{exhibits.length} admitted exhibits</p>
-                  </div>
-                </div>
-                <Icon name="chevronRight" size={16} className="text-muted/60 shrink-0" />
-              </Link>
-
-              <Link
-                to="/juror/timeline"
-                className="pressable pressable-soft flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-fill/50"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                    <Icon name="timeline" size={18} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Case Timeline</p>
-                    <p className="text-xs text-muted truncate">
-                      {timeline.length ? `${timeline.length} event${timeline.length === 1 ? '' : 's'} chronologized` : 'Collaborative event timeline'}
-                    </p>
-                  </div>
-                </div>
-                <Icon name="chevronRight" size={16} className="text-muted/60 shrink-0" />
-              </Link>
-
-              <Link
-                to="/juror/voting"
-                className="pressable pressable-soft flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-fill/50"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                    <Icon name="vote" size={18} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Polls &amp; Ballots</p>
-                    <p className="text-xs text-muted truncate">
-                      {toVote > 0 ? 'Vote waiting for your response' : `${votes.length} vote${votes.length === 1 ? '' : 's'} on record`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {toVote > 0 && <Badge tone="warn">Pending</Badge>}
-                  <Icon name="chevronRight" size={16} className="text-muted/60" />
-                </div>
-              </Link>
-
-              <Link
-                to="/juror/bulletin"
-                className="pressable pressable-soft flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-fill/50"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
-                    <Icon name="mail" size={18} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Messages from Home</p>
-                    <p className="text-xs text-muted truncate">
-                      {unread > 0 ? `${unread} unread message${unread === 1 ? '' : 's'}` : `${updates.length} message${updates.length === 1 ? '' : 's'} on bulletin`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {unread > 0 && <Badge tone="accent">{unread} new</Badge>}
-                  <Icon name="chevronRight" size={16} className="text-muted/60" />
-                </div>
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card: Ask the Bailiff */}
-          <Card className="p-5">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink">Ask the Bailiff</h2>
-              <Link to="/juror/requests" className="text-xs font-semibold text-accent hover:underline">
-                Request history →
-              </Link>
-            </div>
-            <p className="mb-4 text-xs text-muted leading-relaxed">
-              Request a recess, meal order, or supplies. The court staff will be notified instantly.
-            </p>
-
-            {activeRequests.length > 0 && (
-              <div className="mb-4 rounded-xl border border-line bg-fill/40 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-ink">
-                    {REQUEST_LABEL[activeRequests[0].type] ?? 'Request'} in progress
-                  </span>
-                  <Badge tone={STATUS_TONE[activeRequests[0].status] ?? 'neutral'}>
-                    {STATUS_LABEL[activeRequests[0].status] ?? activeRequests[0].status}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  Submitted {timeAgo(activeRequests[0].createdAt)}
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                to="/juror/requests"
-                className="pressable pressable-soft flex items-center gap-2 rounded-xl bg-fill px-3 py-2.5 text-xs font-semibold text-ink hover:bg-fill-strong"
-              >
-                <Icon name="coffee" size={16} className="text-muted shrink-0" />
-                <span>Recess</span>
-              </Link>
-              <Link
-                to="/juror/requests"
-                className="pressable pressable-soft flex items-center gap-2 rounded-xl bg-fill px-3 py-2.5 text-xs font-semibold text-ink hover:bg-fill-strong"
-              >
-                <Icon name="utensils" size={16} className="text-muted shrink-0" />
-                <span>Order meal</span>
-              </Link>
-              <Link
-                to="/juror/requests"
-                className="pressable pressable-soft flex items-center gap-2 rounded-xl bg-fill px-3 py-2.5 text-xs font-semibold text-ink hover:bg-fill-strong"
-              >
-                <Icon name="box" size={16} className="text-muted shrink-0" />
-                <span>Supplies</span>
-              </Link>
-              {user?.role === 'foreperson' ? (
-                <Link
-                  to="/juror/requests"
-                  className="pressable pressable-soft flex items-center gap-2 rounded-xl bg-accent-soft px-3 py-2.5 text-xs font-semibold text-accent hover:bg-accent/20"
-                >
-                  <Icon name="question" size={16} className="shrink-0" />
-                  <span>Ask judge</span>
-                </Link>
-              ) : (
-                <Link
-                  to="/juror/requests"
-                  className="pressable pressable-soft flex items-center gap-2 rounded-xl bg-fill px-3 py-2.5 text-xs font-semibold text-ink hover:bg-fill-strong"
-                >
-                  <Icon name="bell" size={16} className="text-muted shrink-0" />
-                  <span>All requests</span>
-                </Link>
-              )}
-            </div>
-          </Card>
-
-          {/* Card: Deliberation Rules */}
-          <div className="rounded-2xl border border-line bg-surface/50 p-4 text-xs text-muted">
-            <div className="mb-1.5 flex items-center gap-2 font-semibold text-ink">
-              <Icon name="shield" size={15} className="text-accent" />
-              <span>Courtroom Admonition</span>
-            </div>
-            <p className="leading-relaxed">
-              Keep all deliberations strictly confidential within this jury room. Do not conduct
-              independent research, visit locations mentioned in testimony, or use personal
-              electronic devices. You must decide solely upon the evidence presented during trial
-              and the law as stated by the Court.
-            </p>
-          </div>
-        </div>
+        <Link to="/juror/requests" className="shrink-0">
+          <Button variant="ghost" size="sm" icon="coffee" className="text-xs h-8 px-3">
+            Request a Recess
+          </Button>
+        </Link>
       </div>
     </div>
   )
 }
+
