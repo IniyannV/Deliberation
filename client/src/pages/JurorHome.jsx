@@ -39,7 +39,7 @@ export default function JurorHome() {
   })
 
   return (
-    <div className="w-full max-w-5xl 2xl:max-w-6xl mx-auto py-1 sm:py-2">
+    <div className="py-1 sm:py-2">
       {/* Court session & case banner */}
       <header className="mb-4 sm:mb-5">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-muted">

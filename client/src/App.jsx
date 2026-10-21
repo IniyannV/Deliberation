@@ -42,7 +42,7 @@ function JurorShell() {
     { to: '/juror/requests', label: 'Requests', icon: 'bell', badge: replies },
     { to: '/juror/bulletin', label: 'Messages from home', icon: 'mail', badge: unread },
   ]
-  return <AppShell nav={nav} wide />
+  return <AppShell nav={nav} />
 }
 
 function AdminShell() {

@@ -70,7 +70,7 @@ function useDrawerDrag(open, setOpen) {
  * title bar that materializes once content scrolls beneath it.
  * `nav` is a list of { to, label, icon, end?, badge? } or { section }.
  */
-export default function AppShell({ nav, wide = false }) {
+export default function AppShell({ nav }) {
   const { user, caseInfo, logout } = useAuth()
   const connected = useLive((s) => s.connected)
   const { dnd, setDnd } = useLive()
@@ -289,17 +289,19 @@ export default function AppShell({ nav, wide = false }) {
             </div>
           </div>
 
-          {/* --page-chrome: the padding above and below, for pages that fill the screen height. */}
+          {/* --page-chrome: the padding above and below, for pages that fill the screen height.
+              Every page keeps to the same column, however large the screen. */}
           <div
             className={cx(
-              'mx-auto px-5 pt-16 pb-10 [--page-chrome:6rem] md:px-8 xl:px-10',
+              'px-5 pt-16 pb-10 [--page-chrome:6rem] md:px-8 xl:px-10',
               collapsed ? 'lg:pt-16' : 'lg:pt-9 lg:[--page-chrome:4rem]',
-              wide ? 'max-w-none' : 'max-w-6xl',
             )}
           >
-            <ErrorBoundary resetKey={location.pathname}>
-              <Outlet />
-            </ErrorBoundary>
+            <div className="mx-auto max-w-5xl 2xl:max-w-6xl">
+              <ErrorBoundary resetKey={location.pathname}>
+                <Outlet />
+              </ErrorBoundary>
+            </div>
           </div>
         </main>
 
