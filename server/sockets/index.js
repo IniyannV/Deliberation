@@ -12,6 +12,9 @@ import { deliberationHandlers } from './deliberation.js';
  */
 
 const presence = new Map(); // userId → connection count
+let displays = 0; // room display connections, so the foreperson can tell the projector is up
+
+const displayPresence = () => ({ online: displays > 0 });
 
 export function getPresence() {
   return db.data.users
@@ -32,6 +35,7 @@ function syncPayload(user, role) {
       personal: { timeline: [], ...(db.data.personal[user.id] ?? { highlights: {}, checks: {} }) },
       votes: listVotes(),
       votedIn: votedIn(user.id),
+      displayOnline: displayPresence().online,
     };
   }
   if (role === 'display') return { ...base, timeline: db.data.timeline, votes: listVotesForDisplay() };
@@ -60,6 +64,10 @@ export function registerSockets(io) {
       presence.set(user.id, (presence.get(user.id) ?? 0) + 1);
       io.to('bailiffs').emit('presence', getPresence());
     }
+    if (role === 'display') {
+      displays += 1;
+      io.to('jurors').emit('display:presence', displayPresence());
+    }
 
     socket.emit('state:sync', { role, ...syncPayload(user, role) });
 
@@ -85,6 +93,10 @@ export function registerSockets(io) {
     }
 
     socket.on('disconnect', () => {
+      if (role === 'display') {
+        displays = Math.max(0, displays - 1);
+        io.to('jurors').emit('display:presence', displayPresence());
+      }
       if (user.kind !== 'juror') return;
       presence.set(user.id, Math.max(0, (presence.get(user.id) ?? 1) - 1));
       io.to('bailiffs').emit('presence', getPresence());

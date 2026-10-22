@@ -11,13 +11,13 @@ export const defaultData = () => ({
   imageNotes: [],
   personal: {}, // userId → { highlights, checks, timeline }: one juror's own marks and private timeline, never shared or logged
   timeline: [],
-  votes: [], // polls and ballots: metadata + final tallies only (see services/voting.js)
+  votes: [], // polls and ballots: metadata only, never counts (see services/voting.js)
   requests: [],
   chats: {}, // seatId → messages: open chat between one juror and the bailiff, apart from any request
   menu: [],
   supplies: [],
   updates: [],
-  display: { view: 'timeline', voteId: null, exhibitId: null },
+  display: { view: 'timeline', voteId: null, exhibitId: null, message: null },
 });
 
 /** @type {import('lowdb').Low<ReturnType<typeof defaultData>>} */

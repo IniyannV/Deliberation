@@ -23,7 +23,8 @@ const grouped = (a, b) => a && b && a.from === b.from && sameDay(a.at, b.at) && 
 
 /**
  * Message bubbles plus a send box, between one juror (`seat`) and the bailiff.
- * `viewer` is 'juror' or 'bailiff'; `onSend(text)` posts the message.
+ * `viewer` is 'juror' or 'bailiff'; `onSend(text)` posts the message. Without
+ * `onSend` the thread is read-only and has no send box.
  * `panel` lays it out as a standalone chat: a scrolling conversation with day
  * headings, the send box along the bottom, and `empty` shown before the first message.
  */
@@ -124,8 +125,8 @@ export function MessageThread({ id, messages, viewer, seat, onSend, className, p
   if (!panel) {
     return (
       <div className={className}>
-        {list && <div className="mb-3">{list}</div>}
-        {composer}
+        {list && <div className={cx(onSend && 'mb-3')}>{list}</div>}
+        {onSend && composer}
       </div>
     )
   }
@@ -135,7 +136,7 @@ export function MessageThread({ id, messages, viewer, seat, onSend, className, p
       <div ref={scroller} className="min-h-56 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin" aria-live="polite">
         {list || <div className="flex h-full min-h-48 flex-col items-center justify-center text-center text-muted">{empty}</div>}
       </div>
-      {composer}
+      {onSend && composer}
     </div>
   )
 }
@@ -143,8 +144,10 @@ export function MessageThread({ id, messages, viewer, seat, onSend, className, p
 /**
  * Short back-and-forth between a juror and the bailiff about one request
  * ("We're out of lentil soup, would tomato do?"). `viewer` is 'juror' or 'bailiff'.
+ * `readOnly` is for a jury note another juror (the foreperson) sent: every
+ * juror can read its thread, but only the sender can write on it.
  */
-export default function RequestThread({ request, viewer }) {
+export default function RequestThread({ request, viewer, readOnly = false }) {
   async function send(text) {
     const path = viewer === 'bailiff' ? `/admin/requests/${request.id}/messages` : `/requests/${request.id}/messages`
     const { request: updated } = await api(path, { method: 'POST', body: { text } })
@@ -152,13 +155,14 @@ export default function RequestThread({ request, viewer }) {
     useLive.setState((s) => ({ [key]: s[key].map((r) => (r.id === updated.id ? updated : r)) }))
   }
 
+  if (readOnly && !request.messages?.length) return null
   return (
     <MessageThread
       id={request.id}
       messages={request.messages ?? []}
-      viewer={viewer}
+      viewer={readOnly ? 'reader' : viewer}
       seat={request.seat}
-      onSend={send}
+      onSend={readOnly ? null : send}
       className="mt-3 border-t border-line pt-3"
     />
   )

@@ -7,9 +7,10 @@ station connect to it over a closed LAN with an ordinary browser.
 **It never touches the public internet.** There are no CDNs, web fonts,
 external APIs, analytics or telemetry, and the server sends a strict
 Content-Security-Policy so browsers refuse anything that isn't served by this
-laptop. The one opt-in exception is a **YouTube exhibit**, which the clerk can
-add by link: it plays in YouTube's privacy-enhanced player and only on devices
-that can reach the internet.
+laptop. The one exception, off unless the court turns it on, is a **YouTube
+exhibit**: start the server with `ALLOW_ONLINE_EXHIBITS=1` and the clerk can
+add one by link. It plays in YouTube's privacy-enhanced player, only on
+devices that can reach the internet.
 
 > Prototype / demo. The case, people and exhibits in the seed data are fictional.
 
@@ -34,7 +35,9 @@ Open that address on each juror device, the projector and the bailiff station.
 | `npm start` | Production: one port, serves `client/dist`, REST API and socket.io, bound to `0.0.0.0` |
 | `npm run seed` | **Stop the server first.** Rebuilds `server/data/db.json`, regenerates the demo exhibits, prints new PINs and saves them to `server/data/demo-credentials.txt` (git-ignored). The previous audit log is archived, never deleted. |
 
-Set `PORT` to change the port (`PORT=8080 npm start`).
+Set `PORT` to change the port (`PORT=8080 npm start`). Set
+`ALLOW_ONLINE_EXHIBITS=1` to allow YouTube exhibits (see above); without it
+they can't be added, and any already loaded are hidden from jurors and the display.
 
 **Trying the demo?** Sign in as seat `1` (the foreperson), then choose
 **Guided tour** in the sidebar. The bailiff (`B1`) has its own tour.
@@ -44,12 +47,13 @@ Set `PORT` to change the port (`PORT=8080 npm start`).
 | Role | Sign in with | Lands on |
 |---|---|---|
 | Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, requests, messages from home |
-| Foreperson | seat `1` in the demo | same as juror, plus poll/ballot controls, judge questions, room-display control |
+| Foreperson | seat `1` in the demo | same as juror, plus poll/ballot controls, judge questions, the "we have a verdict" notice, room-display control |
 | Room display | `DISPLAY` + PIN | `/display`: full-screen projector view (read-only) |
-| Bailiff / Clerk | `B1` + PIN | `/admin`: request queue, evidence upload, seats & PINs, family updates, menu, audit log |
+| Bailiff / Clerk | `B1` + PIN | `/admin`: request queue and the court's answers, evidence upload, seats & PINs, family updates, menu, court controls, audit log |
 
-The clerk can reset PINs, reassign the foreperson and excuse seats from
-**Admin → Juror seats**. PINs are stored only as salted scrypt hashes.
+The clerk can reset PINs, reassign the foreperson, excuse seats and seat
+alternates from **Admin → Juror seats**. PINs are stored only as salted scrypt
+hashes.
 
 Roles are enforced **on the server** for every REST route and every socket
 event (`requireRole` in `server/auth.js`; the per-event role table in
@@ -65,8 +69,9 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
    video (up to 2 GB). Transcript lines that start with `Q:`, `A:` or
    `NAME:` become speaker turns. Files are type-checked by content, and
    SVG/HTML are refused. A video's frame rate is read from its MP4/MOV
-   header so jurors can step through it one frame at a time. **YouTube
-   link** adds a YouTube video instead of a file (internet required to play).
+   header so jurors can step through it one frame at a time. With
+   `ALLOW_ONLINE_EXHIBITS=1`, **YouTube link** adds a YouTube video instead
+   of a file (internet required to play).
 3. Configure the meal menu and supplies in **Admin → Menu & supplies**.
 
 Each count's **elements, definitions and burden of proof** (shown to jurors
@@ -96,26 +101,72 @@ Layouts are tuned for the iPad (10th generation), 820 × 1180 points:
 - The sidebar collapses (top-left button) to give exhibits the whole width,
   and every exhibit has a **Full screen** button.
 
+## In the courtroom
+
+How the app fits the court's own procedure. The judge decides all of this;
+the app only supports it.
+
+- **Before deliberations.** The judge authorizes the devices and tells the
+  jury about them in the charge. Both sides confirm that the exhibits on the
+  laptop match the admitted exhibit list exactly.
+- **Questions for the judge.** The foreperson sends them from **Requests**.
+  Once the judge has decided the answer with counsel, the bailiff opens the
+  question in the **Request queue** and records **the court's answer**: the
+  judge's written answer, or word that it will be given in open court. Every
+  juror sees the jury's questions and the answers.
+- **Verdict.** When the jury agrees on every count, the foreperson fills in
+  and signs the paper verdict form, then taps **We have a verdict** in
+  Requests. The bailiff's queue highlights it and chimes even with do not
+  disturb on. The app is told only *that* there is a verdict, never what it
+  is; the verdict is read and the jury polled in open court as usual.
+- **Excusing a juror and seating an alternate.** In **Admin → Juror seats**,
+  **Seat an alternate** gives the seat a new PIN for the alternate, who
+  starts with nothing from the juror who left (private notes, requests,
+  chat, messages from home). Open polls and ballots are voided whenever the
+  jury changes. **Restart deliberations** (on by default; follow the judge's
+  instruction) clears the shared timeline, exhibit notes, transcript links
+  and every vote, and asks the jury on the room display to begin again. The
+  same restart is on the dashboard under **Court controls**.
+- **End of each court day.** Use **Court controls → Sign out all** so no
+  iPad or the display can be used overnight, then collect the iPads and keep
+  them, with the server laptop, in the court officer's custody. Keep the
+  jury network closed (no internet uplink) and its Wi-Fi password private.
+- **End of trial.** After the verdict, and once the court confirms none of
+  it must be kept, **Court controls → Erase permanently** (type the case
+  number to confirm) erases the shared and private timelines, notes and
+  highlights, every vote, all chats and request messages, and the text of
+  messages from home. Exhibits, seats, judge questions and answers, and the
+  audit log stay. Leave `server/data` out of Time Machine and other backups,
+  or erased content survives in old copies.
+
 ## Privacy design
 
 - **Secret ballots and polls.** The server records *that* a seat voted
   separately from *what* was chosen, and never stores the two together. Open
-  vote state lives only in memory, and only the final tally is written to disk.
-  See the comment at the top of `server/services/voting.js`. Restarting the
-  server mid-ballot voids that ballot, so it must be re-run. The room display
-  never receives a running count for a secret ballot, only the final result.
+  vote state lives only in memory. See the comment at the top of
+  `server/services/voting.js`. Restarting the server mid-ballot voids that
+  ballot, so it must be re-run. The room display never receives a running
+  count for a secret ballot, only the final result.
+- **No vote counts on disk.** Courts don't want staff to learn how the jury
+  is divided, and `db.json` sits on the clerk's laptop. Closed polls and
+  ballots keep their counts in memory only, so jurors see them until the
+  server stops. On disk a ballot keeps just its outcome (unanimous Guilty,
+  unanimous Not Guilty, or not unanimous), and a poll keeps nothing.
 - **Audit log** (`server/data/audit.log.jsonl`): append-only and hash-chained, so
   edits are detected and shown in the admin UI. Exportable as CSV. It records
   logins, requests and status changes, family updates and evidence changes, with
   actor and ISO timestamp, shown in plain English. It never records
   deliberation content: no timeline text, image notes, poll or ballot activity,
-  judge-question text, or the text of family updates and request messages.
+  judge-question or answer text, or the text of family updates and request
+  messages.
   `meta` fields pass through an allowlist.
 - **Family updates** are one-way: text-only, one seat each, logged with the
   bailiff ID. Jurors can mark them read. No reply UI or endpoint exists.
 - **Request messages** are a separate juror ↔ bailiff thread on each request
   (for example, a menu substitution). Only the juror who made the request and
-  the bailiff can read or post to it.
+  the bailiff can post to it, and only they can read it, except on the
+  jury's notes (judge questions and the verdict notice), which every juror
+  can read.
 - **Image notes** (right-click a photo) are shared with the jury and never
   visible to court staff.
 - **Two timelines.** The shared timeline is edited by every juror and shown on
@@ -127,15 +178,16 @@ Layouts are tuned for the iPad (10th generation), 820 × 1180 points:
 ## Offline guarantees
 
 - CSP header from Express:
-  `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'; frame-src 'self' https://www.youtube-nocookie.com`
-  (the `frame-src` entry exists only for YouTube exhibits; the app still loads
-  no script from the internet and drives the player by `postMessage`)
+  `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'; frame-src 'self'`
+  With `ALLOW_ONLINE_EXHIBITS=1`, `frame-src` also allows
+  `https://www.youtube-nocookie.com` for YouTube exhibits; the app still
+  loads no script from the internet and drives the player by `postMessage`.
 - Text uses the device's own UI font (SF Pro on Apple devices, Segoe UI or Roboto elsewhere), so no font is downloaded.
 - The pdf.js worker is bundled by Vite. Character maps, standard fonts and
   decoders are copied into `client/public/pdfjs` at build time.
 - No `http(s)://` URLs are used at runtime by `client/src`, `client/index.html`
-  or `server`, except YouTube's player address, which is framed only when a
-  juror opens a YouTube exhibit. The other matches are the startup banner that
+  or `server`, except YouTube's player address, which is framed only when
+  online exhibits are allowed and a juror opens a YouTube exhibit. The other matches are the startup banner that
   prints LAN addresses, the YouTube-link parser and the font licence text. URL strings inside the built bundle come
   from library internals (XML namespaces, error-message links) and are never
   fetched.

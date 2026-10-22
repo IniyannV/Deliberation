@@ -2,11 +2,16 @@ import { Router } from 'express';
 import { db, save } from '../db.js';
 import { ROLES, destroyUserSessions, hashPin, randomPin, requireRole } from '../auth.js';
 import { auditAs, readAudit, toCsv, verifyChain } from '../services/audit.js';
-import { emit, disconnectUser } from '../realtime.js';
+import { emit, disconnectRooms, disconnectUser } from '../realtime.js';
 import { getPresence } from '../sockets/index.js';
 import { withSummary } from '../lib/auditText.js';
 import { HttpError, bad, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { REQUEST_STATUSES, addChatMessage, addRequestMessage, canAdvance, publicChat, publicRequest } from '../lib/requests.js';
+import {
+  REQUEST_STATUSES, addChatMessage, addRequestMessage, canAdvance, publicChat, publicRequest, requestRooms,
+} from '../lib/requests.js';
+import { RESTART_MESSAGE, broadcastDeliberation, broadcastVoided, clearSharedDeliberation } from '../lib/deliberation.js';
+import { voidOpenVotes } from '../services/voting.js';
+import { ALLOW_ONLINE_EXHIBITS } from '../config.js';
 
 const router = Router();
 router.use(requireRole(ROLES.BAILIFF));
@@ -20,6 +25,7 @@ router.get('/overview', (_req, res) => {
     exhibits: db.data.exhibits.length,
     unreadUpdates: db.data.updates.filter((u) => !u.readAt).length,
     presence: getPresence(),
+    onlineExhibits: ALLOW_ONLINE_EXHIBITS,
   });
 });
 
@@ -56,6 +62,8 @@ router.patch('/seats/:id', async (req, res) => {
       await destroyUserSessions(u.id);
     }
     auditAs(req.user, req.role, 'seat.active_set', u.id, { seat: u.seat, active });
+    // Votes count the seats that were active when they opened, so they can't finish fairly now.
+    broadcastVoided(await voidOpenVotes('jury_changed'));
   }
   await save();
   disconnectUser(u.id);
@@ -71,6 +79,84 @@ router.post('/seats/:id/reset-pin', async (req, res) => {
   await save();
   auditAs(req.user, req.role, 'seat.pin_reset', u.id, { seat: u.seat });
   res.json({ seat: seatView(u), pin }); // shown once to the clerk, never stored in plain text
+});
+
+/*
+ * An alternate takes over a seat. They get a new PIN and start with nothing
+ * from the juror who left: no private marks, and none of that juror's
+ * requests, chat or family updates (see `seatedSince`). Many courts instruct
+ * a reconstituted jury to begin deliberations anew, so `restart` also clears
+ * the shared timeline, exhibit notes, links and votes.
+ */
+router.post('/seats/:id/substitute', async (req, res) => {
+  const u = findSeat(req.params.id);
+  const restart = req.body?.restart !== false;
+  const wasForeperson = !!u.isForeperson;
+  const pin = randomPin();
+  Object.assign(u, hashPin(pin), { active: true, isForeperson: false, seatedAt: nowIso() });
+  delete db.data.personal[u.id];
+  await destroyUserSessions(u.id);
+  disconnectUser(u.id);
+  const voided = await voidOpenVotes('jury_changed');
+  if (restart) {
+    clearSharedDeliberation();
+    db.data.display = { view: 'message', voteId: null, exhibitId: null, message: { text: RESTART_MESSAGE, endsAt: null } };
+  }
+  await save();
+  auditAs(req.user, req.role, 'seat.substituted', u.id, { seat: u.seat, restarted: restart });
+  if (restart) broadcastDeliberation();
+  else broadcastVoided(voided);
+  res.json({ seat: seatView(u), pin, wasForeperson });
+});
+
+/* ── Deliberation controls ────────────────────────────────────────── */
+
+// The judge tells the jury to begin again, without seating anyone new.
+router.post('/deliberation/restart', async (req, res) => {
+  clearSharedDeliberation();
+  db.data.display = { view: 'message', voteId: null, exhibitId: null, message: { text: RESTART_MESSAGE, endsAt: null } };
+  await save();
+  auditAs(req.user, req.role, 'deliberation.restarted');
+  broadcastDeliberation();
+  res.json({ ok: true });
+});
+
+const signOutJurors = async () => {
+  const seats = new Set(db.data.users.filter((u) => u.kind === 'juror' || u.kind === 'display').map((u) => u.id));
+  const before = db.data.sessions.length;
+  db.data.sessions = db.data.sessions.filter((s) => !seats.has(s.userId));
+  await save();
+  disconnectRooms(['jurors', 'display']);
+  return before - db.data.sessions.length;
+};
+
+// End of the court day: every juror iPad and the room display need their PIN again tomorrow.
+router.post('/sessions/sign-out-jurors', async (req, res) => {
+  const signedOut = await signOutJurors();
+  auditAs(req.user, req.role, 'session.jurors_signed_out', null, { signedOut });
+  res.json({ signedOut });
+});
+
+/*
+ * End of trial: erase what the jury wrote and decided, once the verdict is
+ * in and the court says the data need not be kept. Exhibits, the case,
+ * seats, judge questions and answers, and the audit log stay. The clerk
+ * types the case number to confirm.
+ */
+router.post('/deliberation/erase', async (req, res) => {
+  const expected = (db.data.case.caseNumber || 'ERASE').trim().toLowerCase();
+  if (String(req.body?.confirm ?? '').trim().toLowerCase() !== expected) {
+    throw bad(db.data.case.caseNumber ? 'Type the case number exactly to confirm' : 'Type ERASE to confirm');
+  }
+  clearSharedDeliberation();
+  db.data.personal = {};
+  db.data.chats = {};
+  for (const r of db.data.requests) delete r.messages;
+  for (const u of db.data.updates) Object.assign(u, { body: '', erased: true });
+  db.data.display = { view: 'idle', voteId: null, exhibitId: null, message: null };
+  const signedOut = await signOutJurors();
+  auditAs(req.user, req.role, 'deliberation.erased', null, { signedOut });
+  res.json({ ok: true });
 });
 
 /* ── Menu & supplies ──────────────────────────────────────────────── */
@@ -116,7 +202,32 @@ router.patch('/requests/:id', async (req, res) => {
   r.history.push({ status, at: nowIso(), by: req.user.id });
   await save();
   auditAs(req.user, req.role, 'request.status', r.id, { requestType: r.type, fromStatus: from, status, seat: r.seat });
-  emit(['bailiffs', `user:${r.seatId}`], 'request:updated', publicRequest(r));
+  emit(requestRooms(r), 'request:updated', publicRequest(r));
+  res.json({ request: publicRequest(r) });
+});
+
+/*
+ * The court's response to a jury question: the judge's written answer, or
+ * word that the answer will be given in open court. Every juror sees it.
+ * The audit log records that it was answered and how, never the text.
+ */
+router.post('/requests/:id/answer', async (req, res) => {
+  const r = db.data.requests.find((x) => x.id === req.params.id);
+  if (!r) throw new HttpError(404, 'Request not found');
+  if (r.type !== 'judge_question') throw bad('Only a question for the judge can be answered');
+  const mode = oneOf(req.body?.mode, ['written', 'open_court'], 'Answer type');
+  const text = mode === 'written'
+    ? str(req.body?.text, { min: 1, max: 4000, field: 'Answer' })
+    : optStr(req.body?.text, { max: 500, field: 'Note' });
+  r.answer = { mode, text, at: nowIso() };
+  if (r.status !== 'fulfilled') {
+    r.status = 'fulfilled';
+    r.history.push({ status: 'fulfilled', at: r.answer.at, by: req.user.id });
+  }
+  await save();
+  auditAs(req.user, req.role, 'request.answered', r.id, { requestType: r.type, seat: r.seat, answerMode: mode });
+  emit(requestRooms(r), 'request:updated', publicRequest(r));
+  emit('jurors', 'request:answered', { requestId: r.id, mode });
   res.json({ request: publicRequest(r) });
 });
 
@@ -133,7 +244,7 @@ const lastAt = (c) => c.messages.at(-1)?.at ?? '';
 router.get('/chats', (_req, res) => {
   const chats = db.data.users
     .filter((u) => u.kind === 'juror' && db.data.chats[u.id]?.length)
-    .map(publicChat)
+    .map((u) => publicChat(u))
     .sort((a, b) => lastAt(b).localeCompare(lastAt(a)));
   res.json({ chats });
 });

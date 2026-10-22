@@ -1,9 +1,13 @@
+import { ALLOW_ONLINE_EXHIBITS } from '../config.js';
+
 // The app must never reach the public internet. The CSP below makes the
 // browser refuse any script, style, font, image or connection that is not
-// served by this local server. The one exception is frame-src: a YouTube
+// served by this local server. The one possible exception is frame-src: when
+// the court turns on online exhibits (ALLOW_ONLINE_EXHIBITS=1), a YouTube
 // exhibit is shown in YouTube's privacy-enhanced (no-cookie) player, which
 // only loads on a device that can reach the internet.
-export const CSP = "default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'; frame-src 'self' https://www.youtube-nocookie.com";
+const FRAME_SRC = ALLOW_ONLINE_EXHIBITS ? "frame-src 'self' https://www.youtube-nocookie.com" : "frame-src 'self'";
+export const CSP = `default-src 'self'; connect-src 'self' ws: ; img-src 'self' blob: data:; font-src 'self'; ${FRAME_SRC}`;
 
 export function securityHeaders(_req, res, next) {
   res.setHeader('Content-Security-Policy', CSP);

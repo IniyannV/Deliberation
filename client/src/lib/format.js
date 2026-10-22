@@ -46,5 +46,7 @@ export const EVENT_TYPES = [
   { id: 'physical', label: 'Physical evidence' },
   { id: 'document', label: 'Document' },
 ]
-export const REQUEST_LABEL = { break: 'Break', meal: 'Meal order', supplies: 'Supplies', judge_question: 'Question for the judge' }
+export const REQUEST_LABEL = { break: 'Break', meal: 'Meal order', supplies: 'Supplies', judge_question: 'Question for the judge', verdict: 'Verdict reached' }
+/** Notes the foreperson sends for the whole jury; every juror can read them. */
+export const JURY_TYPES = ['judge_question', 'verdict']
 export const STATUS_LABEL = { pending: 'Pending', acknowledged: 'Acknowledged', fulfilled: 'Fulfilled' }

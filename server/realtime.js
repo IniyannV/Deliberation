@@ -13,4 +13,9 @@ export function disconnectUser(userId) {
   io?.in(`user:${userId}`).disconnectSockets(true);
 }
 
+/** Cut off every device in these rooms, e.g. all juror iPads at the end of the day. */
+export function disconnectRooms(rooms) {
+  io?.in(rooms).disconnectSockets(true);
+}
+
 export const getIo = () => io;

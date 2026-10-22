@@ -19,10 +19,16 @@ import { HttpError, bad, newId, nowIso } from '../lib/util.js';
  * running tally to disk would let anyone with file access diff successive
  * writes and match a counter change to the seat that just joined `voted`.
  * Running totals are never broadcast either. Clients only see
- * "votesCast of eligible". When the vote closes, the final tally is written
- * to db.json and the `voted` set is thrown away. If the server restarts
- * mid-vote, that in-memory state is gone, so the vote is marked "voided"
- * and must be re-run.
+ * "votesCast of eligible". If the server restarts mid-vote, that in-memory
+ * state is gone, so the vote is marked "voided" and must be re-run.
+ *
+ * ── How the jury is divided never reaches the disk ──────────────────
+ * Courts don't want the judge or staff to learn the jury's numerical split
+ * (say, 11–1), and db.json sits on a laptop the clerk controls. So when a
+ * vote closes, its counts move to `results`, which is also memory-only:
+ * jurors see them until the server stops. db.json keeps just the vote's
+ * metadata, plus, for a secret ballot, its `outcome`: 'guilty' or
+ * 'not_guilty' when unanimous, otherwise 'not_unanimous', with no counts.
  *
  * Voting activity is deliberately absent from the audit log too.
  */
@@ -30,14 +36,34 @@ import { HttpError, bad, newId, nowIso } from '../lib/util.js';
 /** @type {Map<string, { voted: Set<string>, tally: Record<string, number> }>} */
 const live = new Map();
 
+/** Counts of closed votes, for this server run only. @type {Map<string, Record<string, number>>} */
+const results = new Map();
+
 const activeJurors = () => db.data.users.filter((u) => u.kind === 'juror' && u.active !== false);
 
-/** Called once at startup: votes left open by a previous process can't be completed. */
-export async function voidStaleVotes() {
+// A ballot closes only once every eligible seat has voted, so unanimity is all-or-nothing.
+function outcomeOf(tally, votesCast) {
+  if (tally.guilty === votesCast) return 'guilty';
+  if (tally.not_guilty === votesCast) return 'not_guilty';
+  return 'not_unanimous';
+}
+
+/**
+ * Called once at startup. Votes left open by a previous process can't be
+ * completed. Counts written to disk by older versions are moved into memory
+ * (so this run can still show them) and removed from db.json.
+ */
+export async function loadVotes() {
   let changed = false;
   for (const v of db.data.votes) {
     if (v.status === 'open') {
       Object.assign(v, { status: 'voided', closedAt: nowIso(), voidReason: 'server_restart' });
+      changed = true;
+    }
+    if (v.tally) {
+      results.set(v.id, v.tally);
+      if (v.kind === 'ballot' && v.status === 'revealed') v.outcome = outcomeOf(v.tally, v.votesCast);
+      delete v.tally;
       changed = true;
     }
   }
@@ -57,7 +83,9 @@ export function publicVote(v) {
     eligible: v.eligible,
     votesCast: v.votesCast,
     // A tally exists only after the vote closes; there is no partial tally to leak.
-    tally: v.status === 'open' ? null : v.tally ?? null,
+    // After a restart it is gone (see the comment at the top).
+    tally: v.status === 'open' ? null : results.get(v.id) ?? null,
+    outcome: v.outcome ?? null,
     voidReason: v.voidReason ?? null,
   };
 }
@@ -140,9 +168,31 @@ export async function voidBallot(voteId) {
   return vote;
 }
 
+/** The jury changed (a seat excused or an alternate seated): open votes can't be finished fairly. */
+export async function voidOpenVotes(reason) {
+  const voided = [];
+  for (const v of db.data.votes) {
+    if (v.status !== 'open') continue;
+    live.delete(v.id);
+    Object.assign(v, { status: 'voided', closedAt: nowIso(), voidReason: reason });
+    voided.push(v);
+  }
+  if (voided.length) await save();
+  return voided;
+}
+
+/** Restarting deliberations or erasing the trial's data: every vote and count goes. */
+export function clearVotes() {
+  live.clear();
+  results.clear();
+  db.data.votes = [];
+}
+
 async function close(vote, status) {
   const state = live.get(vote.id);
   live.delete(vote.id); // discards the `voted` set
-  Object.assign(vote, { status, closedAt: nowIso(), tally: { ...state.tally } });
+  results.set(vote.id, { ...state.tally });
+  Object.assign(vote, { status, closedAt: nowIso() });
+  if (vote.kind === 'ballot') vote.outcome = outcomeOf(state.tally, vote.votesCast);
   await save();
 }

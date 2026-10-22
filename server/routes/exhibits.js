@@ -4,7 +4,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { db, save } from '../db.js';
 import { ROLES, requireRole } from '../auth.js';
-import { MAX_UPLOAD_BYTES, UPLOAD_DIR } from '../config.js';
+import { ALLOW_ONLINE_EXHIBITS, MAX_UPLOAD_BYTES, UPLOAD_DIR } from '../config.js';
 import { auditAs } from '../services/audit.js';
 import { emit } from '../realtime.js';
 import { HttpError, bad, isoDate, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
@@ -28,6 +28,10 @@ const findExhibit = (id) => {
   return e;
 };
 
+// With online exhibits turned off, YouTube exhibits stay listed for the bailiff (flagged) but jurors and the display never get them.
+const isOffline = (e) => e.type !== 'youtube' || ALLOW_ONLINE_EXHIBITS;
+const visibleTo = (role) => (e) => role === 'bailiff' || isOffline(e);
+
 const broadcastChange = () => emit(['jurors', 'bailiffs', 'display'], 'exhibits:changed', { at: nowIso() });
 
 function readMeta(body, { partial = false } = {}) {
@@ -44,7 +48,7 @@ function readMeta(body, { partial = false } = {}) {
 // Jurors, staff and the room display can browse metadata. Display needs labels for timeline attachments.
 router.get('/', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, res) => {
   const { q, type, party } = req.query;
-  const list = searchExhibits(db.data.exhibits, { q, type, party }).sort(compareExhibitNumbers);
+  const list = searchExhibits(db.data.exhibits.filter(visibleTo(req.role)), { q, type, party }).sort(compareExhibitNumbers);
   res.json({ exhibits: list });
 });
 
@@ -52,6 +56,7 @@ const filePathOf = (e) => path.join(UPLOAD_DIR, path.basename(e.file.stored));
 
 router.get('/:id', requireRole(ROLES.JUROR, ROLES.BAILIFF, ROLES.DISPLAY), (req, res) => {
   const e = findExhibit(req.params.id);
+  if (!visibleTo(req.role)(e)) throw new HttpError(404, 'Exhibit not found');
   // Videos uploaded before frame rates were recorded: read it once, now.
   if (e.type === 'video' && e.fps === undefined) e.fps = probeVideoFps(filePathOf(e));
   res.json({ exhibit: { ...exhibitSummary(e), lines: e.lines ?? null } });
@@ -102,6 +107,7 @@ router.post('/', requireRole(ROLES.BAILIFF), upload.single('file'), async (req, 
 // A YouTube video, embedded rather than uploaded. It only plays on devices
 // that can reach the internet; everything else in the app stays local.
 router.post('/youtube', requireRole(ROLES.BAILIFF), async (req, res) => {
+  if (!ALLOW_ONLINE_EXHIBITS) throw bad('YouTube exhibits are turned off because the jury network is offline. To allow them, restart the server with ALLOW_ONLINE_EXHIBITS=1.');
   const meta = readMeta(req.body ?? {});
   const id = youtubeId(req.body?.url);
   if (!id) throw bad('That is not a YouTube link. Paste the video’s address, such as https://www.youtube.com/watch?v=…');

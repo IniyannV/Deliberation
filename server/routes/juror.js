@@ -5,7 +5,9 @@ import { auditAs } from '../services/audit.js';
 import { listVotes } from '../services/voting.js';
 import { emit } from '../realtime.js';
 import { HttpError, bad, int, newId, nowIso, oneOf, optStr, str } from '../lib/util.js';
-import { addChatMessage, addRequestMessage, publicChat, publicRequest } from '../lib/requests.js';
+import {
+  JURY_TYPES, addChatMessage, addRequestMessage, publicChat, publicRequest, requestRooms, seatedSince,
+} from '../lib/requests.js';
 
 /*
  * Juror-facing REST routes: family updates (read + mark read only, so no
@@ -19,14 +21,14 @@ const juror = requireRole(ROLES.JUROR);
 
 router.get('/updates', juror, (req, res) => {
   const updates = db.data.updates
-    .filter((u) => u.seatId === req.user.id)
+    .filter((u) => u.seatId === req.user.id && !u.erased && u.createdAt >= seatedSince(req.user))
     .map(({ id, body, createdAt, readAt }) => ({ id, body, createdAt, readAt }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   res.json({ updates });
 });
 
 router.post('/updates/:id/read', juror, async (req, res) => {
-  const u = db.data.updates.find((x) => x.id === req.params.id && x.seatId === req.user.id);
+  const u = db.data.updates.find((x) => x.id === req.params.id && x.seatId === req.user.id && x.createdAt >= seatedSince(req.user));
   if (!u) throw new HttpError(404, 'Update not found');
   if (!u.readAt) {
     u.readAt = nowIso();
@@ -43,9 +45,13 @@ router.get('/requests/options', juror, (_req, res) => {
   res.json({ menu: db.data.menu.filter((m) => m.available !== false), supplies: db.data.supplies });
 });
 
+// A juror's own requests since they took the seat, plus the jury's notes to the court.
 router.get('/requests', juror, (req, res) => {
-  const mine = db.data.requests.filter((r) => r.seatId === req.user.id).map(publicRequest);
-  res.json({ requests: mine.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
+  const since = seatedSince(req.user);
+  const visible = db.data.requests
+    .filter((r) => JURY_TYPES.includes(r.type) || (r.seatId === req.user.id && r.createdAt >= since))
+    .map(publicRequest);
+  res.json({ requests: visible.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
 });
 
 function readItems(rawItems, catalog, field) {
@@ -59,7 +65,7 @@ function readItems(rawItems, catalog, field) {
 
 router.post('/requests', juror, async (req, res) => {
   const body = req.body ?? {};
-  const type = oneOf(body.type, ['break', 'meal', 'supplies', 'judge_question'], 'Request type');
+  const type = oneOf(body.type, ['break', 'meal', 'supplies', 'judge_question', 'verdict'], 'Request type');
   let payload;
   if (type === 'break') payload = { minutes: oneOf(Number(body.minutes), [5, 10, 15, 30], 'Break length') };
   if (type === 'meal') payload = { items: readItems(body.items, db.data.menu, 'menu item'), note: optStr(body.note, { max: 200, field: 'Note' }) };
@@ -68,6 +74,12 @@ router.post('/requests', juror, async (req, res) => {
     // Enforced here, not just hidden in the UI.
     if (req.role !== 'foreperson') throw new HttpError(403, 'Only the foreperson can send a question to the judge');
     payload = { text: str(body.text, { min: 5, max: 2000, field: 'Question' }) };
+  }
+  if (type === 'verdict') {
+    // Only that a verdict has been reached. The verdict itself stays on the signed form.
+    if (req.role !== 'foreperson') throw new HttpError(403, 'Only the foreperson can tell the court the jury has reached a verdict');
+    if (db.data.requests.some((r) => r.type === 'verdict' && r.status !== 'fulfilled')) throw bad('The court has already been told and is on its way');
+    payload = {};
   }
   const request = {
     id: newId('rq'),
@@ -85,12 +97,12 @@ router.post('/requests', juror, async (req, res) => {
     requestType: type, seat: req.user.seat, minutes: payload.minutes, itemCount: payload.items?.length,
   });
   emit('bailiffs', 'request:new', publicRequest(request));
-  emit(`user:${req.user.id}`, 'request:updated', publicRequest(request));
+  emit(requestRooms(request).filter((room) => room !== 'bailiffs'), 'request:updated', publicRequest(request));
   res.status(201).json({ request: publicRequest(request) });
 });
 
 router.post('/requests/:id/messages', juror, async (req, res) => {
-  const r = db.data.requests.find((x) => x.id === req.params.id && x.seatId === req.user.id);
+  const r = db.data.requests.find((x) => x.id === req.params.id && x.seatId === req.user.id && x.createdAt >= seatedSince(req.user));
   if (!r) throw new HttpError(404, 'Request not found');
   res.status(201).json({ request: await addRequestMessage(r, req.user, req.role, req.body?.text) });
 });
@@ -98,7 +110,7 @@ router.post('/requests/:id/messages', juror, async (req, res) => {
 /* ── Chat with the bailiff ─────────────────────────────────────────── */
 
 router.get('/chat', juror, (req, res) => {
-  res.json({ chat: publicChat(req.user) });
+  res.json({ chat: publicChat(req.user, seatedSince(req.user)) });
 });
 
 router.post('/chat', juror, async (req, res) => {

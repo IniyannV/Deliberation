@@ -3,12 +3,12 @@ import { api } from '../../lib/api'
 import { useLive } from '../../store/live'
 import { toast, useUi } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, IconButton, PageHeader, Segmented, cx } from '../../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorText, Field, IconButton, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { RequestSummary, STATUS_TONE } from '../../features/requests/RequestsPage'
 import RequestThread, { MessageThread } from '../../features/requests/RequestThread'
 
-const ICON = { break: 'coffee', meal: 'utensils', supplies: 'box', judge_question: 'question' }
+const ICON = { break: 'coffee', meal: 'utensils', supplies: 'box', judge_question: 'question', verdict: 'scale' }
 const NEXT = { pending: ['acknowledged', 'Acknowledge'], acknowledged: ['fulfilled', 'Mark fulfilled'] }
 
 export default function Requests() {
@@ -60,7 +60,7 @@ export default function Requests() {
         <ul className="flex flex-col gap-3" data-tour="admin-queue">
           {list.map((r) => (
             <li key={r.id}>
-              <Card className={cx('flex items-start gap-5 p-5 transition-colors duration-1000', flash && r.id === newest && r.status === 'pending' ? 'border-warn bg-warn-soft' : '', r.status === 'fulfilled' && 'opacity-60')}>
+              <Card className={cx('flex items-start gap-5 p-5 transition-colors duration-1000', flash && r.id === newest && r.status === 'pending' ? 'border-warn bg-warn-soft' : '', r.type === 'verdict' && r.status !== 'fulfilled' && 'border-accent ring-2 ring-accent/25', r.status === 'fulfilled' && 'opacity-60')}>
                 <span className={cx('rounded-xl p-3', r.status === 'pending' ? 'bg-warn-soft text-warn' : 'bg-surface-2 text-muted')}>
                   <Icon name={ICON[r.type]} size={26} />
                 </span>
@@ -70,7 +70,10 @@ export default function Requests() {
                     <span className="font-semibold">{REQUEST_LABEL[r.type]}</span>
                     <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                   </div>
-                  <RequestSummary r={r} />
+                  {r.type === 'verdict'
+                    ? <p>The jury has reached a verdict. Tell the judge. The foreperson keeps the signed verdict form until it is read in court; the app does not know what the verdict is.</p>
+                    : <RequestSummary r={r} />}
+                  {r.type === 'judge_question' && !r.answer && <AnswerForm request={r} />}
                   <p className="mt-2 text-sm text-muted">
                     {r.history.map((h) => `${STATUS_LABEL[h.status]} ${fmtTime(h.at)}`).join(' → ')} · {timeAgo(r.createdAt)}
                   </p>
@@ -89,6 +92,49 @@ export default function Requests() {
 
       <JurorChats />
     </div>
+  )
+}
+
+/**
+ * The court's response to a jury question, entered once the judge has
+ * decided it with counsel. Every juror sees it; the audit log records only
+ * that the question was answered and how.
+ */
+function AnswerForm({ request }) {
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState('written')
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const { request: updated } = await api(`/admin/requests/${request.id}/answer`, { method: 'POST', body: { mode, text } })
+      useLive.setState((s) => ({ queue: s.queue.map((x) => (x.id === updated.id ? updated : x)) }))
+      toast('The jury can now see the court’s answer.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) return <Button size="sm" variant="secondary" icon="edit" className="mt-3" onClick={() => setOpen(true)}>Record the court’s answer</Button>
+  return (
+    <form onSubmit={submit} className="mt-3 flex flex-col gap-3 rounded-xl bg-fill/50 p-4">
+      <Segmented label="How the judge is answering" value={mode} onChange={setMode} options={[{ value: 'written', label: 'Written answer' }, { value: 'open_court', label: 'In open court' }]} />
+      <Field label={mode === 'written' ? 'The judge’s answer' : 'Note for the jury (optional)'} hint={mode === 'written' ? 'Copy it exactly as the judge wrote it. Every juror will see it.' : 'For example: “Please wait to be brought into the courtroom.”'}>
+        {(id) => <Textarea id={id} value={text} onChange={(e) => setText(e.target.value)} maxLength={mode === 'written' ? 4000 : 500} required={mode === 'written'} className="min-h-24" />}
+      </Field>
+      <ErrorText>{error}</ErrorText>
+      <div className="flex gap-2">
+        <Button type="submit" variant="primary" disabled={busy || (mode === 'written' && !text.trim())}>Send to the jury</Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </form>
   )
 }
 

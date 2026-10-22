@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
-import { TYPE_LABEL, fmtDateTime } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Segmented, Select, cx } from '../../components/ui'
+import { fmtDateTime } from '../../lib/format'
+import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Select, Switch, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
-import ResultsBars, { VoteProgress } from './ResultsBars'
+import { VoteProgress, VoteResult } from './ResultsBars'
 import ChargeDetails from './ChargeDetails'
 
+const VOID_REASON = {
+  server_restart: 'The court server restarted before every vote was in, so this vote was discarded unopened.',
+  jury_changed: 'A juror was excused or an alternate was seated before every vote was in, so this vote was discarded unopened.',
+  foreperson: 'The foreperson voided this ballot before it finished. No result was kept.',
+}
+
 const DEFAULT_OPTIONS = ['Leaning Guilty', 'Leaning Not Guilty', 'Undecided']
+const VIEW_LABEL = { timeline: 'Timeline', votes: 'Votes', evidence: 'Evidence', message: 'Announcement', idle: 'Welcome screen', blackout: 'Nothing (blacked out)' }
 
 function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
   const emit = useLive((s) => s.emit)
@@ -95,12 +102,13 @@ function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
 
 function ForepersonPanel({ counts, votes, display }) {
   const emit = useLive((s) => s.emit)
-  const exhibits = useLive((s) => s.exhibits)
   const [pollOpen, setPollOpen] = useState(false)
   const [question, setQuestion] = useState('Where are you leaning right now?')
   const [options, setOptions] = useState(DEFAULT_OPTIONS)
   const [countId, setCountId] = useState('')
-  const [showOnDisplay, setShowOnDisplay] = useState(true)
+  const displayOnline = useLive((s) => s.displayOnline)
+  const autoProject = useLive((s) => s.autoProject)
+  const setAutoProject = useLive((s) => s.setAutoProject)
   const [deliberatedInPerson, setDeliberatedInPerson] = useState(false)
   const pollIsOpen = votes.some((v) => v.kind === 'poll' && v.status === 'open')
   const ballotIsOpen = votes.some((v) => v.kind === 'ballot' && v.status === 'open')
@@ -115,7 +123,6 @@ function ForepersonPanel({ counts, votes, display }) {
     }
   }
 
-  const voteChoices = [...votes].reverse().filter((v) => v.status !== 'voided')
   const canOpenBallot = Boolean(countId && !ballotIsOpen && (hasStrawPoll || deliberatedInPerson))
 
   return (
@@ -197,7 +204,7 @@ function ForepersonPanel({ counts, votes, display }) {
               className="w-full"
               variant="primary"
               disabled={!canOpenBallot}
-              onClick={() => run('ballot:open', { countId, showOnDisplay }, () => {
+              onClick={() => run('ballot:open', { countId, showOnDisplay: autoProject }, () => {
                 setCountId('')
                 setDeliberatedInPerson(false)
               })}
@@ -213,106 +220,37 @@ function ForepersonPanel({ counts, votes, display }) {
           </div>
         </div>
 
-        {/* Card 3: Room Projector */}
+        {/* Card 3: Room Projector (full controls on their own screen) */}
         <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-bold text-ink">
                 <Icon name="monitor" size={17} /> Room Projector
               </h3>
-              <Badge tone={display.view === 'blackout' ? 'danger' : 'ok'}>
-                {display.view === 'blackout' ? 'Blacked out' : 'Live'}
+              <Badge tone={display.view === 'blackout' ? 'danger' : displayOnline ? 'ok' : 'warn'}>
+                {display.view === 'blackout' ? 'Blacked out' : displayOnline ? 'Live' : 'Offline'}
               </Badge>
             </div>
             <p className="text-xs text-muted leading-relaxed">
-              Select what is shown on the wall display during deliberation.
+              Now showing: <span className="font-semibold text-ink">{VIEW_LABEL[display.view] ?? 'Welcome screen'}</span>
             </p>
-            <div className="mt-1 flex flex-col gap-2">
-              <Segmented
-                label="Room display shows"
-                value={display.view === 'blackout' ? 'idle' : display.view}
-                onChange={(view) => run('display:set', { view, voteId: display.voteId, exhibitId: display.exhibitId })}
-                options={[
-                  { value: 'timeline', label: 'Timeline' },
-                  { value: 'votes', label: 'Votes' },
-                  { value: 'evidence', label: 'Evidence' },
-                  { value: 'idle', label: 'Idle' },
-                ]}
-              />
-              {display.view === 'votes' && (
-                <Select
-                  value={display.voteId ?? ''}
-                  onChange={(e) => run('display:set', { view: 'votes', voteId: e.target.value || null, exhibitId: display.exhibitId })}
-                  aria-label="Vote shown on the display"
-                >
-                  <option value="">Latest vote</option>
-                  {voteChoices.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.kind === 'ballot' ? 'Ballot' : 'Poll'}: {v.question.slice(0, 40)} ({fmtDateTime(v.openedAt)})
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {display.view === 'evidence' && (
-                <div className="flex flex-col gap-1.5">
-                  <Select
-                    value={display.exhibitId ?? ''}
-                    onChange={(e) => run('display:set', { view: 'evidence', exhibitId: e.target.value || null, voteId: display.voteId })}
-                    aria-label="Exhibit shown on the display"
-                  >
-                    <option value="">Choose an exhibit to project…</option>
-                    {exhibits.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.number ? `Exhibit ${e.number}: ` : ''}{e.title} ({TYPE_LABEL[e.type]})
-                      </option>
-                    ))}
-                  </Select>
-                  {display.exhibitId && (
-                    <div className="flex items-center justify-between text-xs text-muted px-1">
-                      <span>Live: {exhibits.find((e) => e.id === display.exhibitId)?.title?.slice(0, 24)}…</span>
-                      <Link to={`/juror/evidence/${display.exhibitId}`} className="text-accent hover:underline flex items-center gap-1 font-medium">
-                        Open <Icon name="external" size={12} />
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <label className="mt-1 flex items-center justify-between gap-3 text-xs text-muted">
+              Switch the projector to new polls and ballots
+              <Switch checked={autoProject} onChange={setAutoProject} label="Switch the projector to new polls and ballots" />
+            </label>
           </div>
-          <div className="mt-4 pt-3 border-t border-line/30">
-            <Button
-              className="w-full"
-              variant={display.view === 'blackout' ? 'primary' : 'outline'}
+          <div className="mt-4 flex gap-2 pt-3 border-t border-line/30">
+            <Link to="/juror/projector" className="flex-1">
+              <Button className="w-full" icon="monitor">Projector controls</Button>
+            </Link>
+            <IconButton
               icon={display.view === 'blackout' ? 'eye' : 'eyeOff'}
-              onClick={() => run('display:set', {
-                view: display.view === 'blackout' ? (display.exhibitId ? 'evidence' : 'timeline') : 'blackout',
-                voteId: display.voteId,
-                exhibitId: display.exhibitId,
-              })}
-            >
-              {display.view === 'blackout' ? 'Resume projector' : 'Blackout projector'}
-            </Button>
+              label={display.view === 'blackout' ? 'Resume projector' : 'Blackout projector'}
+              className={display.view === 'blackout' ? 'bg-accent-soft text-accent' : 'bg-fill'}
+              onClick={() => run('display:set', { view: display.view === 'blackout' ? (display.exhibitId ? 'evidence' : 'timeline') : 'blackout' })}
+            />
           </div>
         </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line/40 text-xs text-muted">
-        <label className="flex items-center gap-2.5 cursor-pointer hover:text-ink">
-          <input
-            type="checkbox"
-            checked={showOnDisplay}
-            onChange={(e) => setShowOnDisplay(e.target.checked)}
-            role="switch"
-            className="switch scale-90"
-          />
-          Automatically switch room projector to new polls and ballots
-        </label>
-        {display.view === 'blackout' && (
-          <span className="font-semibold text-warn flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-warn animate-pulse" />
-            Projector is blacked out (confidential)
-          </span>
-        )}
       </div>
 
       <Modal
@@ -321,7 +259,7 @@ function ForepersonPanel({ counts, votes, display }) {
         title="New poll"
         footer={<>
           <Button variant="ghost" onClick={() => setPollOpen(false)}>Cancel</Button>
-          <Button variant="primary" disabled={options.filter((o) => o.trim()).length < 2} onClick={() => run('poll:open', { question, options: options.filter((o) => o.trim()), showOnDisplay }, () => setPollOpen(false))}>Open poll</Button>
+          <Button variant="primary" disabled={options.filter((o) => o.trim()).length < 2} onClick={() => run('poll:open', { question, options: options.filter((o) => o.trim()), showOnDisplay: autoProject }, () => setPollOpen(false))}>Open poll</Button>
         </>}
       >
         <div className="flex flex-col gap-4">
@@ -383,7 +321,7 @@ export default function VotingPage() {
 
       <section>
         <h2 className="mb-1 text-xl font-bold">History</h2>
-        <p className="mb-4 text-muted">Only totals and times are kept. Individual votes are never stored.</p>
+        <p className="mb-4 text-muted">Individual votes are never stored. Totals stay on the court server only until it shuts down; a secret ballot keeps just whether it was unanimous.</p>
         {history.length ? (
           <div className="grid gap-5 lg:grid-cols-2">
             {history.map((v) => (
@@ -396,10 +334,10 @@ export default function VotingPage() {
                   {v.status === 'voided' && <Badge tone="danger">Voided</Badge>}
                 </div>
                 {v.status === 'voided' ? (
-                  <p className="text-muted">{v.voidReason === 'server_restart' ? 'The court server restarted before every vote was in, so this ballot was discarded unopened.' : 'The foreperson voided this ballot before it finished. No result was kept.'}</p>
+                  <p className="text-muted">{VOID_REASON[v.voidReason] ?? VOID_REASON.foreperson}</p>
                 ) : (
                   <>
-                    <ResultsBars vote={v} />
+                    <VoteResult vote={v} />
                     <p className="mt-3 text-sm text-muted">{v.votesCast} of {v.eligible} voted</p>
                   </>
                 )}

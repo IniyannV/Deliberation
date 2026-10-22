@@ -26,6 +26,29 @@ export default function ResultsBars({ vote, large = false }) {
   )
 }
 
+const OUTCOME = { guilty: 'Unanimous: Guilty', not_guilty: 'Unanimous: Not Guilty', not_unanimous: 'Not unanimous' }
+
+/**
+ * A closed vote's result. Counts are kept only in the court server's memory,
+ * so after a restart a ballot shows just whether it was unanimous, and a poll
+ * shows nothing.
+ */
+export function VoteResult({ vote, large = false }) {
+  const outcome = vote.kind === 'ballot' && OUTCOME[vote.outcome]
+  return (
+    <div className={cx('flex flex-col', large ? 'gap-8' : 'gap-3')}>
+      {outcome && <p className={cx('font-bold', large ? 'text-4xl' : 'text-lg', vote.outcome === 'not_unanimous' ? 'text-warn' : 'text-accent')}>{outcome}</p>}
+      {vote.tally ? (
+        <ResultsBars vote={vote} large={large} />
+      ) : (
+        <p className={cx('text-muted', large && 'text-2xl')}>
+          {vote.kind === 'ballot' ? 'The counts were cleared when the court server restarted.' : 'The results were cleared when the court server restarted.'} Counts are never saved, so court staff can’t see how the jury was divided.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function VoteProgress({ vote, large = false }) {
   return (
     <div className="flex flex-col gap-2">

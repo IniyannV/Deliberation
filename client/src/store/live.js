@@ -42,7 +42,8 @@ const initial = {
   burden: '',
   votes: [],
   votedIn: [],
-  display: { view: 'timeline', voteId: null, exhibitId: null },
+  display: { view: 'timeline', voteId: null, exhibitId: null, message: null },
+  displayOnline: false, // whether the room display is signed in and connected
   counts: [],
   presence: [],
   exhibits: [],
@@ -64,6 +65,13 @@ export const useLive = create((set, get) => ({
     store('soundOn', on)
     set({ soundOn: on })
     if (on) chime()
+  },
+
+  // Foreperson: switch the room display to each new poll or ballot as it opens.
+  autoProject: load('autoProject', true),
+  setAutoProject(autoProject) {
+    store('autoProject', autoProject)
+    set({ autoProject })
   },
 
   // Do not disturb: no pop-ups or chimes for incoming messages and requests.
@@ -140,6 +148,7 @@ export const useLive = create((set, get) => ({
         votes: s.votes ?? [],
         votedIn: s.votedIn ?? [],
         display: s.display ?? initial.display,
+        displayOnline: s.displayOnline ?? false,
         counts: s.counts ?? [],
         presence: s.presence ?? [],
       })
@@ -160,11 +169,14 @@ export const useLive = create((set, get) => ({
     socket.on('notes:changed', (notes) => set({ notes }))
     socket.on('personal:changed', (personal) => set({ personal }))
     socket.on('display:changed', (display) => set({ display }))
+    socket.on('display:presence', ({ online }) => set({ displayOnline: online }))
     socket.on('vote:changed', (vote) => {
       const votes = get().votes
       const i = votes.findIndex((v) => v.id === vote.id)
       set({ votes: i === -1 ? [...votes, vote] : votes.map((v) => (v.id === vote.id ? vote : v)) })
     })
+    // Deliberations restarted: every poll and ballot is gone, so nobody has voted in anything.
+    socket.on('votes:reset', ({ votes }) => set({ votes, votedIn: [] }))
     socket.on('vote:recorded', ({ id }) => set({ votedIn: [...new Set([...get().votedIn, id])] }))
     socket.on('exhibits:changed', () => get().loadExhibits())
     socket.on('presence', (presence) => set({ presence }))
@@ -184,10 +196,19 @@ export const useLive = create((set, get) => ({
     })
     socket.on('request:new', (r) => {
       set({ queue: [r, ...get().queue.filter((x) => x.id !== r.id)], alertAt: Date.now() })
+      if (r.type === 'verdict') {
+        // Always announced, even with do not disturb on: the court is waiting for this.
+        if (get().soundOn) chime()
+        toast(`Verdict reached. The foreperson (Juror ${r.seat}) is ready to tell the court.`, { tone: 'warn', timeout: 20000 })
+        return
+      }
       notify(`New request from Juror ${r.seat}`, { chime: true, tone: 'warn', timeout: 8000 })
     })
+    socket.on('request:answered', ({ mode }) => {
+      notify(mode === 'written' ? 'The court has answered the jury’s question. Read it on the Requests page.' : 'The judge will answer the jury’s question in the courtroom.')
+    })
     socket.on('request:message', (m) => {
-      const what = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge' }[m.type] ?? 'request'
+      const what = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge', verdict: 'verdict notice' }[m.type] ?? 'request'
       if (m.from === 'bailiff') notify(`The bailiff sent you a message about your ${what}.`)
       else notify(`Juror ${m.seat} sent a message about their ${what}.`, { chime: true, tone: 'warn', timeout: 8000 })
     })

@@ -3,7 +3,7 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../store/auth'
 import { unreadChat, unreadRequestReplies, useLive } from '../../store/live'
 import { toast, useUi } from '../../store/ui'
-import { REQUEST_LABEL, STATUS_LABEL, timeAgo } from '../../lib/format'
+import { JURY_TYPES, REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, CountBadge, EmptyState, ErrorText, Field, Input, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import RequestThread from './RequestThread'
@@ -13,14 +13,29 @@ const TEMPLATES = [
   { type: 'meal', icon: 'utensils', title: 'Order a meal', text: 'Choose from today’s menu.' },
   { type: 'supplies', icon: 'box', title: 'Supplies', text: 'Notepads, pens, water and more.' },
   { type: 'judge_question', icon: 'question', title: 'Question for the judge', text: 'Sent by the foreperson on behalf of the jury.', foreperson: true },
+  { type: 'verdict', icon: 'scale', title: 'We have a verdict', text: 'Tell the court the jury has reached a verdict on every count.', foreperson: true },
 ]
 
 export const STATUS_TONE = { pending: 'warn', acknowledged: 'accent', fulfilled: 'ok' }
 
+/** The court's response to a jury question, once the bailiff has recorded it. */
+export function CourtAnswer({ answer }) {
+  if (!answer) return null
+  return (
+    <div className="mt-3 rounded-xl bg-accent-soft px-4 py-3">
+      <p className="mb-1 text-sm font-semibold text-accent">The court’s answer · {fmtTime(answer.at)}</p>
+      {answer.mode === 'written'
+        ? <p className="whitespace-pre-wrap">{answer.text}</p>
+        : <p>The judge will answer this question in the courtroom.{answer.text && ` ${answer.text}`}</p>}
+    </div>
+  )
+}
+
 export function RequestSummary({ r }) {
   const p = r.payload
   if (r.type === 'break') return <p>{p.minutes}-minute break</p>
-  if (r.type === 'judge_question') return <p className="whitespace-pre-wrap">{p.text}</p>
+  if (r.type === 'verdict') return <p>The jury has reached a verdict. The foreperson keeps the signed verdict form until the court asks for it.</p>
+  if (r.type === 'judge_question') return <><p className="whitespace-pre-wrap">{p.text}</p><CourtAnswer answer={r.answer} /></>
   return (
     <div>
       <ul className="list-inside list-disc">{p.items.map((it) => <li key={it.id}>{it.qty > 1 ? `${it.qty} × ` : ''}{it.name}</li>)}</ul>
@@ -81,7 +96,7 @@ function RequestForm({ type, catalog, onDone }) {
     if (type === 'judge_question') body.text = text
     try {
       await api('/requests', { method: 'POST', body })
-      toast('Your request was sent to the bailiff.')
+      toast(type === 'verdict' ? 'The bailiff has been told the jury has reached a verdict.' : 'Your request was sent to the bailiff.')
       onDone()
     } catch (err) {
       setError(err.message)
@@ -105,6 +120,12 @@ function RequestForm({ type, catalog, onDone }) {
           {(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />}
         </Field>
       )}
+      {type === 'verdict' && (
+        <div className="flex flex-col gap-3">
+          <p>Send this only when the jury has agreed on every count and the foreperson has filled in and signed the verdict form.</p>
+          <p className="text-muted">The bailiff is told only that a verdict has been reached, never what it is. Keep the signed form with you; the verdict is read in the courtroom.</p>
+        </div>
+      )}
       {type === 'judge_question' && (
         <Field label="Your question" hint="The bailiff delivers this to the judge exactly as written. Don't reveal how the jury is divided.">
           {(id) => <Textarea id={id} value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} required className="min-h-40" />}
@@ -112,7 +133,7 @@ function RequestForm({ type, catalog, onDone }) {
       )}
       <ErrorText>{error}</ErrorText>
       <div className={cx('flex gap-2', type === 'break' && 'justify-center')}>
-        <Button type="submit" variant="primary" disabled={busy}>Send request</Button>
+        <Button type="submit" variant="primary" disabled={busy}>{type === 'verdict' ? 'Tell the court' : 'Send request'}</Button>
         <Button variant="ghost" onClick={onDone}>Cancel</Button>
       </div>
     </form>
@@ -121,7 +142,10 @@ function RequestForm({ type, catalog, onDone }) {
 
 export default function RequestsPage() {
   const role = useAuth((s) => s.user?.role)
-  const mine = useLive((s) => s.myRequests)
+  const seat = useAuth((s) => s.user?.seat)
+  const visible = useLive((s) => s.myRequests)
+  const juryNotes = visible.filter((r) => JURY_TYPES.includes(r.type))
+  const mine = visible.filter((r) => !JURY_TYPES.includes(r.type))
   const [active, setActive] = useState(null)
   const [catalog, setCatalog] = useState({ menu: [], supplies: [] })
 
@@ -138,7 +162,7 @@ export default function RequestsPage() {
     <div>
       <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
         <div>
-          <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal, supplies, or (foreperson only) send a question to the judge. You can message the bailiff about any request." />
+          <PageHeader title="Requests" subtitle="Ask the bailiff for a break, a meal or supplies. The foreperson can also send the judge a question, or tell the court the jury has reached a verdict. You can message the bailiff about any request." />
           {!active ? (
             <div className="grid gap-4 sm:grid-cols-2" data-tour="request-templates">
               {templates.map((t) => (
@@ -161,29 +185,38 @@ export default function RequestsPage() {
 
         <aside>
           <BailiffChat />
-          <h2 className="mt-8 mb-4 text-xl font-bold">Your requests</h2>
-          {mine.length ? (
-            <ul className="flex flex-col gap-3">
-              {mine.map((r) => (
-                <li key={r.id}>
-                  <Card className="p-4">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="font-bold">{REQUEST_LABEL[r.type]}</span>
-                      <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                    </div>
-                    <RequestSummary r={r} />
-                    <p className="mt-2 text-sm text-muted">Sent {timeAgo(r.createdAt)}</p>
-                    <RequestThread request={r} viewer="juror" />
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState icon="bell" title="No requests yet" />
+          {juryNotes.length > 0 && (
+            <>
+              <h2 className="mt-8 mb-1 text-xl font-bold">The jury’s notes to the court</h2>
+              <p className="mb-4 text-sm text-muted">Sent by the foreperson. Every juror sees these and the court’s answers.</p>
+              <RequestList list={juryNotes} seat={seat} />
+            </>
           )}
+          <h2 className="mt-8 mb-4 text-xl font-bold">Your requests</h2>
+          {mine.length ? <RequestList list={mine} seat={seat} /> : <EmptyState icon="bell" title="No requests yet" />}
         </aside>
       </div>
     </div>
+  )
+}
+
+function RequestList({ list, seat }) {
+  return (
+    <ul className="flex flex-col gap-3">
+      {list.map((r) => (
+        <li key={r.id}>
+          <Card className={cx('p-4', r.type === 'verdict' && 'border-accent')}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="font-bold">{REQUEST_LABEL[r.type]}</span>
+              <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+            </div>
+            <RequestSummary r={r} />
+            <p className="mt-2 text-sm text-muted">Sent {r.seat === seat ? '' : `by Juror ${r.seat} `}{timeAgo(r.createdAt)}</p>
+            <RequestThread request={r} viewer="juror" readOnly={r.seat !== seat} />
+          </Card>
+        </li>
+      ))}
+    </ul>
   )
 }
 

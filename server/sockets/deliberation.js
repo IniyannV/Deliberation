@@ -12,7 +12,7 @@ import {
  */
 
 const EVENT_TYPES = ['testimony', 'physical', 'document'];
-const DISPLAY_VIEWS = ['timeline', 'votes', 'idle', 'blackout', 'evidence'];
+const DISPLAY_VIEWS = ['timeline', 'votes', 'idle', 'blackout', 'evidence', 'message'];
 
 // Note pins are stored as fractions of the image, so they stay put at any zoom.
 const noteCoord = (v) => {
@@ -374,6 +374,17 @@ export const deliberationHandlers = {
   },
 };
 
+// An announcement for the room display, with an optional countdown (up to 12 hours away).
+function readMessage(m) {
+  if (m === null) return null;
+  const text = str(m?.text, { min: 1, max: 160, field: 'Message' });
+  if (!m.endsAt) return { text, endsAt: null };
+  const endsAt = isoDateTime(m.endsAt, 'Countdown');
+  const ahead = new Date(endsAt).getTime() - Date.now();
+  if (ahead <= 0 || ahead > 12 * 3600_000) throw bad('Countdown must end within the next 12 hours');
+  return { text, endsAt };
+}
+
 async function setDisplay(io, p) {
   const view = oneOf(p.view, DISPLAY_VIEWS, 'View');
   const prevVoteId = db.data.display?.voteId ?? null;
@@ -382,7 +393,9 @@ async function setDisplay(io, p) {
   const candidateExhibitId = p.exhibitId !== undefined ? p.exhibitId : prevExhibitId;
   const voteId = candidateVoteId && db.data.votes.some((v) => v.id === candidateVoteId) ? candidateVoteId : null;
   const exhibitId = candidateExhibitId && db.data.exhibits.some((e) => e.id === candidateExhibitId) ? candidateExhibitId : null;
-  db.data.display = { view, voteId, exhibitId };
+  const message = p.message !== undefined ? readMessage(p.message) : (db.data.display?.message ?? null);
+  if (view === 'message' && !message) throw bad('Write a message to show');
+  db.data.display = { view, voteId, exhibitId, message };
   await save();
   toJurorsAndDisplay(io, 'display:changed', db.data.display);
 }

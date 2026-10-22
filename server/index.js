@@ -9,7 +9,7 @@ import { CLIENT_DIST, HOST, IS_PROD, PORT } from './config.js';
 import { initDb } from './db.js';
 import { authenticate } from './auth.js';
 import { initAudit } from './services/audit.js';
-import { voidStaleVotes } from './services/voting.js';
+import { loadVotes } from './services/voting.js';
 import { securityHeaders } from './middleware/security.js';
 import { setIo } from './realtime.js';
 import { registerSockets } from './sockets/index.js';
@@ -20,7 +20,7 @@ import adminRoutes from './routes/admin.js';
 
 await initDb();
 initAudit();
-await voidStaleVotes();
+await loadVotes();
 
 const app = express();
 const server = http.createServer(app);

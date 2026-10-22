@@ -78,7 +78,7 @@ export default function Updates() {
                       {u.readAt ? <Badge tone="ok">Read</Badge> : <Badge>Unread</Badge>}
                     </span>
                   </div>
-                  <p className="line-clamp-3 whitespace-pre-wrap text-muted">{u.body}</p>
+                  <p className="line-clamp-3 whitespace-pre-wrap text-muted">{u.erased ? <i>Text erased at the end of the trial.</i> : u.body}</p>
                 </Card>
               </li>
             ))}

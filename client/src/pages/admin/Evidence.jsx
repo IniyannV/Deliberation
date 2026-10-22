@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
@@ -42,6 +42,9 @@ export default function Evidence() {
   const [editing, setEditing] = useState(null)
   const [removing, setRemoving] = useState(null)
   const fileInput = useRef(null)
+  // YouTube exhibits need the internet, so the court has to turn them on (ALLOW_ONLINE_EXHIBITS=1).
+  const [online, setOnline] = useState(false)
+  useEffect(() => { api('/admin/overview').then((o) => setOnline(!!o.onlineExhibits)).catch(() => {}) }, [])
 
   async function upload(e) {
     e.preventDefault()
@@ -95,10 +98,10 @@ export default function Evidence() {
       <Card className="mb-8 p-6" data-tour="admin-upload">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold">Add an exhibit</h2>
-          <Segmented label="Exhibit source" value={source} onChange={(v) => { setSource(v); setError('') }} options={[{ value: 'file', label: 'Upload a file' }, { value: 'youtube', label: 'YouTube link' }]} />
+          {online && <Segmented label="Exhibit source" value={source} onChange={(v) => { setSource(v); setError('') }} options={[{ value: 'file', label: 'Upload a file' }, { value: 'youtube', label: 'YouTube link' }]} />}
         </div>
         <form onSubmit={upload} className="flex flex-col gap-4">
-          {source === 'youtube' ? (
+          {online && source === 'youtube' ? (
             <Field label="YouTube link" hint="Paste the video’s address (watch, share or Shorts link). It streams from YouTube, so it plays only on juror devices that can reach the internet; everything else in the app stays on this laptop.">
               {(id) => <Input id={id} type="url" inputMode="url" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} required placeholder="https://www.youtube.com/watch?v=…" />}
             </Field>
@@ -124,7 +127,10 @@ export default function Evidence() {
               <tr key={e.id}>
                 <td className="px-5 py-3"><Badge tone="accent">{e.number}</Badge></td>
                 <td className="py-3 font-semibold">{e.title}</td>
-                <td className="py-3 text-muted">{TYPE_LABEL[e.type]}</td>
+                <td className="py-3 text-muted">
+                  {TYPE_LABEL[e.type]}
+                  {e.type === 'youtube' && !online && <Badge tone="warn" className="ml-2">Hidden: offline</Badge>}
+                </td>
                 <td className="py-3 text-muted">{PARTY_LABEL[e.party]}</td>
                 <td className="py-3 text-muted">{fmtCalendarDate(e.dateAdmitted)}</td>
                 <td className="py-3 text-muted">{fmtBytes(e.size)}</td>

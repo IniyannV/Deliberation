@@ -6,7 +6,7 @@ import { db } from '../db.js';
  * never changed.
  */
 
-const REQUEST = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge' };
+const REQUEST = { break: 'break', meal: 'meal order', supplies: 'supplies request', judge_question: 'question for the judge', verdict: 'verdict notice' };
 const STATUS = { pending: 'pending', acknowledged: 'acknowledged', fulfilled: 'fulfilled' };
 const EXHIBIT = { pdf: 'PDF', image: 'image', transcript: 'transcript', video: 'video', youtube: 'YouTube video' };
 
@@ -33,9 +33,11 @@ export function describe(e) {
     case 'exhibit.updated': return `${who} edited the details of exhibit ${m.exhibitNumber}`;
     case 'exhibit.removed': return `${who} removed exhibit ${m.exhibitNumber}`;
     case 'request.created':
+      if (m.requestType === 'verdict') return `${juror(m.seat)} told the court the jury has reached a verdict`;
       return m.requestType === 'break' && m.minutes
         ? `${juror(m.seat)} asked for a ${m.minutes}-minute break`
         : `${juror(m.seat)} sent a ${req}${m.itemCount ? ` (${m.itemCount} item${m.itemCount === 1 ? '' : 's'})` : ''}`;
+    case 'request.answered': return `${who} recorded the court’s answer to ${juror(m.seat)}’s question for the judge (${m.answerMode === 'written' ? 'written answer' : 'to be given in open court'})`;
     case 'request.status': return `${who} marked ${juror(m.seat)}’s ${req} as ${STATUS[m.status] ?? m.status}`;
     case 'request.message': return who === juror(m.seat) ? `${who} sent the bailiff a message about their ${req}` : `${who} sent ${juror(m.seat)} a message about their ${req}`;
     case 'chat.message': return who === juror(m.seat) ? `${who} sent the bailiff a chat message` : `${who} sent ${juror(m.seat)} a chat message`;
@@ -43,6 +45,10 @@ export function describe(e) {
     case 'update.read': return `${juror(m.seat)} read a family update`;
     case 'seat.foreperson_set': return `${who} made ${juror(m.seat)} the foreperson`;
     case 'seat.active_set': return m.active ? `${who} reinstated ${juror(m.seat)}` : `${who} excused ${juror(m.seat)}`;
+    case 'seat.substituted': return `${who} seated an alternate in seat ${m.seat ?? '?'}${m.restarted ? ' and restarted deliberations' : ''}`;
+    case 'deliberation.restarted': return `${who} restarted deliberations (shared work and votes cleared)`;
+    case 'deliberation.erased': return `${who} erased the jury’s deliberation data and messages`;
+    case 'session.jurors_signed_out': return `${who} signed out every juror device and the room display`;
     case 'seat.pin_reset': return `${who} reset the PIN for ${juror(m.seat)}`;
     case 'catalog.updated': return `${who} updated the meal menu and supplies list`;
     case 'audit.exported': return `${who} exported the audit log`;

@@ -6,12 +6,14 @@ import { Icon } from '../../components/icons'
 import { Card, Spinner } from '../../components/ui'
 import { PARTY_LABEL, TYPE_LABEL, fmtCalendarDate } from '../../lib/format'
 import Timeline from '../../features/timeline/Timeline'
-import ResultsBars, { VoteProgress } from '../../features/voting/ResultsBars'
+import { VoteProgress, VoteResult } from '../../features/voting/ResultsBars'
 import ExhibitViewer from '../../features/evidence/ExhibitViewer'
+import { useCountdown } from '../../lib/useCountdown'
+import { ExhibitThumb } from '../../features/evidence/ExhibitLocker'
 
 /** Read-only projector view. The foreperson chooses what it shows. */
 
-function Clock() {
+export function Clock() {
   const [now, setNow] = useState(new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 15000)
@@ -40,13 +42,13 @@ function VotesView({ votes, counts, voteId }) {
       ) : vote.status === 'voided' ? (
         <p className="text-3xl text-muted">This ballot was voided. No result was recorded.</p>
       ) : (
-        <ResultsBars vote={vote} large />
+        <VoteResult vote={vote} large />
       )}
     </div>
   )
 }
 
-function EvidenceView({ exhibitId, exhibits }) {
+function EvidenceView({ exhibitId, exhibits, preview }) {
   const loaded = useLive((s) => s.exhibitsLoaded)
   const exhibit = exhibits.find((e) => e.id === exhibitId)
 
@@ -91,7 +93,8 @@ function EvidenceView({ exhibitId, exhibits }) {
         <p className="-mt-1 mb-3 text-sm text-muted/90">{exhibit.description}</p>
       )}
       <Card className="min-h-0 flex-1 overflow-hidden p-0 relative shadow-card">
-        <ExhibitViewer exhibitId={exhibit.id} />
+        {/* The control screen's preview shows a still, so a video doesn't play twice. */}
+        {preview ? <ExhibitThumb exhibit={exhibit} className="h-full" /> : <ExhibitViewer exhibitId={exhibit.id} />}
       </Card>
     </div>
   )
@@ -123,46 +126,82 @@ function BlackoutView() {
   )
 }
 
+function MessageView({ message }) {
+  const countdown = useCountdown(message?.endsAt)
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
+      <h1 className="text-7xl leading-[1.08] font-bold tracking-tight text-balance">{message?.text}</h1>
+      {countdown && (
+        countdown.left > 0 ? (
+          <div className="mt-14 flex flex-col items-center">
+            <span className="text-[9rem] leading-none font-bold tracking-tight text-accent tabular-nums">{countdown.label}</span>
+            <span className="mt-5 text-3xl text-muted">
+              Resuming at {new Date(message.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          </div>
+        ) : (
+          <p className="mt-14 text-4xl font-semibold text-accent">Time to resume</p>
+        )
+      )}
+    </div>
+  )
+}
+
+/** What the room display shows. The foreperson's control screen renders a scaled-down `preview` of it. */
+export function DisplayStage({ display, preview = false }) {
+  const caseInfo = useAuth((s) => s.caseInfo)
+  const { timeline, votes, counts, exhibits } = useLive()
+  switch (display.view) {
+    case 'blackout': return <BlackoutView />
+    case 'timeline':
+      return timeline.length
+        ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><Timeline events={timeline} zoom="fit" /></Card></div>
+        : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
+    case 'votes': return <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>
+    case 'evidence': return <EvidenceView exhibitId={display.exhibitId} exhibits={exhibits} preview={preview} />
+    case 'message': return <div className="my-auto"><MessageView message={display.message} /></div>
+    default: return <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>
+  }
+}
+
 export default function Display() {
   const caseInfo = useAuth((s) => s.caseInfo)
   const logout = useAuth((s) => s.logout)
-  const { connected, display, timeline, votes, counts, exhibits } = useLive()
+  const { connected, display } = useLive()
   const { theme, toggleTheme } = useUi()
 
   return (
     <div className="flex h-screen flex-col bg-bg">
-      <header className="group flex items-center justify-between px-10 py-6 text-xl">
-        <div>
-          <span className="font-semibold">{caseInfo?.caption}</span>
-          <span className="ml-4 text-muted">Deliberation</span>
-          {display.view === 'evidence' && (
-            <span className="ml-4 rounded-full bg-accent/15 px-3 py-0.5 text-sm font-semibold text-accent">
-              Exhibit Projector
-            </span>
-          )}
+      <DisplayHeader caseInfo={caseInfo} view={display.view}>
+        {!connected && <span className="text-warn">Reconnecting…</span>}
+        <span className="text-2xl font-semibold text-ink"><Clock /></span>
+        <div className="material flex gap-1 rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="Full screen"><Icon name="maximize" /></button>
+          <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
+          <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={logout} aria-label="Sign out"><Icon name="logout" /></button>
         </div>
-        <div className="flex items-center gap-6 text-muted">
-          {!connected && <span className="text-warn">Reconnecting…</span>}
-          <span className="text-2xl font-semibold text-ink"><Clock /></span>
-          <div className="material flex gap-1 rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="Full screen"><Icon name="maximize" /></button>
-            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
-            <button type="button" className="pressable rounded-full p-2 hover:bg-fill" onClick={logout} aria-label="Sign out"><Icon name="logout" /></button>
-          </div>
-        </div>
-      </header>
+      </DisplayHeader>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-8 scrollbar-thin">
-        {display.view === 'blackout' && <BlackoutView />}
-        {display.view === 'timeline' && (
-          timeline.length
-            ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><Timeline events={timeline} zoom="fit" /></Card></div>
-            : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
-        )}
-        {display.view === 'votes' && <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>}
-        {display.view === 'evidence' && <EvidenceView exhibitId={display.exhibitId} exhibits={exhibits} />}
-        {display.view !== 'blackout' && display.view !== 'timeline' && display.view !== 'votes' && display.view !== 'evidence' && <div className="my-auto"><IdleView caseInfo={caseInfo} /></div>}
+        <DisplayStage display={display} />
       </main>
     </div>
+  )
+}
+
+export function DisplayHeader({ caseInfo, view, children }) {
+  return (
+    <header className="group flex items-center justify-between px-10 py-6 text-xl">
+      <div>
+        <span className="font-semibold">{caseInfo?.caption}</span>
+        <span className="ml-4 text-muted">Deliberation</span>
+        {view === 'evidence' && (
+          <span className="ml-4 rounded-full bg-accent/15 px-3 py-0.5 text-sm font-semibold text-accent">
+            Exhibit Projector
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-6 text-muted">{children}</div>
+    </header>
   )
 }

@@ -8,6 +8,10 @@ export const PORT = Number(process.env.PORT) || 4000;
 export const HOST = process.env.HOST || '0.0.0.0';
 export const IS_PROD = process.env.NODE_ENV === 'production';
 
+// YouTube exhibits need the internet, which a closed jury network shouldn't have.
+// Off unless the court turns it on: ALLOW_ONLINE_EXHIBITS=1 npm start
+export const ALLOW_ONLINE_EXHIBITS = process.env.ALLOW_ONLINE_EXHIBITS === '1';
+
 export const DATA_DIR = path.join(here, 'data');
 export const DB_FILE = path.join(DATA_DIR, 'db.json');
 export const AUDIT_FILE = path.join(DATA_DIR, 'audit.log.jsonl');

@@ -16,6 +16,7 @@ const SplitReview = lazy(() => import('./features/evidence/SplitReview'))
 const TimelinePage = lazy(() => import('./features/timeline/TimelinePage'))
 const VotingPage = lazy(() => import('./features/voting/VotingPage'))
 const RequestsPage = lazy(() => import('./features/requests/RequestsPage'))
+const ProjectorPage = lazy(() => import('./features/projector/ProjectorPage'))
 const BulletinPage = lazy(() => import('./features/bulletin/BulletinPage'))
 const Display = lazy(() => import('./pages/display/Display'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
@@ -29,6 +30,7 @@ const AdminAudit = lazy(() => import('./pages/admin/Audit'))
 const JUROR_ROLES = ['juror', 'foreperson']
 
 function JurorShell() {
+  const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
   const unread = useLive((s) => s.updates.filter((u) => !u.readAt).length)
   const openToVote = useLive((s) => s.votes.filter((v) => v.status === 'open' && !s.votedIn.includes(v.id)).length)
   const replies = useLive(unreadRequestReplies)
@@ -39,6 +41,7 @@ function JurorShell() {
     { to: '/juror/timeline', label: 'Timeline', icon: 'timeline' },
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },
+    ...(isForeperson ? [{ to: '/juror/projector', label: 'Room projector', icon: 'monitor' }] : []),
     { to: '/juror/requests', label: 'Requests', icon: 'bell', badge: replies },
     { to: '/juror/bulletin', label: 'Messages from home', icon: 'mail', badge: unread },
   ]
@@ -81,6 +84,7 @@ export default function App() {
             <Route path="review" element={<SplitReview />} />
             <Route path="timeline" element={<TimelinePage />} />
             <Route path="voting" element={<VotingPage />} />
+            <Route path="projector" element={<RequireRole roles={['foreperson']}><ProjectorPage /></RequireRole>} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="bulletin" element={<BulletinPage />} />
           </Route>

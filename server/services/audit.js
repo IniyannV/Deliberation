@@ -18,6 +18,7 @@ import { AUDIT_FILE } from '../config.js';
 const META_ALLOWLIST = new Set([
   'requestType', 'status', 'fromStatus', 'exhibitNumber', 'exhibitType',
   'seat', 'identifier', 'reason', 'itemCount', 'minutes', 'active', 'isForeperson',
+  'answerMode', 'restarted', 'signedOut',
 ]);
 
 let seq = 0;
