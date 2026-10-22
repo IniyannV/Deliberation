@@ -10,15 +10,15 @@ import { AUDIT_FILE } from '../config.js';
  * - Each entry carries the SHA-256 of the previous entry, so editing or
  *   removing a line breaks the chain and `verifyChain()` reports it.
  * - It records WHO did WHAT KIND of thing and WHEN, never deliberation
- *   content: no timeline text, poll/ballot activity, notes, judge questions
- *   or family-update bodies. `meta` is filtered through an allowlist so
+ *   content: no timeline text, poll/ballot activity, notes or judge
+ *   questions. `meta` is filtered through an allowlist so
  *   content can't slip in by accident.
  */
 
 const META_ALLOWLIST = new Set([
   'requestType', 'status', 'fromStatus', 'exhibitNumber', 'exhibitType',
   'seat', 'identifier', 'reason', 'itemCount', 'minutes', 'active', 'isForeperson',
-  'answerMode', 'restarted', 'signedOut',
+  'answerMode', 'restarted', 'signedOut', 'fingerprint',
 ]);
 
 let seq = 0;
@@ -33,6 +33,12 @@ export function initAudit() {
   const last = JSON.parse(lines.at(-1));
   seq = last.seq;
   lastHash = last.hash;
+}
+
+/** Start a new chain, once the old log has been archived (a new trial loaded). */
+export function resetAudit() {
+  seq = 0;
+  lastHash = 'GENESIS';
 }
 
 export function audit({ actor, role, action, target = null, meta = {} }) {

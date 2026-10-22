@@ -17,6 +17,7 @@ import authRoutes from './routes/auth.js';
 import exhibitRoutes from './routes/exhibits.js';
 import jurorRoutes from './routes/juror.js';
 import adminRoutes from './routes/admin.js';
+import localRoutes from './routes/local.js';
 
 await initDb();
 initAudit();
@@ -37,6 +38,7 @@ app.use(authenticate);
 app.use('/api/auth', authRoutes);
 app.use('/api/exhibits', exhibitRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/local', localRoutes);
 app.use('/api', jurorRoutes);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 

@@ -506,6 +506,73 @@ dialog.sheet[open]::backdrop {
   }
 }
 
+/* The juror's notebook: Tailwind's reset strips list and heading styles, so
+   formatted notes get theirs back here. */
+.notebook {
+  outline: none;
+  overflow-wrap: anywhere;
+}
+.notebook > * + * {
+  margin-top: 0.6em;
+}
+.notebook h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin-top: 0.9em;
+}
+.notebook h2 {
+  font-size: 1.375em;
+  font-weight: 700;
+  margin-top: 0.9em;
+}
+.notebook h3 {
+  font-size: 1.125em;
+  font-weight: 650;
+  margin-top: 0.8em;
+}
+.notebook > :first-child {
+  margin-top: 0;
+}
+.notebook ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.notebook ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.notebook ul ul {
+  list-style: circle;
+}
+.notebook ol ol {
+  list-style: lower-alpha;
+}
+.notebook li + li {
+  margin-top: 0.2em;
+}
+.notebook mark {
+  background-color: rgba(255, 214, 10, 0.45); /* translucent, so it reads in light and dark mode */
+  color: inherit;
+  border-radius: 0.15em;
+}
+.notebook [data-align="center"] {
+  text-align: center;
+}
+.notebook [data-align="right"] {
+  text-align: right;
+}
+.notebook blockquote {
+  border-left: 3px solid var(--color-line);
+  padding-left: 1em;
+  color: var(--color-muted);
+}
+.notebook[data-empty]::before {
+  content: attr(data-placeholder);
+  color: var(--color-muted);
+  pointer-events: none;
+  position: absolute;
+}
+
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--color-line) transparent;

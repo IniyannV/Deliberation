@@ -46,10 +46,10 @@ they can't be added, and any already loaded are hidden from jurors and the displ
 
 | Role | Sign in with | Lands on |
 |---|---|---|
-| Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, requests, messages from home |
+| Juror | seat number (1–12) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, private notes, requests, read aloud |
 | Foreperson | seat `1` in the demo | same as juror, plus poll/ballot controls, judge questions, the "we have a verdict" notice, room-display control |
 | Room display | `DISPLAY` + PIN | `/display`: full-screen projector view (read-only) |
-| Bailiff / Clerk | `B1` + PIN | `/admin`: request queue and the court's answers, evidence upload, seats & PINs, family updates, menu, court controls, audit log |
+| Bailiff / Clerk | `B1` + PIN | `/admin`: request queue and the court's answers, evidence upload, seats & PINs, menu, court controls, audit log |
 
 The clerk can reset PINs, reassign the foreperson, excuse seats and seat
 alternates from **Admin → Juror seats**. PINs are stored only as salted scrypt
@@ -60,6 +60,10 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
 `server/sockets/deliberation.js`). Hiding UI is never the only protection.
 
 ## Loading a real case
+
+The recommended way is **Court Admin** (below): prepare the case in the court
+office and send it to the jury iPads. To set a case up by hand
+on the jury laptop instead:
 
 1. `npm run seed` to create seats, staff accounts and PINs. Edit
    `server/scripts/lib/case-content.js` first to set the caption, case number
@@ -77,6 +81,71 @@ event (`requireRole` in `server/auth.js`; the per-event role table in
 Each count's **elements, definitions and burden of proof** (shown to jurors
 beside every ballot) live in `case-content.js` too. For a real trial, copy them
 from the judge's written instructions.
+
+## Court Admin (court office app)
+
+A separate website in `court-admin/` where clerks prepare trials: cases and
+their charges, admitted exhibits, juror seats and PINs, and the menu. It runs
+on the same machine as the jury server and sends a ready case straight to
+the jurors' iPads.
+
+```bash
+npm run admin:seed          # demo: admin + clerk accounts, one ready case, one draft
+npm run admin:build
+npm run admin:start         # http://localhost:4100 (and the office network address)
+```
+
+Sign-ins for the demo are saved to `court-admin/server/data/demo-credentials.txt`
+(git-ignored), along with the demo case's jury PINs. For a real office, skip
+the seed and create the first admin account instead; it prints a one-time
+password:
+
+```bash
+npm run admin:create-user -- --username jsmith --name "Jo Smith"
+```
+
+**Court Admin and the jury server run on the same machine.** Court Admin
+loads a case straight into the running jury server (port 4000, or set
+`JURY_SERVER_URL`), so there is no USB drive, signing key or command line
+step. The jury server accepts a case only from this machine.
+
+| Script | What it does |
+|---|---|
+| `npm run admin:dev` | Admin API on :4100 plus Vite on :5174 with hot reload |
+| `npm run admin:build` / `admin:start` | Build the website; serve it and the API on :4100 (`PORT`, `HOST` to change) |
+| `npm run admin:create-user` | Add an account from the command line (stop the server first) |
+| `npm run import-case -- <file> [--replace]` | For a jury laptop that isn't this machine, with its jury server stopped: load a downloaded package |
+
+How a case moves:
+
+1. **Cases → New case**, then fill in the tabs. *Charges*: each count with
+   its elements and definitions, copied from the judge's written
+   instructions. *Evidence*: upload each admitted exhibit (same file types
+   and checks as the jury app; withdrawn exhibits stay on record but aren't
+   exported). *Charges* has a **Texas offense** list (common Penal,
+   Health and Safety, and Transportation Code offenses, with Irving venue)
+   that fills in a count to edit. *Jury & PINs*: seat count, foreperson,
+   bailiff ID and, optionally, each juror's name; generate PINs, or tick
+   several slips and **Print selected** to print them on one sheet. PINs are
+   shown once and stored only as hashes.
+2. **Sign-off & send**: record that the judge and both counsel approved the
+   exhibit list. Any later exhibit change clears the sign-off. When every
+   item on the checklist is done, **Send to jury iPads** loads the case into
+   the jury server. It checks the manifest's and every exhibit's SHA-256 and
+   each file's real type, and changes nothing if any check fails. If the
+   server still holds another trial's deliberations, Court Admin asks before
+   replacing them. The old audit log is archived, and every iPad signs in
+   again with the new PINs.
+3. For a jury laptop that isn't this machine: **Download a copy** and run
+   `npm run import-case -- /Volumes/USB/26-CR-0418.jurycase.tar` there with
+   its jury server stopped (`--replace` once the court is finished with the
+   previous trial).
+
+Court Admin has its own accounts (admins manage accounts; clerks do
+everything else), its own hash-chained audit log (**Audit log**), and the
+same offline rules as the jury app: a strict CSP and no outside requests.
+The package is a plain tar (`manifest.json`, `manifest.sha256`, `exhibits/…`)
+that any tar tool can list. The manifest lists every exhibit's SHA-256.
 
 ## Using it on an iPad
 
@@ -121,8 +190,8 @@ the app only supports it.
   is; the verdict is read and the jury polled in open court as usual.
 - **Excusing a juror and seating an alternate.** In **Admin → Juror seats**,
   **Seat an alternate** gives the seat a new PIN for the alternate, who
-  starts with nothing from the juror who left (private notes, requests,
-  chat, messages from home). Open polls and ballots are voided whenever the
+  starts with nothing from the juror who left (private notes, requests
+  and chat). Open polls and ballots are voided whenever the
   jury changes. **Restart deliberations** (on by default; follow the judge's
   instruction) clears the shared timeline, exhibit notes, transcript links
   and every vote, and asks the jury on the room display to begin again. The
@@ -134,8 +203,7 @@ the app only supports it.
 - **End of trial.** After the verdict, and once the court confirms none of
   it must be kept, **Court controls → Erase permanently** (type the case
   number to confirm) erases the shared and private timelines, notes and
-  highlights, every vote, all chats and request messages, and the text of
-  messages from home. Exhibits, seats, judge questions and answers, and the
+  highlights, every vote, and all chats and request messages. Exhibits, seats, judge questions and answers, and the
   audit log stay. Leave `server/data` out of Time Machine and other backups,
   or erased content survives in old copies.
 
@@ -154,14 +222,11 @@ the app only supports it.
   unanimous Not Guilty, or not unanimous), and a poll keeps nothing.
 - **Audit log** (`server/data/audit.log.jsonl`): append-only and hash-chained, so
   edits are detected and shown in the admin UI. Exportable as CSV. It records
-  logins, requests and status changes, family updates and evidence changes, with
+  logins, requests and status changes and evidence changes, with
   actor and ISO timestamp, shown in plain English. It never records
   deliberation content: no timeline text, image notes, poll or ballot activity,
-  judge-question or answer text, or the text of family updates and request
-  messages.
+  judge-question or answer text, or the text of request messages.
   `meta` fields pass through an allowlist.
-- **Family updates** are one-way: text-only, one seat each, logged with the
-  bailiff ID. Jurors can mark them read. No reply UI or endpoint exists.
 - **Request messages** are a separate juror ↔ bailiff thread on each request
   (for example, a menu substitution). Only the juror who made the request and
   the bailiff can post to it, and only they can read it, except on the
@@ -196,15 +261,22 @@ the app only supports it.
 
 ```
 client/                 React + Vite (SWC), Tailwind, zustand, react-router
-  src/features/         evidence (PDF, image, video, transcript viewers) · timeline · voting · requests · bulletin · tour
+  src/features/         evidence (PDF, image, video, transcript viewers) · timeline · voting · requests · notes · tour
   src/pages/            login, juror home, display, admin/*
   src/store/            auth, live (socket-synced state), ui (theme, toasts)
 server/
   index.js              Express + socket.io on one port, CSP, LAN banner
   auth.js               PIN hashing, sessions (httpOnly cookie), role guards
-  routes/               auth, exhibits, juror, admin
+  routes/               auth, exhibits, juror, admin, local
   sockets/              connection auth + timeline/links/notes/polls/ballots/display
   services/             audit.js (append-only log), voting.js (anonymous voting)
   scripts/seed.js       demo case, generated PDFs/PNGs, a short demo video
+  lib/case-import.js    checks and loads a Court Admin case package
+  routes/local.js       lets Court Admin on this machine send a case (localhost only)
+  scripts/import-case.js  loads a downloaded case package from the command line
+  lib/tar.js            tar writer/reader for case packages (shared with Court Admin)
   data/                 db.json (lowdb), uploads, audit log, demo PINs (git-ignored)
+court-admin/
+  client/               the office website: cases, charges, evidence, jury & PINs, sign-off & send, accounts, audit
+  server/               Express API on :4100, own accounts, db, uploads and audit log; reuses server/lib
 ```

@@ -141,8 +141,3 @@ export const MENU = [
 ];
 
 export const SUPPLIES = ['Notepad', 'Pens', 'Highlighters', 'Sticky notes', 'Bottled water', 'Tissues', 'Blanket', 'Reading glasses (loaner)'];
-
-export const FAMILY_UPDATES = [
-  { seat: 3, body: 'Message from your daughter Priya: The school play went really well and Grandma recorded it for you. Everyone at home is fine. We love you and will see you soon.' },
-  { seat: 8, body: 'Message from your partner, Sam: The dog is doing great and the mail is being picked up every day. Your Tuesday dentist appointment has been moved to next month, so no need to worry about it.' },
-];

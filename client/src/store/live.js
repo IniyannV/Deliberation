@@ -28,9 +28,19 @@ const unseen = (s, kind) => SEEN[kind].messages(s).filter((m) => m.from === 'bai
 /** Bailiff replies on request threads since the juror last had the Requests page open. */
 export const unreadRequestReplies = (s) => unseen(s, 'requests')
 
-/** Juror: unseen bailiff messages in the chat. Bailiff: chats waiting on a reply. */
+const latestFrom = (messages, from, after = '') => messages.reduce((a, m) => (m.from === from && m.at > a ? m.at : a), after)
+
+/**
+ * Bailiff: whether a juror's chat has messages the bailiff hasn't read yet.
+ * Read means the chat was on screen; replying counts too, as you can't reply
+ * without seeing it.
+ */
+export const chatUnread = (s, c) =>
+  latestFrom(c.messages, 'juror') > latestFrom(c.messages, 'bailiff', s.chatReadAt[c.seatId] ?? '')
+
+/** Juror: unseen bailiff messages in the chat. Bailiff: juror chats with unread messages. */
 export const unreadChat = (s) =>
-  isJuror(s.role) ? unseen(s, 'chat') : s.chats.filter((c) => c.messages.at(-1)?.from === 'juror').length
+  isJuror(s.role) ? unseen(s, 'chat') : s.chats.filter((c) => chatUnread(s, c)).length
 
 const initial = {
   connected: false,
@@ -38,7 +48,7 @@ const initial = {
   timeline: [],
   links: [],
   notes: [],
-  personal: { highlights: {}, checks: {}, timeline: [] }, // this juror's own highlights, checklist ticks and private timeline
+  personal: { highlights: {}, checks: {}, timeline: [], notebook: [] }, // this juror's own highlights, checklist ticks, private timeline and notebook
   burden: '',
   votes: [],
   votedIn: [],
@@ -48,13 +58,11 @@ const initial = {
   presence: [],
   exhibits: [],
   exhibitsLoaded: false,
-  updates: [],
   myRequests: [],
   myChat: null, // this juror's chat with the bailiff: { seatId, seat, messages }
   queue: [],
   chats: [], // bailiff: every juror chat with messages, newest first
   alertAt: 0,
-  updatesVersion: 0,
 }
 
 export const useLive = create((set, get) => ({
@@ -97,6 +105,19 @@ export const useLive = create((set, get) => ({
     set({ [key]: latest })
   },
 
+  // Bailiff: per juror seat, the newest juror message read. Kept on the device, like the juror's.
+  chatReadAt: {},
+  markChatRead(seatId) {
+    const s = get()
+    const c = s.chats.find((x) => x.seatId === seatId)
+    const read = s.chatReadAt[seatId] ?? ''
+    const latest = c ? latestFrom(c.messages, 'juror', read) : read
+    if (latest === read) return
+    const chatReadAt = { ...s.chatReadAt, [seatId]: latest }
+    store(`chatReadAt:${s.userId}`, chatReadAt)
+    set({ chatReadAt })
+  },
+
   connect(user) {
     get().disconnect()
     set({
@@ -105,6 +126,7 @@ export const useLive = create((set, get) => ({
       userId: user.id,
       bailiffSeenAt: load(`bailiffSeenAt:${user.id}`, null),
       chatSeenAt: load(`chatSeenAt:${user.id}`, null),
+      chatReadAt: load(`chatReadAt:${user.id}`, {}),
     })
     socket = io({ withCredentials: true })
 
@@ -154,7 +176,6 @@ export const useLive = create((set, get) => ({
       })
       get().loadExhibits()
       if (isJuror(s.role)) {
-        get().loadUpdates()
         get().loadMyRequests()
         get().loadMyChat()
       }
@@ -181,10 +202,6 @@ export const useLive = create((set, get) => ({
     socket.on('exhibits:changed', () => get().loadExhibits())
     socket.on('presence', (presence) => set({ presence }))
 
-    socket.on('update:new', (u) => {
-      set({ updates: [u, ...get().updates] })
-      notify('A new message from home has arrived on your bulletin board.')
-    })
     socket.on('request:updated', (r) => {
       if (isJuror(get().role)) {
         const mine = get().myRequests
@@ -224,7 +241,6 @@ export const useLive = create((set, get) => ({
         }
       }
     })
-    socket.on('updates:changed', () => set({ updatesVersion: get().updatesVersion + 1 }))
   },
 
   reconnect() {
@@ -257,10 +273,6 @@ export const useLive = create((set, get) => ({
     } catch {
       /* role may not allow it */
     }
-  },
-  async loadUpdates() {
-    const { updates } = await api('/updates')
-    set({ updates })
   },
   async loadMyRequests() {
     const { requests } = await api('/requests')

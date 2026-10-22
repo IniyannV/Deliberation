@@ -27,7 +27,7 @@ export function publicUser(user) {
     role: roleOf(user),
     seat: user.seat ?? null,
     login: user.login ?? null,
-    name: user.kind === 'juror' ? `Juror ${user.seat}` : user.name,
+    name: user.kind === 'juror' ? user.name || `Juror ${user.seat}` : user.name,
   };
 }
 

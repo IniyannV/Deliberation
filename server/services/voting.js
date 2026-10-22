@@ -39,6 +39,12 @@ const live = new Map();
 /** Counts of closed votes, for this server run only. @type {Map<string, Record<string, number>>} */
 const results = new Map();
 
+/** A new trial is loaded: forget every open vote and result of the last one. */
+export function resetVotes() {
+  live.clear();
+  results.clear();
+}
+
 const activeJurors = () => db.data.users.filter((u) => u.kind === 'juror' && u.active !== false);
 
 // A ballot closes only once every eligible seat has voted, so unanimity is all-or-nothing.

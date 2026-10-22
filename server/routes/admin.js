@@ -23,7 +23,6 @@ router.get('/overview', (_req, res) => {
     case: db.data.case,
     pendingRequests: db.data.requests.filter((r) => r.status !== 'fulfilled').length,
     exhibits: db.data.exhibits.length,
-    unreadUpdates: db.data.updates.filter((u) => !u.readAt).length,
     presence: getPresence(),
     onlineExhibits: ALLOW_ONLINE_EXHIBITS,
   });
@@ -84,7 +83,7 @@ router.post('/seats/:id/reset-pin', async (req, res) => {
 /*
  * An alternate takes over a seat. They get a new PIN and start with nothing
  * from the juror who left: no private marks, and none of that juror's
- * requests, chat or family updates (see `seatedSince`). Many courts instruct
+ * requests or chat (see `seatedSince`). Many courts instruct
  * a reconstituted jury to begin deliberations anew, so `restart` also clears
  * the shared timeline, exhibit notes, links and votes.
  */
@@ -93,7 +92,7 @@ router.post('/seats/:id/substitute', async (req, res) => {
   const restart = req.body?.restart !== false;
   const wasForeperson = !!u.isForeperson;
   const pin = randomPin();
-  Object.assign(u, hashPin(pin), { active: true, isForeperson: false, seatedAt: nowIso() });
+  Object.assign(u, hashPin(pin), { name: undefined, active: true, isForeperson: false, seatedAt: nowIso() });
   delete db.data.personal[u.id];
   await destroyUserSessions(u.id);
   disconnectUser(u.id);
@@ -152,7 +151,6 @@ router.post('/deliberation/erase', async (req, res) => {
   db.data.personal = {};
   db.data.chats = {};
   for (const r of db.data.requests) delete r.messages;
-  for (const u of db.data.updates) Object.assign(u, { body: '', erased: true });
   db.data.display = { view: 'idle', voteId: null, exhibitId: null, message: null };
   const signedOut = await signOutJurors();
   auditAs(req.user, req.role, 'deliberation.erased', null, { signedOut });
@@ -253,29 +251,6 @@ router.post('/chats/:seatId/messages', async (req, res) => {
   const seat = db.data.users.find((u) => u.id === req.params.seatId && u.kind === 'juror');
   if (!seat) throw new HttpError(404, 'Juror seat not found');
   res.status(201).json({ chat: await addChatMessage(seat, req.user, req.role, req.body?.text) });
-});
-
-/* ── Family updates (bailiff → one seat, text only) ───────────────── */
-
-router.get('/updates', (_req, res) => {
-  const seatOf = (id) => db.data.users.find((u) => u.id === id)?.seat;
-  res.json({
-    updates: db.data.updates
-      .map((u) => ({ ...u, seat: seatOf(u.seatId) }))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-  });
-});
-
-router.post('/updates', async (req, res) => {
-  const seat = findSeat(req.body?.seatId);
-  // Plain text only: strip control characters, keep line breaks. Rendered as text, never HTML.
-  const body = str(String(req.body?.body ?? '').replace(/[^\P{C}\n]/gu, ''), { min: 1, max: 2000, field: 'Message' });
-  const update = { id: newId('upd'), seatId: seat.id, body, bailiffId: req.user.id, createdAt: nowIso(), readAt: null };
-  db.data.updates.push(update);
-  await save();
-  auditAs(req.user, req.role, 'update.sent', update.id, { seat: seat.seat });
-  emit(`user:${seat.id}`, 'update:new', { id: update.id, body, createdAt: update.createdAt, readAt: null });
-  res.status(201).json({ update: { ...update, seat: seat.seat } });
 });
 
 /* ── Audit log ────────────────────────────────────────────────────── */

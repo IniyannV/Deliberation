@@ -8,7 +8,6 @@ const FILTERS = [
   ['', 'All activity'],
   ['auth', 'Sign-ins'],
   ['request', 'Requests'],
-  ['update', 'Family updates'],
   ['exhibit', 'Evidence'],
   ['seat', 'Seat changes'],
 ]
@@ -16,7 +15,7 @@ const FILTERS = [
 const CATEGORY = {
   auth: { label: 'Sign-in', icon: 'logout', tone: 'neutral' },
   request: { label: 'Request', icon: 'bell', tone: 'warn' },
-  update: { label: 'Family update', icon: 'mail', tone: 'accent' },
+  update: { label: 'Family update', icon: 'mail', tone: 'accent' }, // retired feature; older entries only
   exhibit: { label: 'Evidence', icon: 'folder', tone: 'accent' },
   seat: { label: 'Seat', icon: 'users', tone: 'neutral' },
   catalog: { label: 'Menu', icon: 'utensils', tone: 'neutral' },
@@ -49,7 +48,7 @@ export default function Audit() {
     <div>
       <PageHeader
         title="Audit log"
-        subtitle="Append-only record of sign-ins, requests, status changes, family updates and evidence uploads. Deliberation content (timeline, votes, notes, message text) is never logged."
+        subtitle="Append-only record of sign-ins, requests, status changes and evidence uploads. Deliberation content (timeline, votes, notes, message text) is never logged."
         actions={
           <a href="/api/admin/audit.csv" download className="pressable inline-flex min-h-10 items-center gap-1.5 rounded-full bg-fill px-5 py-1.5 font-semibold text-accent hover:bg-fill-strong">
             <Icon name="download" /> Export CSV

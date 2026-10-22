@@ -21,12 +21,16 @@ const noteCoord = (v) => {
   return Math.round(n * 10000) / 10000;
 };
 
-// One juror's own highlights, checklist ticks and private timeline. Like notes, never logged.
+// One juror's own highlights, checklist ticks, private timeline and notebook. Like notes, never logged.
 const personalFor = (userId) => {
   const mine = (db.data.personal[userId] ??= { highlights: {}, checks: {} });
   mine.timeline ??= [];
+  mine.notebook ??= [];
   return mine;
 };
+
+const MAX_PAGES = 200;
+const MAX_PAGE_HTML = 200_000;
 
 const toJurorsAndDisplay = (io, event, payload) => io.to(['jurors', 'display']).emit(event, payload);
 
@@ -309,6 +313,38 @@ export const deliberationHandlers = {
       }
 
       mine.checks[count.id] = currentMap;
+      await save();
+      io.to(`user:${user.id}`).emit('personal:changed', mine);
+    },
+  },
+
+  /* ── Notebook (one juror's own pages of formatted notes, synced across their devices) ── */
+  'notebook:save': {
+    roles: [ROLES.JUROR],
+    async handler({ io, user }, p) {
+      const mine = personalFor(user.id);
+      const title = optStr(p.title, { max: 120, field: 'Title' }) || '';
+      // Formatted text from the juror's own editor. Only their devices receive it,
+      // and the client sanitizes it before display; here it's just bounded.
+      const html = typeof p.html === 'string' ? p.html : '';
+      if (html.length > MAX_PAGE_HTML) throw bad('This note is too long. Start a new one.');
+      let page = p.id ? mine.notebook.find((n) => n.id === p.id) : null;
+      if (!page) {
+        if (mine.notebook.length >= MAX_PAGES) throw bad('Your notebook is full');
+        page = { id: newId('pg'), createdAt: nowIso(), version: 0 };
+        mine.notebook.unshift(page);
+      }
+      Object.assign(page, { title, html, version: page.version + 1, updatedAt: nowIso() });
+      await save();
+      io.to(`user:${user.id}`).emit('personal:changed', mine);
+      return { page };
+    },
+  },
+  'notebook:delete': {
+    roles: [ROLES.JUROR],
+    async handler({ io, user }, p) {
+      const mine = personalFor(user.id);
+      mine.notebook = mine.notebook.filter((n) => n.id !== p.id);
       await save();
       io.to(`user:${user.id}`).emit('personal:changed', mine);
     },

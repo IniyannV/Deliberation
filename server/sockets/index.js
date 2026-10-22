@@ -32,7 +32,7 @@ function syncPayload(user, role) {
       timeline: db.data.timeline,
       links: db.data.transcriptLinks,
       notes: db.data.imageNotes,
-      personal: { timeline: [], ...(db.data.personal[user.id] ?? { highlights: {}, checks: {} }) },
+      personal: { timeline: [], notebook: [], ...(db.data.personal[user.id] ?? { highlights: {}, checks: {} }) },
       votes: listVotes(),
       votedIn: votedIn(user.id),
       displayOnline: displayPresence().online,

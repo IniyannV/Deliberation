@@ -9,10 +9,10 @@ export default function JurorHome() {
   const {
     votes,
     votedIn,
-    updates,
     timeline,
     exhibits,
     myRequests,
+    personal,
     counts: liveCounts,
     connected,
   } = useLive()
@@ -22,7 +22,8 @@ export default function JurorHome() {
   const openVotes = votes.filter((v) => v.status === 'open')
   const pendingVotes = openVotes.filter((v) => !votedIn.includes(v.id))
   const toVote = pendingVotes.length
-  const unread = updates.filter((u) => !u.readAt).length
+  const notebook = personal.notebook ?? []
+  const lastNote = notebook.reduce((a, n) => (!a || n.updatedAt > a.updatedAt ? n : a), null)
   const fromBailiff = useLive((s) => unreadRequestReplies(s) + unreadChat(s))
   const activeRequests = myRequests.filter((r) => r.status !== 'fulfilled')
 
@@ -61,7 +62,7 @@ export default function JurorHome() {
         </div>
       </header>
 
-      {/* Action alerts: open ballots, family bulletins */}
+      {/* Action alerts: open ballots */}
       {pendingVotes.map((v) => (
         <div
           key={v.id}
@@ -93,30 +94,6 @@ export default function JurorHome() {
           </Link>
         </div>
       ))}
-
-      {unread > 0 && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-ok/30 bg-ok-soft/30 p-3 sm:p-3.5 shadow-card">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ok text-white shadow-sm">
-              <Icon name="mail" size={18} strokeWidth={2} />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-ink">
-                  {unread} new family message{unread === 1 ? '' : 's'} waiting
-                </p>
-                <Badge tone="ok" className="text-xs">Delivered</Badge>
-              </div>
-              <p className="text-xs text-muted">Vetted and approved by the court bailiff.</p>
-            </div>
-          </div>
-          <Link to="/juror/bulletin">
-            <Button variant="secondary" size="sm" className="px-3.5 text-xs">
-              Read messages →
-            </Button>
-          </Link>
-        </div>
-      )}
 
       {/* Main Deliberation Menu Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5 sm:gap-4">
@@ -317,20 +294,15 @@ export default function JurorHome() {
           </div>
         </Link>
 
-        {/* 5. Messages from Home */}
+        {/* 5. My Notes */}
         <Link
-          to="/juror/bulletin"
-          className={cx(
-            'group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 shadow-card hover:shadow-lift border transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[160px]',
-            unread > 0
-              ? 'border-ok/60 ring-2 ring-ok/30'
-              : 'border-line/40 hover:border-line'
-          )}
+          to="/juror/notes"
+          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-4 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[160px]"
         >
           <div>
             <div className="mb-2.5 flex items-start justify-between gap-2">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#34c759] to-[#248a3d] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_6px_rgb(52_199_89/0.3)]">
-                <Icon name="mail" size={20} strokeWidth={2.2} />
+                <Icon name="note" size={20} strokeWidth={2.2} />
               </span>
               <div className="flex items-center gap-1">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
@@ -341,28 +313,27 @@ export default function JurorHome() {
 
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold tracking-tight text-ink tabular-nums">
-                {unread > 0 ? unread : updates.length}
+                {notebook.length}
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {unread > 0 ? 'unread' : 'bulletins'}
+                {notebook.length === 1 ? 'note' : 'notes'}
               </span>
             </div>
 
-            <h2 className="mt-1 flex items-center gap-2 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
-              Messages from Home
-              <CountBadge count={unread} />
+            <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
+              My Notes
             </h2>
             <p className="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
-              Read personal communications vetted and approved by the court bailiff.
+              Your private notebook, with headings, lists and highlights. Only you can read it.
             </p>
           </div>
 
           <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
             <span className="text-muted truncate">
-              {unread > 0 ? `${unread} new update${unread === 1 ? '' : 's'}` : 'Vetted personal'}
+              {lastNote ? `Last edited: ${lastNote.title || 'Untitled note'}` : 'Private to you'}
             </span>
             <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
-              Read →
+              Write →
             </span>
           </div>
         </Link>

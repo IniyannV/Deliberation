@@ -41,6 +41,7 @@ export function describe(e) {
     case 'request.status': return `${who} marked ${juror(m.seat)}’s ${req} as ${STATUS[m.status] ?? m.status}`;
     case 'request.message': return who === juror(m.seat) ? `${who} sent the bailiff a message about their ${req}` : `${who} sent ${juror(m.seat)} a message about their ${req}`;
     case 'chat.message': return who === juror(m.seat) ? `${who} sent the bailiff a chat message` : `${who} sent ${juror(m.seat)} a chat message`;
+    // Messages from home were retired; these read entries already in the log.
     case 'update.sent': return `${who} delivered a family update to ${juror(m.seat)}`;
     case 'update.read': return `${juror(m.seat)} read a family update`;
     case 'seat.foreperson_set': return `${who} made ${juror(m.seat)} the foreperson`;
@@ -53,6 +54,9 @@ export function describe(e) {
     case 'catalog.updated': return `${who} updated the meal menu and supplies list`;
     case 'audit.exported': return `${who} exported the audit log`;
     case 'seed.case_created': return 'Demo case loaded';
+    case 'package_key.trusted': return `This laptop now trusts the court office’s package key (${m.fingerprint})`;
+    case 'package_key.replaced': return `This laptop switched to a new package key (${m.fingerprint})`;
+    case 'case.imported': return `Case loaded from a Court Admin package (${m.itemCount ?? '?'} exhibits)`;
     default: return `${who}: ${e.action}`;
   }
 }

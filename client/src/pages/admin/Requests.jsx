@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
-import { useLive } from '../../store/live'
+import { chatUnread, useLive } from '../../store/live'
 import { toast, useUi } from '../../store/ui'
 import { REQUEST_LABEL, STATUS_LABEL, fmtTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorText, Field, IconButton, PageHeader, Segmented, Textarea, cx } from '../../components/ui'
@@ -138,6 +138,34 @@ function AnswerForm({ request }) {
   )
 }
 
+/** One juror's chat. It counts as read once it's on screen, as in the chat window. */
+function ChatCard({ chat: c, onOpen, onSend }) {
+  const ref = useRef(null)
+  const [onScreen, setOnScreen] = useState(false)
+  const unread = useLive((s) => chatUnread(s, c))
+
+  useEffect(() => {
+    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { threshold: 0.5 })
+    io.observe(ref.current)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (onScreen && unread) useLive.getState().markChatRead(c.seatId)
+  }, [onScreen, unread, c.seatId])
+
+  return (
+    <li ref={ref}>
+      <Card className={cx('flex h-[26rem] flex-col overflow-hidden', unread && 'border-accent/60')}>
+        <div className="flex items-center justify-between gap-2 border-b border-line/60 py-2 pr-2 pl-4">
+          <p className="flex items-center gap-2 text-lg font-bold">Juror {c.seat} {unread && <Badge tone="accent">Unread</Badge>}</p>
+          <IconButton icon="external" label={`Open Juror ${c.seat}’s chat in a window`} className="text-accent" onClick={onOpen} />
+        </div>
+        <MessageThread id={`chat-${c.seatId}`} panel messages={c.messages} viewer="bailiff" seat={c.seat} onSend={onSend} className="min-h-0 flex-1" />
+      </Card>
+    </li>
+  )
+}
+
 /** Open chats jurors started from their Requests page. */
 function JurorChats() {
   const chats = useLive((s) => s.chats)
@@ -155,15 +183,7 @@ function JurorChats() {
       {chats.length ? (
         <ul className="grid gap-3 lg:grid-cols-2">
           {chats.map((c) => (
-            <li key={c.seatId}>
-              <Card className="flex h-[26rem] flex-col overflow-hidden">
-                <div className="flex items-center justify-between gap-2 border-b border-line/60 py-2 pr-2 pl-4">
-                  <p className="text-lg font-bold">Juror {c.seat}</p>
-                  <IconButton icon="external" label={`Open Juror ${c.seat}’s chat in a window`} className="text-accent" onClick={() => openChat(c.seatId)} />
-                </div>
-                <MessageThread id={`chat-${c.seatId}`} panel messages={c.messages} viewer="bailiff" seat={c.seat} onSend={(text) => send(c.seatId, text)} className="min-h-0 flex-1" />
-              </Card>
-            </li>
+            <ChatCard key={c.seatId} chat={c} onOpen={() => openChat(c.seatId)} onSend={(text) => send(c.seatId, text)} />
           ))}
         </ul>
       ) : (

@@ -5,6 +5,8 @@ import { Button, CountBadge, IconButton, Switch, cx } from './ui'
 import ErrorBoundary from './ErrorBoundary'
 import { TitleBarContext } from './titleBar'
 import TextSize from './TextSize'
+import { ReadAloudSetting, ReadPageButton, SelectionSpeaker } from './ReadAloud'
+import { useSpeech } from '../lib/speech'
 import { useAuth } from '../store/auth'
 import { unreadChat, useLive } from '../store/live'
 import { useUi } from '../store/ui'
@@ -88,6 +90,7 @@ export default function AppShell({ nav }) {
   const [scrolled, setScrolled] = useState(false)
   const [drawer, setDrawer] = useState(false)
   const main = useRef(null)
+  const page = useRef(null)
   const { dx, onPointerDown } = useDrawerDrag(drawer, setDrawer)
 
   // The chat window belongs to this sign-in; don't carry it over to the next.
@@ -99,7 +102,15 @@ export default function AppShell({ nav }) {
     setDrawer(false)
     if (!useTour.getState().active) setSidebarCollapsed(true)
     main.current?.scrollTo({ top: 0 })
+    useSpeech.getState().stop()
   }, [location.pathname, setSidebarCollapsed])
+
+  // Escape stops reading aloud.
+  useEffect(() => {
+    const key = (e) => e.key === 'Escape' && useSpeech.getState().speaking && useSpeech.getState().stop()
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [])
 
   // The tour points at things in the sidebar, so bring it back while the tour runs.
   // Where it's a drawer (iPad portrait), slide it out just for the sidebar step.
@@ -213,6 +224,7 @@ export default function AppShell({ nav }) {
               </span>
               <Switch checked={dnd} onChange={setDnd} labelledBy="dnd-label" />
             </div>
+            <ReadAloudSetting className="mx-2.5 mb-2 px-1.5" />
             <div className="mx-2.5 mb-2 flex items-center justify-between gap-2 px-1.5">
               <span className="text-sm font-medium text-muted">Text size</span>
               <TextSize />
@@ -270,6 +282,7 @@ export default function AppShell({ nav }) {
                 {compact?.title}
               </p>
               <div className="relative ml-auto flex items-center gap-1">
+                <ReadPageButton target={page} />
                 {dnd && (
                   <IconButton icon="bellOff" label="Do not disturb is on. Turn it off" className="material-bar text-accent shadow-card" onClick={() => setDnd(false)} />
                 )}
@@ -297,7 +310,7 @@ export default function AppShell({ nav }) {
               collapsed ? 'lg:pt-16' : 'lg:pt-9 lg:[--page-chrome:4rem]',
             )}
           >
-            <div className="mx-auto max-w-5xl 2xl:max-w-6xl">
+            <div ref={page} className="mx-auto max-w-5xl 2xl:max-w-6xl">
               <ErrorBoundary resetKey={location.pathname}>
                 <Outlet />
               </ErrorBoundary>
@@ -306,6 +319,7 @@ export default function AppShell({ nav }) {
         </main>
 
         <ChatWindow />
+        <SelectionSpeaker />
 
         {offer && !tourActive && (
           <div

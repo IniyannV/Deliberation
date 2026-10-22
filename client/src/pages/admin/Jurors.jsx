@@ -44,7 +44,7 @@ export default function Jurors() {
     activate: (s) => `Juror ${s.seat} will be able to sign in again. Any open poll or ballot is voided.`,
     substitute: (s) => (
       <div className="flex flex-col gap-4">
-        <p>An alternate takes over seat {s.seat} with a new PIN. They start fresh: they won’t see the previous juror’s private notes, requests, chat or messages from home.{s.isForeperson && ' This seat is the foreperson, so choose a new foreperson afterwards.'} Any open poll or ballot is voided.</p>
+        <p>An alternate takes over seat {s.seat} with a new PIN. They start fresh: they won’t see the previous juror’s private notes, requests or chat.{s.isForeperson && ' This seat is the foreperson, so choose a new foreperson afterwards.'} Any open poll or ballot is voided.</p>
         <label className="flex items-center justify-between gap-4 rounded-xl bg-fill/50 px-4 py-3">
           <span>
             <span className="block font-semibold">Restart deliberations</span>

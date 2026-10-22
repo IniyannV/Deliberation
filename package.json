@@ -3,12 +3,23 @@
   "private": true,
   "version": "0.1.0",
   "description": "Offline jury deliberation app for a closed LAN",
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server",
+    "court-admin/client",
+    "court-admin/server"
+  ],
   "scripts": {
     "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
     "start": "npm run start -w server",
-    "seed": "npm run seed -w server"
+    "seed": "npm run seed -w server",
+    "import-case": "node server/scripts/import-case.js",
+    "admin:dev": "concurrently -k -n admin-server,admin-client -c magenta,cyan \"npm run dev -w court-admin-server\" \"npm run dev -w court-admin-client\"",
+    "admin:build": "npm run build -w court-admin-client",
+    "admin:start": "npm run start -w court-admin-server",
+    "admin:seed": "npm run seed -w court-admin-server",
+    "admin:create-user": "npm run create-user -w court-admin-server --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -13,8 +13,8 @@ export const REQUEST_STATUSES = ['pending', 'acknowledged', 'fulfilled'];
 export const JURY_TYPES = ['judge_question', 'verdict'];
 
 /**
- * When an alternate takes over a seat, the seat's earlier requests, chat and
- * family updates belonged to the juror who left. Jurors see only what is
+ * When an alternate takes over a seat, the seat's earlier requests and chat
+ * belonged to the juror who left. Jurors see only what is
  * newer than `seatedAt`; the bailiff still sees everything.
  */
 export const seatedSince = (seat) => seat.seatedAt ?? '';

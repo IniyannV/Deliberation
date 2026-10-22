@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { useLive } from '../../store/live'
+import { unreadChat, useLive } from '../../store/live'
 import { REQUEST_LABEL, STATUS_LABEL, timeAgo } from '../../lib/format'
 import { toast } from '../../store/ui'
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader, cx } from '../../components/ui'
 import { STATUS_TONE } from '../../features/requests/RequestsPage'
 
 export default function Dashboard() {
-  const { presence, queue, exhibits, updatesVersion } = useLive()
+  const { presence, queue, exhibits } = useLive()
+  const unreadChats = useLive(unreadChat)
   const [overview, setOverview] = useState(null)
 
-  useEffect(() => { api('/admin/overview').then(setOverview).catch(() => {}) }, [queue.length, updatesVersion])
+  useEffect(() => { api('/admin/overview').then(setOverview).catch(() => {}) }, [queue.length])
 
   const seats = presence.length ? presence : overview?.presence ?? []
   const open = queue.filter((r) => r.status !== 'fulfilled')
@@ -23,7 +24,7 @@ export default function Dashboard() {
       <div className="mb-8 grid gap-4 md:grid-cols-3">
         <Link to="/admin/requests" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Open requests</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{open.length}</p></Card></Link>
         <Link to="/admin/evidence" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Exhibits loaded</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{exhibits.length}</p></Card></Link>
-        <Link to="/admin/updates" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Unread family updates</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{overview?.unreadUpdates ?? '–'}</p></Card></Link>
+        <Link to="/admin/requests" className="pressable pressable-soft rounded-2xl"><Card className="h-full p-5 hover:shadow-[var(--shadow-lift)]"><p className="font-medium text-muted">Unread juror chats</p><p className="mt-1 text-[2.5rem] leading-none font-bold tracking-tight tabular-nums">{unreadChats}</p></Card></Link>
       </div>
 
       <section className="mb-8" data-tour="admin-presence">
@@ -79,7 +80,7 @@ const CONTROLS = {
   },
   erase: {
     title: 'Erase the jury’s data?',
-    body: 'For the end of the trial, after the verdict, and only once the court confirms none of it must be kept. This permanently erases the shared and private timelines, notes and highlights, every vote, all chats and request messages, and the text of messages from home, then signs out every juror device. Exhibits, the case, seats, judge questions and answers, and the audit log are kept.',
+    body: 'For the end of the trial, after the verdict, and only once the court confirms none of it must be kept. This permanently erases the shared and private timelines, notes and highlights, every vote, and all chats and request messages, then signs out every juror device. Exhibits, the case, seats, judge questions and answers, and the audit log are kept.',
     button: 'Erase permanently',
     path: '/admin/deliberation/erase',
     done: () => 'The jury’s data has been erased.',

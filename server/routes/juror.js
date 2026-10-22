@@ -10,34 +10,11 @@ import {
 } from '../lib/requests.js';
 
 /*
- * Juror-facing REST routes: family updates (read + mark read only, so no
- * reply route exists), bailiff requests and chat, and closed vote history.
+ * Juror-facing REST routes: bailiff requests and chat, and closed vote history.
  */
 
 const router = Router();
 const juror = requireRole(ROLES.JUROR);
-
-/* ── Family updates (one-way) ─────────────────────────────────────── */
-
-router.get('/updates', juror, (req, res) => {
-  const updates = db.data.updates
-    .filter((u) => u.seatId === req.user.id && !u.erased && u.createdAt >= seatedSince(req.user))
-    .map(({ id, body, createdAt, readAt }) => ({ id, body, createdAt, readAt }))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  res.json({ updates });
-});
-
-router.post('/updates/:id/read', juror, async (req, res) => {
-  const u = db.data.updates.find((x) => x.id === req.params.id && x.seatId === req.user.id && x.createdAt >= seatedSince(req.user));
-  if (!u) throw new HttpError(404, 'Update not found');
-  if (!u.readAt) {
-    u.readAt = nowIso();
-    await save();
-    auditAs(req.user, req.role, 'update.read', u.id, { seat: req.user.seat });
-    emit('bailiffs', 'updates:changed', { id: u.id });
-  }
-  res.json({ ok: true, readAt: u.readAt });
-});
 
 /* ── Bailiff requests ─────────────────────────────────────────────── */
 

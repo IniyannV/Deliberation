@@ -9,20 +9,16 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { DATA_DIR, DB_FILE, AUDIT_FILE, PORT, UPLOAD_DIR } from '../config.js';
 import { defaultData, initDb, db } from '../db.js';
 import { hashPin, randomPin } from '../auth.js';
 import { audit, initAudit } from '../services/audit.js';
 import { parseTranscript } from '../lib/exhibits.js';
 import { newId, nowIso } from '../lib/util.js';
-import {
-  CASE, FAMILY_UPDATES, MENU, SUPPLIES, TRANSCRIPT_DELGADO, TRANSCRIPT_OKAFOR,
-} from './lib/case-content.js';
-import { IMAGE_EXHIBITS, PDF_EXHIBITS } from './lib/documents.js';
+import { CASE, MENU, SUPPLIES } from './lib/case-content.js';
+import { DEMO_EXHIBITS, renderDemoExhibit } from './lib/demo-exhibits.js';
 
 const FOREPERSON_SEAT = 1;
-const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets');
 
 // A running server keeps the old database in memory and writes it back over
 // this one, leaving every exhibit pointing at a file this script deleted.
@@ -70,26 +66,8 @@ audit({ actor: 'system', role: 'system', action: 'seed.case_created' });
 
 /* ── Exhibits ── */
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-const exhibitDefs = [
-  { number: 'P-1', title: 'Police incident report', party: 'prosecution', dateAdmitted: '2026-09-14', kind: 'pdf', description: 'Report of Officer R. Delgado, March 14–15, 2026.' },
-  { number: 'P-2', title: 'Photograph: rear service door', party: 'prosecution', dateAdmitted: '2026-09-14', kind: 'image', description: 'Taken 12:14 AM, March 15, 2026, showing pry marks near the latch.' },
-  { number: 'P-3', title: 'Store floor plan', party: 'prosecution', dateAdmitted: '2026-09-14', kind: 'image', description: "Diagram of Callan's Hardware prepared by the store manager." },
-  { number: 'P-4', title: 'Inventory loss statement', party: 'prosecution', dateAdmitted: '2026-09-15', kind: 'pdf', description: 'Itemized merchandise, cash and repair losses.' },
-  { number: 'P-5', title: 'Surveillance still, CAM 2, 11:42 PM', party: 'prosecution', dateAdmitted: '2026-09-15', kind: 'image', description: 'Rear lot camera frame showing one hooded figure.' },
-  { number: 'P-6', title: 'Phone records excerpt', party: 'prosecution', dateAdmitted: '2026-09-16', kind: 'pdf', description: 'Carrier call-detail records for the number ending 4417.' },
-  { number: 'D-1', title: 'Brightline timecard records', party: 'defense', dateAdmitted: '2026-09-17', kind: 'pdf', description: "Defendant's clock-in and clock-out times, week of March 9." },
-  { number: 'D-2', title: 'Route map: warehouse to store', party: 'defense', dateAdmitted: '2026-09-17', kind: 'image', description: 'Driving route and distance between Warehouse 3 and Ferris Street.' },
-  { number: 'Tr-1', title: 'Transcript: Officer Rosa Delgado', party: 'court', dateAdmitted: '2026-09-14', kind: 'transcript', text: TRANSCRIPT_DELGADO, description: 'Direct and cross-examination.' },
-  { number: 'Tr-2', title: 'Transcript: Maya Okafor (store manager)', party: 'court', dateAdmitted: '2026-09-15', kind: 'transcript', text: TRANSCRIPT_OKAFOR, description: 'Direct and cross-examination.' },
-  { number: 'P-8', title: 'Surveillance video, CAM 2, 11:42 PM', party: 'prosecution', dateAdmitted: '2026-09-15', kind: 'video', file: 'cam2-rear-lot.mp4', description: 'Fourteen seconds of rear-lot footage; the still in P-5 is taken from it.' },
-];
-
-for (const def of exhibitDefs) {
-  let buffer, ext, mime, type;
-  if (def.kind === 'pdf') { buffer = await PDF_EXHIBITS[def.number](); ext = '.pdf'; mime = 'application/pdf'; type = 'pdf'; }
-  if (def.kind === 'image') { buffer = IMAGE_EXHIBITS[def.number](); ext = '.png'; mime = 'image/png'; type = 'image'; }
-  if (def.kind === 'transcript') { buffer = Buffer.from(def.text + '\n', 'utf8'); ext = '.txt'; mime = 'text/plain; charset=utf-8'; type = 'transcript'; }
-  if (def.kind === 'video') { buffer = fs.readFileSync(path.join(ASSETS, def.file)); ext = '.mp4'; mime = 'video/mp4'; type = 'video'; }
+for (const def of DEMO_EXHIBITS) {
+  const { buffer, ext, mime, type } = await renderDemoExhibit(def);
   const stored = `${newId('file')}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, stored), buffer);
   const exhibit = {
@@ -109,22 +87,15 @@ for (const def of exhibitDefs) {
   audit({ actor: bailiff.id, role: 'bailiff', action: 'exhibit.uploaded', target: exhibit.id, meta: { exhibitNumber: exhibit.number, exhibitType: type } });
 }
 
-/* ── Menu, supplies, family updates ── */
+/* ── Menu and supplies ── */
 db.data.menu = MENU.map((m) => ({ id: newId('menu'), ...m, available: true }));
 db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: true }));
-
-for (const u of FAMILY_UPDATES) {
-  const seat = db.data.users.find((x) => x.kind === 'juror' && x.seat === u.seat);
-  const update = { id: newId('upd'), seatId: seat.id, body: u.body, bailiffId: bailiff.id, createdAt: nowIso(), readAt: null };
-  db.data.updates.push(update);
-  audit({ actor: bailiff.id, role: 'bailiff', action: 'update.sent', target: update.id, meta: { seat: u.seat } });
-}
 
 await db.write();
 
 /* ── Credentials ── */
 console.log(`\nSeeded "${CASE.caption}" (${CASE.caseNumber})`);
-console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.menu.length} menu items · ${db.data.updates.length} family updates\n`);
+console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.menu.length} menu items\n`);
 console.log('  Sign-in credentials (shown once; PINs are stored only as hashes):\n');
 console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN');
 console.log('  ' + '─'.repeat(50));

@@ -4,13 +4,27 @@
     {
       "name": "deliberation",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": [
+        "start"
+      ],
       "port": 4000
     },
     {
       "name": "deliberation-4100",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "PORT=4100 npm start"],
+      "runtimeArgs": [
+        "-c",
+        "PORT=4100 npm start"
+      ],
+      "port": 4100
+    },
+    {
+      "name": "court-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "admin:start"
+      ],
       "port": 4100
     }
   ]

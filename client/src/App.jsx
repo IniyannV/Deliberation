@@ -16,14 +16,13 @@ const SplitReview = lazy(() => import('./features/evidence/SplitReview'))
 const TimelinePage = lazy(() => import('./features/timeline/TimelinePage'))
 const VotingPage = lazy(() => import('./features/voting/VotingPage'))
 const RequestsPage = lazy(() => import('./features/requests/RequestsPage'))
+const NotesPage = lazy(() => import('./features/notes/NotesPage'))
 const ProjectorPage = lazy(() => import('./features/projector/ProjectorPage'))
-const BulletinPage = lazy(() => import('./features/bulletin/BulletinPage'))
 const Display = lazy(() => import('./pages/display/Display'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminRequests = lazy(() => import('./pages/admin/Requests'))
 const AdminEvidence = lazy(() => import('./pages/admin/Evidence'))
 const AdminJurors = lazy(() => import('./pages/admin/Jurors'))
-const AdminUpdates = lazy(() => import('./pages/admin/Updates'))
 const AdminCatalog = lazy(() => import('./pages/admin/Catalog'))
 const AdminAudit = lazy(() => import('./pages/admin/Audit'))
 
@@ -31,7 +30,6 @@ const JUROR_ROLES = ['juror', 'foreperson']
 
 function JurorShell() {
   const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
-  const unread = useLive((s) => s.updates.filter((u) => !u.readAt).length)
   const openToVote = useLive((s) => s.votes.filter((v) => v.status === 'open' && !s.votedIn.includes(v.id)).length)
   const replies = useLive(unreadRequestReplies)
   const nav = [
@@ -39,11 +37,11 @@ function JurorShell() {
     { section: 'Evidence' },
     { to: '/juror/evidence', label: 'Exhibit locker', icon: 'folder' },
     { to: '/juror/timeline', label: 'Timeline', icon: 'timeline' },
+    { to: '/juror/notes', label: 'My notes', icon: 'note' },
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },
     ...(isForeperson ? [{ to: '/juror/projector', label: 'Room projector', icon: 'monitor' }] : []),
     { to: '/juror/requests', label: 'Requests', icon: 'bell', badge: replies },
-    { to: '/juror/bulletin', label: 'Messages from home', icon: 'mail', badge: unread },
   ]
   return <AppShell nav={nav} />
 }
@@ -57,7 +55,6 @@ function AdminShell() {
     { to: '/admin/evidence', label: 'Evidence', icon: 'upload' },
     { to: '/admin/jurors', label: 'Juror seats', icon: 'users' },
     { section: 'Jurors' },
-    { to: '/admin/updates', label: 'Family updates', icon: 'mail' },
     { to: '/admin/catalog', label: 'Menu & supplies', icon: 'utensils' },
     { section: 'Records' },
     { to: '/admin/audit', label: 'Audit log', icon: 'shield' },
@@ -83,10 +80,10 @@ export default function App() {
             <Route path="evidence/:id" element={<ExhibitPage />} />
             <Route path="review" element={<SplitReview />} />
             <Route path="timeline" element={<TimelinePage />} />
+            <Route path="notes" element={<NotesPage />} />
             <Route path="voting" element={<VotingPage />} />
             <Route path="projector" element={<RequireRole roles={['foreperson']}><ProjectorPage /></RequireRole>} />
             <Route path="requests" element={<RequestsPage />} />
-            <Route path="bulletin" element={<BulletinPage />} />
           </Route>
           <Route path="/display" element={<RequireRole roles={['display']}><Display /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={['bailiff']}><AdminShell /></RequireRole>}>
@@ -94,7 +91,6 @@ export default function App() {
             <Route path="requests" element={<AdminRequests />} />
             <Route path="evidence" element={<AdminEvidence />} />
             <Route path="jurors" element={<AdminJurors />} />
-            <Route path="updates" element={<AdminUpdates />} />
             <Route path="catalog" element={<AdminCatalog />} />
             <Route path="audit" element={<AdminAudit />} />
           </Route>

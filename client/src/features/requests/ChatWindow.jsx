@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { load, store } from '../../lib/storage'
 import { useAuth } from '../../store/auth'
-import { unreadChat, useLive } from '../../store/live'
+import { chatUnread, unreadChat, useLive } from '../../store/live'
 import { useUi } from '../../store/ui'
 import { IconButton, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -94,6 +94,7 @@ export default function ChatWindow() {
   const bailiff = role === 'bailiff'
   const myChat = useLive((s) => s.myChat)
   const chats = useLive((s) => s.chats)
+  const chatReadAt = useLive((s) => s.chatReadAt)
   const unread = useLive(unreadChat)
 
   const [rect, setRect] = useState(() => clampRect(load('chatRect', null) ?? defaultRect()))
@@ -114,10 +115,13 @@ export default function ChatWindow() {
     if (chatOpen && bailiff && shown && shown.seatId !== chatSeat) openChat(shown.seatId)
   }, [chatOpen, bailiff, shown, chatSeat, openChat])
 
-  // An open window counts as reading the juror's chat.
+  // An open window counts as reading the chat it shows, including messages that arrive while it's open.
   useEffect(() => {
     if (chatOpen && !bailiff && unread) useLive.getState().markSeen('chat')
   }, [chatOpen, bailiff, unread])
+  useEffect(() => {
+    if (chatOpen && bailiff && shown) useLive.getState().markChatRead(shown.seatId)
+  }, [chatOpen, bailiff, shown])
 
   if (!chatOpen) return null
 
@@ -176,7 +180,7 @@ export default function ChatWindow() {
         <div role="tablist" aria-label="Juror chats" className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-line/60 px-3 py-2 [scrollbar-width:none]">
           {chats.map((c) => {
             const active = c.seatId === shown?.seatId
-            const waiting = c.messages.at(-1)?.from === 'juror'
+            const waiting = chatUnread({ chatReadAt }, c)
             return (
               <button
                 key={c.seatId}
@@ -187,7 +191,7 @@ export default function ChatWindow() {
                 className={cx('pressable pressable-soft relative shrink-0 rounded-full px-3 py-1 text-sm font-semibold', active ? 'bg-accent text-accent-ink' : 'bg-fill text-ink')}
               >
                 Juror {c.seat}
-                {waiting && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-alert ring-2 ring-surface"><span className="sr-only">, waiting for a reply</span></span>}
+                {waiting && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-alert ring-2 ring-surface"><span className="sr-only">, unread messages</span></span>}
               </button>
             )
           })}

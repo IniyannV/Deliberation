@@ -9,14 +9,13 @@ export const defaultData = () => ({
   exhibits: [],
   transcriptLinks: [],
   imageNotes: [],
-  personal: {}, // userId → { highlights, checks, timeline }: one juror's own marks and private timeline, never shared or logged
+  personal: {}, // userId → { highlights, checks, timeline, notebook }: one juror's own marks, private timeline and notes, never shared or logged
   timeline: [],
   votes: [], // polls and ballots: metadata only, never counts (see services/voting.js)
   requests: [],
   chats: {}, // seatId → messages: open chat between one juror and the bailiff, apart from any request
   menu: [],
   supplies: [],
-  updates: [],
   display: { view: 'timeline', voteId: null, exhibitId: null, message: null },
 });
 
@@ -38,6 +37,11 @@ export async function initDb() {
     db.data.transcriptLinks = db.data.transcriptLinks.filter((l) => !retired.has(l.exhibitId));
     for (const ev of db.data.timeline) ev.attachments = (ev.attachments ?? []).filter((a) => !retired.has(a.exhibitId));
     console.log(`  Retired ${retired.size} interactive map/chart exhibit(s); re-upload them as PDFs or images if still needed.`);
+  }
+  // Messages from home were retired. Drop any still stored, so their text isn't left on disk.
+  if (db.data.updates) {
+    delete db.data.updates;
+    console.log('  Removed stored messages from home (feature retired).');
   }
   await db.write();
   return db;
