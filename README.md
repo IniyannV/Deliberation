@@ -16,24 +16,33 @@ devices that can reach the internet.
 
 ## Quick start
 
-Requires Node 20+. Install once while online (or from an offline npm cache):
+Requires Node 20+. Install dependencies once:
 
 ```bash
 npm install
-npm run seed      # fictional case, 12 seats + bailiff + display; prints PINs
-npm run build     # builds the client into client/dist
-npm start         # serves everything on port 4000 and prints the LAN URLs
+npm run demo
 ```
 
-On startup the server prints addresses such as `http://192.168.4.43:4000`.
-Open that address on each juror device, the projector and the bailiff station.
+**`npm run demo` is the single command for judges and reviewers:**
+- Seeds the Court Admin office (`http://localhost:4100`) with the mock trial case ready to export.
+- Initializes the Jury App (`http://localhost:4000`) in a clean state waiting to receive the trial.
+- Starts both servers and prints the credentials and walkthrough steps in the terminal.
+- Opens your browser to Court Admin (`http://localhost:4100`), where you review the case and click **"Send to jury iPads"** to push the trial to the jury room!
+
+### All scripts
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Express API on :4000 plus Vite on :5173 (hot reload, proxied API/sockets). The strict CSP is enforced in `npm start`, not on the Vite dev server. |
-| `npm run build` | Production build of the client (`client/dist`) |
-| `npm start` | Production: one port, serves `client/dist`, REST API and socket.io, bound to `0.0.0.0` |
-| `npm run seed` | **Stop the server first.** Rebuilds `server/data/db.json`, regenerates the demo exhibits, prints new PINs and saves them to `server/data/demo-credentials.txt` (git-ignored). The previous audit log is archived, never deleted. |
+| `npm run demo` | **Recommended for judging:** builds, seeds if needed, starts both Jury App (:4000) and Court Admin (:4100), prints credentials & opens browser |
+| `npm run demo:reset` | Resets and re-seeds both databases with fresh demo data, then launches |
+| `npm run demo:dev` | Runs both apps in development mode with Vite hot-reloading |
+| `npm run dev` | Express API on :4000 plus Vite on :5173 (jury app only) |
+| `npm run build` | Production build of the jury client (`client/dist`) |
+| `npm start` | Production jury server on :4000 serving `client/dist` and API |
+| `npm run seed` | Rebuilds jury demo case data and prints PINs |
+| `npm run admin:dev` | Court Admin API on :4100 plus Vite on :5174 |
+| `npm run admin:build` / `admin:start` | Build and serve Court Admin portal on :4100 |
+| `npm run admin:seed` | Rebuilds Court Admin demo accounts and cases |
 
 Set `PORT` to change the port (`PORT=8080 npm start`). Set
 `ALLOW_ONLINE_EXHIBITS=1` to allow YouTube exhibits (see above); without it
