@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../store/auth'
-import { useLive } from '../../store/live'
+import { panPlaying, panPos, useLive } from '../../store/live'
 import { useUi } from '../../store/ui'
 import { Icon } from '../../components/icons'
 import { Card, Spinner } from '../../components/ui'
@@ -147,15 +147,61 @@ function MessageView({ message }) {
   )
 }
 
+// 'fit' squeezes the gaps between events to fit the screen; 'spread' gives them room, so it scrolls further.
+const PAN_ZOOM = { fit: 'fit', spread: 1 }
+
+/**
+ * The shared timeline, scrolled to wherever the foreperson has put it.
+ * `onRange` hears how far it can scroll, in px (0 when it all fits).
+ */
+function ProjectedTimeline({ events, onRange }) {
+  const pan = useLive((s) => s.pan)
+  const scroller = useRef(null)
+  const latest = useRef(pan)
+  latest.current = pan
+  const drawn = useRef(null) // the scroll offset on screen, eased toward where the foreperson put it
+  const [range, setRange] = useState(0)
+
+  useEffect(() => {
+    const el = scroller.current
+    const measure = () => setRange(Math.max(0, el.scrollWidth - el.clientWidth))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    ro.observe(el.firstElementChild)
+    return () => ro.disconnect()
+  }, [])
+  useEffect(() => onRange?.(range), [onRange, range])
+  useEffect(() => () => onRange?.(0), [onRange])
+
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    let frame
+    const tick = () => {
+      const target = panPos(latest.current) * range
+      const at = drawn.current ?? target
+      // Updates from the foreperson's iPad arrive a few times a second; easing hides the steps.
+      drawn.current = Math.abs(target - at) < 0.5 ? target : at + (target - at) * 0.2
+      el.scrollLeft = drawn.current
+      if (drawn.current !== target || panPlaying(latest.current)) frame = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(frame)
+  }, [pan, range])
+
+  return <Timeline events={events} zoom={PAN_ZOOM[pan.zoom] ?? 'fit'} scrollRef={scroller} />
+}
+
 /** What the room display shows. The foreperson's control screen renders a scaled-down `preview` of it. */
-export function DisplayStage({ display, preview = false }) {
+export function DisplayStage({ display, preview = false, onPanRange }) {
   const caseInfo = useAuth((s) => s.caseInfo)
   const { timeline, votes, counts, exhibits } = useLive()
   switch (display.view) {
     case 'blackout': return <BlackoutView />
     case 'timeline':
       return timeline.length
-        ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><Timeline events={timeline} zoom="fit" /></Card></div>
+        ? <div><h1 className="mb-5 text-4xl font-bold">Timeline</h1><Card className="py-2"><ProjectedTimeline events={timeline} onRange={onPanRange} /></Card></div>
         : <p className="my-auto text-center text-3xl text-muted">The jury’s timeline will appear here.</p>
     case 'votes': return <div className="my-auto"><VotesView votes={votes} counts={counts} voteId={display.voteId} /></div>
     case 'evidence': return <EvidenceView exhibitId={display.exhibitId} exhibits={exhibits} preview={preview} />

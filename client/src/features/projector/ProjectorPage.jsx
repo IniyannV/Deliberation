@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
-import { useLive } from '../../store/live'
+import { panPlaying, panPos, useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
 import { PARTY_LABEL, TYPE_LABEL, fmtDateTime } from '../../lib/format'
@@ -78,11 +78,40 @@ function useDescribe() {
   }
 }
 
-/** The room display, drawn at full size and scaled down to fit. */
-function StagePreview({ display }) {
+// Auto-scroll speeds, in px a second on the room display.
+const SPEEDS = [
+  { value: 40, label: 'Slow' },
+  { value: 80, label: 'Medium' },
+  { value: 160, label: 'Fast' },
+]
+
+const clamp01 = (n) => Math.min(1, Math.max(0, n))
+
+/** How far along the room display's timeline is, kept current while it auto-scrolls. */
+function usePanPos(pan) {
+  const [, redraw] = useState(0)
+  useEffect(() => {
+    if (!panPlaying(pan)) return
+    const id = setInterval(() => {
+      redraw((n) => n + 1)
+      if (!panPlaying(pan)) clearInterval(id)
+    }, 100)
+    return () => clearInterval(id)
+  }, [pan])
+  return panPos(pan)
+}
+
+/**
+ * The room display, drawn at full size and scaled down to fit. While it shows
+ * the timeline, swiping the preview scrolls the room display along with it.
+ */
+function StagePreview({ display, panRange, onPanRange }) {
   const caseInfo = useAuth((s) => s.caseInfo)
+  const setPan = useLive((s) => s.setPan)
   const box = useRef(null)
+  const swipe = useRef(null) // { x, pos } where the finger went down
   const [scale, setScale] = useState(0)
+  const canPan = display.view === 'timeline' && panRange > 0
   useLayoutEffect(() => {
     const el = box.current
     const measure = () => setScale(el.clientWidth / STAGE_W)
@@ -91,16 +120,49 @@ function StagePreview({ display }) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // The content follows the finger, as if dragging the room display itself.
+  const moveBy = (px) => setPan({ pos: clamp01(swipe.current.pos - px / scale / panRange) })
+  const swipeHandlers = canPan && {
+    onPointerDown(e) {
+      if (e.button !== 0) return
+      e.currentTarget.setPointerCapture(e.pointerId)
+      swipe.current = { x: e.clientX, pos: panPos(useLive.getState().pan) }
+    },
+    onPointerMove(e) {
+      if (swipe.current) moveBy(e.clientX - swipe.current.x)
+    },
+    onPointerUp() { swipe.current = null },
+    onPointerCancel() { swipe.current = null },
+    onWheel(e) {
+      // Sideways trackpad scrolling; up-and-down still scrolls the page.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+      swipe.current = { x: 0, pos: panPos(useLive.getState().pan) }
+      moveBy(-e.deltaX)
+      swipe.current = null
+    },
+  }
+
   return (
-    <div ref={box} inert className="relative aspect-video w-full overflow-hidden rounded-xl bg-bg ring-1 ring-line/60 select-none">
-      <div className="absolute top-0 left-0 flex origin-top-left flex-col bg-bg" style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})` }}>
-        <DisplayHeader caseInfo={caseInfo} view={display.view}>
-          <span className="text-2xl font-semibold text-ink"><Clock /></span>
-        </DisplayHeader>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-10 py-8">
-          <DisplayStage display={display} preview />
+    <div className="relative">
+      <div ref={box} inert className="relative aspect-video w-full overflow-hidden rounded-xl bg-bg ring-1 ring-line/60 select-none">
+        <div className="absolute top-0 left-0 flex origin-top-left flex-col bg-bg" style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})` }}>
+          <DisplayHeader caseInfo={caseInfo} view={display.view}>
+            <span className="text-2xl font-semibold text-ink"><Clock /></span>
+          </DisplayHeader>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-10 py-8">
+            <DisplayStage display={display} preview onPanRange={onPanRange} />
+          </div>
         </div>
       </div>
+      {canPan && (
+        <div
+          {...swipeHandlers}
+          role="presentation"
+          className="absolute inset-0 cursor-grab touch-pan-y rounded-xl active:cursor-grabbing"
+          title="Drag sideways to scroll the room display"
+        />
+      )}
     </div>
   )
 }
@@ -310,9 +372,92 @@ function MessageOptions({ display, project }) {
   )
 }
 
+function TimelineOptions({ display, range }) {
+  const pan = useLive((s) => s.pan)
+  const setPan = useLive((s) => s.setPan)
+  const pos = usePanPos(pan)
+  const playing = panPlaying(pan)
+  const [speed, setSpeed] = useState(() => load('panSpeed', SPEEDS[0].value))
+  const live = display.view === 'timeline'
+  const scrolls = range > 0
+  // One full trip at `px` a second, as the server times it from wherever the glide starts.
+  const tripMs = (px) => Math.max(1000, Math.round((range / px) * 1000))
+  const page = scrolls ? (STAGE_W * 0.75) / range : 0
+
+  function play() {
+    setPan({ pos: pos >= 0.999 ? 0 : pos, playing: true, duration: tripMs(speed) })
+  }
+  function pickSpeed(px) {
+    setSpeed(px)
+    store('panSpeed', px)
+    if (playing) setPan({ playing: true, duration: tripMs(px) })
+  }
+  const pickZoom = (zoom) => setPan({ zoom, ...(playing && { playing: true, duration: pan.duration }) })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-muted">
+        The room display shows the jury’s shared timeline and updates as anyone edits it. Scroll it from here, or let it glide slowly from start to end. <Link to="/juror/timeline" className="text-accent hover:underline">Open the timeline</Link>
+      </p>
+      {!live && <p className="text-sm text-muted">Choose Timeline above to put it on the room display.</p>}
+
+      <div className={cx('flex flex-col gap-3 rounded-xl bg-fill/50 px-4 py-3', !scrolls && 'opacity-60')}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="ghost" disabled={!scrolls || pos <= 0} onClick={() => setPan({ pos: 0 })}>Start</Button>
+          <Button size="sm" icon="chevronLeft" disabled={!scrolls || pos <= 0} onClick={() => setPan({ pos: clamp01(pos - page) })}>Back</Button>
+          <Button
+            variant="primary"
+            icon={playing ? 'pause' : 'play'}
+            disabled={!scrolls}
+            onClick={() => (playing ? setPan({}) : play())}
+            className="min-w-36"
+          >
+            {playing ? 'Pause' : pos >= 0.999 ? 'Play from start' : 'Auto-scroll'}
+          </Button>
+          <Button size="sm" disabled={!scrolls || pos >= 1} onClick={() => setPan({ pos: clamp01(pos + page) })}>
+            Forward <Icon name="chevronRight" size={16} strokeWidth={2} />
+          </Button>
+          <Button size="sm" variant="ghost" disabled={!scrolls || pos >= 1} onClick={() => setPan({ pos: 1 })}>End</Button>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1000}
+          value={Math.round(pos * 1000)}
+          onChange={(e) => setPan({ pos: e.target.valueAsNumber / 1000 })}
+          disabled={!scrolls}
+          aria-label="How far along the room display’s timeline is"
+          aria-valuetext={`${Math.round(pos * 100)}% of the way along`}
+          className="scrubber w-full"
+        />
+        <p className="-mt-2 text-xs text-muted">
+          {scrolls
+            ? 'Drag the slider, or swipe the preview sideways. Touching either stops the auto-scroll.'
+            : 'The whole timeline fits on the room display, so there is nothing to scroll. Choose Spread out to give the events more room.'}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-muted">Speed</span>
+          <Segmented label="Auto-scroll speed" value={speed} onChange={pickSpeed} options={SPEEDS} />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-muted">Spacing</span>
+          <Segmented
+            label="Timeline spacing"
+            value={pan.zoom}
+            onChange={pickZoom}
+            options={[{ value: 'fit', label: 'Fit to screen' }, { value: 'spread', label: 'Spread out' }]}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SimpleOptions({ view }) {
   const copy = {
-    timeline: <>The room display shows the jury’s shared timeline and updates as anyone edits it. <Link to="/juror/timeline" className="text-accent hover:underline">Open the timeline</Link></>,
     idle: 'A calm screen with the case caption. Use it between topics, or when nothing needs to be on the wall.',
     blackout: 'The room display goes blank and says it is paused. Use it while the jury discusses anything that shouldn’t stay on the wall. Resume brings back what was showing before.',
   }
@@ -327,6 +472,7 @@ export default function ProjectorPage() {
   const describe = useDescribe()
   const [panel, setPanel] = useState(display.view)
   const [recent, setRecent] = useState(() => load('projectorRecent', []))
+  const [panRange, setPanRange] = useState(0) // how far the preview's timeline can scroll, in stage px
 
   // Remember what's been shown (by anyone's control), newest first, for one-tap recall.
   useEffect(() => {
@@ -389,7 +535,7 @@ export default function ProjectorPage() {
             </div>
             <Badge tone={blackedOut ? 'danger' : 'ok'}>{blackedOut ? 'Blacked out' : 'Live'}</Badge>
           </div>
-          <StagePreview display={display} />
+          <StagePreview display={display} panRange={panRange} onPanRange={setPanRange} />
           <div className="flex flex-wrap items-center gap-2">
             <Button
               className="flex-1"
@@ -421,7 +567,8 @@ export default function ProjectorPage() {
         {panel === 'evidence' && <EvidenceOptions display={display} project={project} />}
         {panel === 'votes' && <VoteOptions display={display} project={project} />}
         {panel === 'message' && <MessageOptions key={display.message?.text ?? ''} display={display} project={project} />}
-        {['timeline', 'idle', 'blackout'].includes(panel) && <SimpleOptions view={panel} />}
+        {panel === 'timeline' && <TimelineOptions display={display} range={panRange} />}
+        {['idle', 'blackout'].includes(panel) && <SimpleOptions view={panel} />}
       </Card>
 
       {history.length > 0 && (

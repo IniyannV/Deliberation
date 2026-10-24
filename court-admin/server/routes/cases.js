@@ -301,7 +301,6 @@ function buildPackage(c, user) {
     format: PACKAGE_FORMAT,
     exportedAt: nowIso(),
     exportedBy: user.name,
-    demo: c.demo === true || undefined,
     case: { caption: c.caption, caseNumber: c.caseNumber, court: c.court, burden: c.burden, counts: c.counts },
     jury: {
       seatCount: c.jury.seatCount,

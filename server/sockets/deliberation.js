@@ -408,7 +408,46 @@ export const deliberationHandlers = {
       await setDisplay(io, p);
     },
   },
+  // Sent many times a second while the foreperson scrolls, so it isn't saved to disk.
+  'display:pan': {
+    roles: [ROLES.FOREPERSON],
+    handler({ socket }, p) {
+      const pos = Number(p.pos);
+      if (!Number.isFinite(pos) || pos < 0 || pos > 1) throw bad('Position is invalid');
+      const playing = p.playing === true;
+      pan = {
+        zoom: oneOf(p.zoom ?? pan.zoom, PAN_ZOOMS, 'Zoom'),
+        pos,
+        playing,
+        duration: playing ? int(p.duration, { min: 1000, max: 6 * 3600_000, field: 'Duration' }) : 0,
+        startedAt: Date.now(),
+      };
+      // Not back to the sender, whose screen already shows it.
+      socket.to(['jurors', 'display']).emit('display:pan', panPayload());
+    },
+  },
 };
+
+/*
+ * Where the room display's timeline is scrolled to: a fraction of the way
+ * along, so it lines up on screens of any width. While playing it glides
+ * from `pos` to the end over `duration` ms; each screen works out where it
+ * is from `elapsed`, so the server never sends a stream of positions.
+ */
+const PAN_ZOOMS = ['fit', 'spread'];
+let pan = { zoom: 'fit', pos: 0, playing: false, duration: 0, startedAt: Date.now() };
+
+export function panPayload() {
+  const { startedAt, ...rest } = pan;
+  return { ...rest, elapsed: pan.playing ? Date.now() - startedAt : 0 };
+}
+
+// Stop where it is, so it doesn't run on unseen while the display shows something else.
+function freezePan() {
+  if (!pan.playing) return false;
+  pan = { ...pan, pos: Math.min(1, pan.pos + (Date.now() - pan.startedAt) / pan.duration), playing: false, duration: 0 };
+  return true;
+}
 
 // An announcement for the room display, with an optional countdown (up to 12 hours away).
 function readMessage(m) {
@@ -434,4 +473,5 @@ async function setDisplay(io, p) {
   db.data.display = { view, voteId, exhibitId, message };
   await save();
   toJurorsAndDisplay(io, 'display:changed', db.data.display);
+  if (view !== 'timeline' && freezePan()) toJurorsAndDisplay(io, 'display:pan', panPayload());
 }

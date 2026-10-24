@@ -18,8 +18,9 @@ const NUDGE = { normal: 15 * 60e3, shift: 24 * 3600e3 }
  * Shared horizontal timeline.
  *  zoom: number | 'fit'    mode: 'lanes' | 'single'
  *  onSelect(ev)  onMove(ev, iso)  onCreateAt(iso)  onCardMenu(ev, x, y)   (omit the last three for read-only)
+ *  scrollRef: also given the horizontal scroller, for scrolling it from outside
  */
-export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId, onSelect, onMove, onCreateAt, onCardMenu }) {
+export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId, onSelect, onMove, onCreateAt, onCardMenu, scrollRef }) {
   const scroller = useRef(null)
   const board = useRef(null)
   const [boxWidth, setBoxWidth] = useState(1000)
@@ -152,7 +153,7 @@ export default function Timeline({ events, zoom = 1, mode = 'lanes', selectedId,
   const dragX = drag ? Math.max(0, axis.xById.get(drag.id) + drag.dx) : null
 
   return (
-    <div ref={scroller} className="overflow-x-auto overflow-y-hidden scrollbar-thin">
+    <div ref={(el) => { scroller.current = el; if (scrollRef) scrollRef.current = el }} className="overflow-x-auto overflow-y-hidden scrollbar-thin">
       <div ref={board} className="relative select-none" style={{ width, height }} onDoubleClick={doubleClick}>
         {/* Axis */}
         <div className="absolute right-0 left-0 border-b-2 border-line" style={{ top: AXIS_H - 18 }} />

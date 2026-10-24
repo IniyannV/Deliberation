@@ -65,7 +65,6 @@ const ready = {
   court: CASE.court,
   burden: CASE.burden,
   counts: CASE.counts,
-  demo: true, // the jury server adds a sample timeline when it loads a demo case
   status: 'active',
   jury: { ...newJury(), bailiff: { login: 'B1', name: 'Bailiff T. Morrow' } },
   signoff: null,
@@ -132,7 +131,6 @@ const texas = {
   court: TEXAS_CASE.court,
   burden: TEXAS_CASE.burden,
   counts: TEXAS_CASE.counts,
-  demo: true,
   status: 'active',
   jury: { ...newJury(), ...TEXAS_JURY },
   signoff: null,

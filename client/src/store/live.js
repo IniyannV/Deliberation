@@ -15,6 +15,24 @@ let socket = null
 const isJuror = (role) => role === 'juror' || role === 'foreperson'
 
 /*
+ * Where the room display's timeline is scrolled to (see display:pan on the
+ * server). `start` is this device's clock when it was at `pos`, so a glide
+ * that's already under way picks up where it is.
+ */
+const readPan = ({ elapsed = 0, ...p }) => ({ ...p, start: performance.now() - elapsed })
+
+/** How far along (0 to 1) the room display's timeline is right now. */
+export const panPos = (pan, now = performance.now()) =>
+  pan.playing ? Math.min(1, pan.pos + (now - pan.start) / pan.duration) : pan.pos
+
+/** Whether an auto-scroll is still gliding (it stops by itself at the end). */
+export const panPlaying = (pan) => pan.playing && panPos(pan) < 1
+
+const PAN_EVERY_MS = 50
+let panTimer = null
+let panSentAt = 0
+
+/*
  * What the bailiff has said to this juror, apart by where it's read: replies
  * on request threads (read on the Requests page) and the open chat (read in
  * the chat window). Each has its own "seen up to" server timestamp.
@@ -53,6 +71,7 @@ const initial = {
   votes: [],
   votedIn: [],
   display: { view: 'timeline', voteId: null, exhibitId: null, message: null },
+  pan: readPan({ zoom: 'fit', pos: 0, playing: false, duration: 0 }),
   displayOnline: false, // whether the room display is signed in and connected
   counts: [],
   presence: [],
@@ -170,6 +189,7 @@ export const useLive = create((set, get) => ({
         votes: s.votes ?? [],
         votedIn: s.votedIn ?? [],
         display: s.display ?? initial.display,
+        pan: s.pan ? readPan(s.pan) : initial.pan,
         displayOnline: s.displayOnline ?? false,
         counts: s.counts ?? [],
         presence: s.presence ?? [],
@@ -190,6 +210,7 @@ export const useLive = create((set, get) => ({
     socket.on('notes:changed', (notes) => set({ notes }))
     socket.on('personal:changed', (personal) => set({ personal }))
     socket.on('display:changed', (display) => set({ display }))
+    socket.on('display:pan', (pan) => set({ pan: readPan(pan) }))
     socket.on('display:presence', ({ online }) => set({ displayOnline: online }))
     socket.on('vote:changed', (vote) => {
       const votes = get().votes
@@ -252,6 +273,27 @@ export const useLive = create((set, get) => ({
     socket?.disconnect()
     socket = null
     set({ connected: false })
+  },
+
+  /**
+   * Foreperson: scroll the room display's timeline, or start or stop its
+   * auto-scroll. Shown here at once; sent at most every PAN_EVERY_MS, always
+   * ending with the latest, so a drag doesn't flood the server.
+   */
+  setPan(change) {
+    const now = get().pan
+    // Anything left out stays as it is, and a glide stops where it has got to.
+    const pan = { zoom: now.zoom, pos: panPos(now), playing: false, duration: 0, ...change }
+    set({ pan: readPan(pan) })
+    const send = () => {
+      panTimer = null
+      panSentAt = Date.now()
+      socket?.emit('display:pan', pan)
+    }
+    clearTimeout(panTimer)
+    const wait = PAN_EVERY_MS - (Date.now() - panSentAt)
+    if (wait <= 0) send()
+    else panTimer = setTimeout(send, wait)
   },
 
   /** Emit a socket event and wait for the server's acknowledgement. */

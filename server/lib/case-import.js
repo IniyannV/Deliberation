@@ -161,8 +161,8 @@ export async function importCase(file, { replace = false, onProgress = () => {} 
   data.exhibits = imported;
   data.menu = menu.map((m) => ({ id: newId('menu'), name: String(m.name).slice(0, 80), category: m.category || 'Main', dietary: m.dietary || '', available: m.available !== false }));
   data.supplies = supplies.map((s) => ({ id: newId('sup'), name: String(s.name).slice(0, 80), available: s.available !== false }));
-  // Court Admin's fictional demo cases arrive with a sample shared timeline, so there is something to show.
-  if (manifest.demo === true) data.timeline = demoTimeline(kase.caseNumber, imported);
+  // The fictional sample cases arrive with their shared timeline already filled in.
+  data.timeline = demoTimeline(kase.caseNumber, imported);
   db.data = data;
   await db.write();
   audit({ actor: 'system', role: 'system', action: 'case.imported', meta: { itemCount: imported.length } });

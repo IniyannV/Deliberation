@@ -1,10 +1,12 @@
 import { newId, nowIso } from '../../lib/util.js';
 
 /*
- * Shared timelines already filled in for the fictional demo cases, as a jury
- * might build them during deliberation, keyed by case number. The jury app's
- * seed adds one, and so does loading a demo case from Court Admin. Times are
- * local to this machine, like times a juror types in.
+ * Shared timelines already filled in for the fictional sample cases, as a
+ * jury might build them during deliberation, keyed by case number. The jury
+ * app's seed adds one, and so does loading one of these cases however it
+ * arrives (Court Admin's "Send to jury iPads" or `npm run import-case`).
+ * Any other case starts with an empty timeline. Times are local to this
+ * machine, like times a juror types in.
  *
  * Attachments name exhibits by number. An excerpt names a transcript and the
  * text its first line starts with, plus how many lines it spans.

@@ -2,7 +2,7 @@ import { db } from '../db.js';
 import { ROLES, parseCookies, roleOf, userForToken } from '../auth.js';
 import { SESSION_COOKIE } from '../config.js';
 import { listVotes, listVotesForDisplay, votedIn } from '../services/voting.js';
-import { deliberationHandlers } from './deliberation.js';
+import { deliberationHandlers, panPayload } from './deliberation.js';
 
 /*
  * Socket auth: the session cookie is checked on connect AND again before
@@ -24,7 +24,7 @@ export function getPresence() {
 }
 
 function syncPayload(user, role) {
-  const base = { display: db.data.display, counts: db.data.case.counts };
+  const base = { display: db.data.display, pan: panPayload(), counts: db.data.case.counts };
   if (ROLES.JUROR.includes(role)) {
     return {
       ...base,
