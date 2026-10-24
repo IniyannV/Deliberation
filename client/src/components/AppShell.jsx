@@ -184,6 +184,8 @@ export default function AppShell({ nav }) {
                     <NavLink
                       to={item.to}
                       end={item.end}
+                      // Opening a page puts the sidebar away to give it the room (not mid-tour, which points at the sidebar).
+                      onClick={() => { if (!useTour.getState().active) setSidebarCollapsed(true) }}
                       className={({ isActive }) =>
                         cx(
                           'pressable pressable-soft group flex items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem]',

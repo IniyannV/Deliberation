@@ -22,7 +22,7 @@ function wrap(text, font, size, maxWidth) {
  * Builds a simple court-style document. `blocks` is a list of
  * { heading } | { para } | { rows: [[label, value], ...] } | { table: { cols, rows } } | { pageBreak: true }
  */
-export async function makePdf({ exhibit, title, subtitle, blocks }) {
+export async function makePdf({ exhibit, title, subtitle, blocks, header = 'MILLBROOK COUNTY SUPERIOR COURT  ·  26-CR-0418' }) {
   const doc = await PDFDocument.create();
   doc.setTitle(`${exhibit}: ${title}`);
   doc.setProducer('Deliberation seed script');
@@ -34,7 +34,7 @@ export async function makePdf({ exhibit, title, subtitle, blocks }) {
   const newPage = () => {
     page = doc.addPage([W, H]);
     y = H - M;
-    page.drawText('MILLBROOK COUNTY SUPERIOR COURT  ·  26-CR-0418', { x: M, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
+    page.drawText(header, { x: M, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
     // Exhibit sticker
     page.drawRectangle({ x: W - M - 92, y: y - 14, width: 92, height: 30, color: rgb(0.98, 0.96, 0.84), borderColor: rgb(0.47, 0.43, 0.27), borderWidth: 1 });
     page.drawText(`EXHIBIT ${exhibit}`, { x: W - M - 84, y: y - 3, size: 10, font: bold, color: rgb(0.27, 0.24, 0.12) });

@@ -17,6 +17,7 @@ import { parseTranscript } from '../lib/exhibits.js';
 import { newId, nowIso } from '../lib/util.js';
 import { CASE, MENU, SUPPLIES } from './lib/case-content.js';
 import { DEMO_EXHIBITS, renderDemoExhibit } from './lib/demo-exhibits.js';
+import { demoTimeline } from './lib/demo-timeline.js';
 
 const FOREPERSON_SEAT = 1;
 
@@ -87,6 +88,9 @@ for (const def of DEMO_EXHIBITS) {
   audit({ actor: bailiff.id, role: 'bailiff', action: 'exhibit.uploaded', target: exhibit.id, meta: { exhibitNumber: exhibit.number, exhibitType: type } });
 }
 
+/* ── A shared timeline already filled in, to demo ── */
+db.data.timeline = demoTimeline(CASE.caseNumber, db.data.exhibits);
+
 /* ── Menu and supplies ── */
 db.data.menu = MENU.map((m) => ({ id: newId('menu'), ...m, available: true }));
 db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: true }));
@@ -95,7 +99,7 @@ await db.write();
 
 /* ── Credentials ── */
 console.log(`\nSeeded "${CASE.caption}" (${CASE.caseNumber})`);
-console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.menu.length} menu items\n`);
+console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.timeline.length} timeline events · ${db.data.menu.length} menu items\n`);
 console.log('  Sign-in credentials (shown once; PINs are stored only as hashes):\n');
 console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN');
 console.log('  ' + '─'.repeat(50));

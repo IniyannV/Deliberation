@@ -8,6 +8,7 @@ import { audit, resetAudit } from '../services/audit.js';
 import { PARTIES, parseTranscript, probeVideoFps, sniffFile } from './exhibits.js';
 import { listTar, readTarEntry, tarEntryStream } from './tar.js';
 import { newId, nowIso } from './util.js';
+import { demoTimeline } from '../scripts/lib/demo-timeline.js';
 
 /*
  * Load a case package exported by Court Admin (a plain tar: manifest.json,
@@ -160,6 +161,8 @@ export async function importCase(file, { replace = false, onProgress = () => {} 
   data.exhibits = imported;
   data.menu = menu.map((m) => ({ id: newId('menu'), name: String(m.name).slice(0, 80), category: m.category || 'Main', dietary: m.dietary || '', available: m.available !== false }));
   data.supplies = supplies.map((s) => ({ id: newId('sup'), name: String(s.name).slice(0, 80), available: s.available !== false }));
+  // Court Admin's fictional demo cases arrive with a sample shared timeline, so there is something to show.
+  if (manifest.demo === true) data.timeline = demoTimeline(kase.caseNumber, imported);
   db.data = data;
   await db.write();
   audit({ actor: 'system', role: 'system', action: 'case.imported', meta: { itemCount: imported.length } });

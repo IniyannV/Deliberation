@@ -1,7 +1,8 @@
 /*
  * Demo data for Court Admin: an admin and a clerk account, the fictional
  * People v. Dana Whitlock case ready to export (charges, exhibits, PINs and
- * a sign-off), a second case still in draft, and the menu and supplies.
+ * a sign-off), a second case still in draft, a Texas trial (State v. Cody
+ * Ray Brennan) also ready to export, and the menu and supplies.
  *
  * Stop the server first. The previous audit log is archived, never deleted.
  * Sign-ins (and the demo jury PINs) are saved to data/demo-credentials.txt,
@@ -19,6 +20,7 @@ import { exhibitFingerprint, generatePins, newJury } from '../lib/cases.js';
 import { newId, nowIso, parseTranscript, probeVideoFps } from '../lib/shared.js';
 import { CASE, MENU, SUPPLIES } from '../../../server/scripts/lib/case-content.js';
 import { DEMO_EXHIBITS, renderDemoExhibit } from '../../../server/scripts/lib/demo-exhibits.js';
+import { TEXAS_CASE, TEXAS_EXHIBITS, TEXAS_JURY, TEXAS_SIGNOFF, renderTexasExhibit } from '../../../server/scripts/lib/texas-case.js';
 
 const serverUp = await new Promise((resolve) => {
   const socket = net.connect(PORT, '127.0.0.1').once('connect', () => { socket.destroy(); resolve(true); }).once('error', () => resolve(false));
@@ -63,6 +65,7 @@ const ready = {
   court: CASE.court,
   burden: CASE.burden,
   counts: CASE.counts,
+  demo: true, // the jury server adds a sample timeline when it loads a demo case
   status: 'active',
   jury: { ...newJury(), bailiff: { login: 'B1', name: 'Bailiff T. Morrow' } },
   signoff: null,
@@ -74,34 +77,35 @@ const ready = {
 db.data.cases.push(ready);
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-for (const def of DEMO_EXHIBITS) {
-  const { buffer, ext, mime, type } = await renderDemoExhibit(def);
-  const stored = `${newId('file')}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, stored);
-  fs.writeFileSync(filePath, buffer);
-  db.data.exhibits.push({
-    id: newId('ex'),
-    caseId: ready.id,
-    number: def.number,
-    title: def.title,
-    party: def.party,
-    dateAdmitted: def.dateAdmitted,
-    description: def.description,
-    status: 'admitted',
-    type,
-    file: { stored, mime, size: buffer.length, originalName: `${def.number}${ext}`, sha256: crypto.createHash('sha256').update(buffer).digest('hex') },
-    lines: type === 'transcript' ? parseTranscript(def.text) : undefined,
-    fps: type === 'video' ? probeVideoFps(filePath) : undefined,
-    uploadedBy: admin.id,
-    uploadedAt: now,
-  });
+async function addExhibits(c, defs, render) {
+  for (const def of defs) {
+    const { buffer, ext, mime, type } = await render(def);
+    const stored = `${newId('file')}${ext}`;
+    const filePath = path.join(UPLOAD_DIR, stored);
+    fs.writeFileSync(filePath, buffer);
+    db.data.exhibits.push({
+      id: newId('ex'),
+      caseId: c.id,
+      number: def.number,
+      title: def.title,
+      party: def.party,
+      dateAdmitted: def.dateAdmitted,
+      description: def.description,
+      status: 'admitted',
+      type,
+      file: { stored, mime, size: buffer.length, originalName: `${def.number}${ext}`, sha256: crypto.createHash('sha256').update(buffer).digest('hex') },
+      lines: type === 'transcript' ? parseTranscript(def.text) : undefined,
+      fps: type === 'video' ? probeVideoFps(filePath) : undefined,
+      uploadedBy: admin.id,
+      uploadedAt: now,
+    });
+  }
 }
+const signoff = (c, parties) => ({ ...parties, recordedBy: admin.id, recordedByName: admin.name, recordedAt: now, fingerprint: exhibitFingerprint(c.id) });
 
+await addExhibits(ready, DEMO_EXHIBITS, renderDemoExhibit);
 const pins = generatePins(ready, 'all');
-ready.signoff = {
-  judge: 'Hon. M. Castellanos', prosecution: 'ADA L. Reyes', defense: 'J. Whitfield, Esq.', date: '2026-10-20',
-  recordedBy: admin.id, recordedByName: admin.name, recordedAt: now, fingerprint: exhibitFingerprint(ready.id),
-};
+ready.signoff = signoff(ready, { judge: 'Hon. M. Castellanos', prosecution: 'ADA L. Reyes', defense: 'J. Whitfield, Esq.', date: '2026-10-20' });
 
 /* ── A case still being prepared ── */
 db.data.cases.push({
@@ -120,6 +124,28 @@ db.data.cases.push({
   updatedAt: now,
 });
 
+/* ── A Texas trial, also ready for the jury room ── */
+const texas = {
+  id: newId('case'),
+  caption: TEXAS_CASE.caption,
+  caseNumber: TEXAS_CASE.caseNumber,
+  court: TEXAS_CASE.court,
+  burden: TEXAS_CASE.burden,
+  counts: TEXAS_CASE.counts,
+  demo: true,
+  status: 'active',
+  jury: { ...newJury(), ...TEXAS_JURY },
+  signoff: null,
+  exports: [],
+  createdAt: now,
+  createdBy: admin.id,
+  updatedAt: now,
+};
+db.data.cases.push(texas);
+await addExhibits(texas, TEXAS_EXHIBITS, renderTexasExhibit);
+const texasPins = generatePins(texas, 'all');
+texas.signoff = signoff(texas, TEXAS_SIGNOFF);
+
 /* ── Menu & supplies ── */
 db.data.menu = MENU.map((m) => ({ id: newId('menu'), ...m, available: true }));
 db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: true }));
@@ -137,6 +163,11 @@ const lines = [
   '',
   '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(12) + 'PIN',
   ...table(pins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
+  '',
+  `Jury-room PINs for ${TEXAS_CASE.caseNumber}`,
+  '',
+  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(12) + 'PIN',
+  ...table(texasPins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
   '',
 ];
 const credFile = path.join(DATA_DIR, 'demo-credentials.txt');
