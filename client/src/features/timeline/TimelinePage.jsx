@@ -210,7 +210,7 @@ export default function TimelinePage() {
           </p>
         </>
       ) : (
-        <div className="mb-6">
+        <div className="mb-6" data-tour="timeline-board">
           <EmptyState icon="timeline" title={scope === 'personal' ? 'Your timeline is empty' : 'The timeline is empty'}>
             Add the first event, or select transcript lines in side-by-side review and choose “Add to timeline”.
             {scope === 'personal' && ' You can also open any event on the shared timeline and copy it here.'}

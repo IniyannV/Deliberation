@@ -52,11 +52,10 @@ export const useUi = create((set, get) => ({
     set({ textScale })
   },
 
-  // The sidebar starts tucked away on wide screens to give pages the room, and
-  // AppShell tucks it away again after each navigation. Not persisted, so every
-  // sign-in starts with it closed.
-  sidebarCollapsed: true,
+  // The sidebar can be tucked away on wide screens to give exhibits the room.
+  sidebarCollapsed: load('sidebarCollapsed', false),
   setSidebarCollapsed(sidebarCollapsed) {
+    store('sidebarCollapsed', sidebarCollapsed)
     set({ sidebarCollapsed })
   },
 

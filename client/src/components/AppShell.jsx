@@ -96,14 +96,12 @@ export default function AppShell({ nav }) {
   // The chat window belongs to this sign-in; don't carry it over to the next.
   useEffect(() => () => useUi.getState().closeChat(), [])
 
-  // Each page starts at the top, with the sidebar put away (unless the tour,
-  // which walks through pages, needs it showing).
+  // Each page starts at the top, with the drawer put away.
   useEffect(() => {
     setDrawer(false)
-    if (!useTour.getState().active) setSidebarCollapsed(true)
     main.current?.scrollTo({ top: 0 })
     useSpeech.getState().stop()
-  }, [location.pathname, setSidebarCollapsed])
+  }, [location.pathname])
 
   // Escape stops reading aloud.
   useEffect(() => {

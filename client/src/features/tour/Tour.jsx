@@ -55,21 +55,35 @@ function useTargetRect(target, stepKey) {
       const bottom = Math.min(r.bottom, window.innerHeight - PAD * 2)
       setRect({ top, left: r.left, width: r.width, height: Math.max(40, bottom - top) })
     }
-    // The target may appear only after navigation and lazy loading.
-    const find = setInterval(() => {
+    const check = () => {
       el = document.querySelector(`[data-tour="${target}"]`)
       if (el) {
-        clearInterval(find)
         if (!scrolled) {
           el.scrollIntoView({ block: el.getBoundingClientRect().height > window.innerHeight * 0.6 ? 'start' : 'center', inline: 'nearest' })
           scrolled = true
         }
         requestAnimationFrame(measure)
-      } else if (++tries > 30) {
+        return true
+      }
+      return false
+    }
+    if (check()) {
+      window.addEventListener('resize', measure)
+      window.addEventListener('scroll', measure, true)
+      return () => {
+        window.removeEventListener('resize', measure)
+        window.removeEventListener('scroll', measure, true)
+      }
+    }
+    // The target may appear only after navigation and lazy loading.
+    const find = setInterval(() => {
+      if (check()) {
+        clearInterval(find)
+      } else if (++tries > 15) {
         clearInterval(find)
         setMissing(true)
       }
-    }, 100)
+    }, 50)
     window.addEventListener('resize', measure)
     window.addEventListener('scroll', measure, true)
     return () => {
