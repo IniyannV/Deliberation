@@ -159,7 +159,8 @@ export function searchExhibits(exhibits, { q = '', type, party }) {
   const terms = String(q).toLowerCase().split(/\s+/).filter(Boolean);
   const out = [];
   for (const e of exhibits) {
-    if (type && e.type !== type) continue;
+    // YouTube exhibits are videos to a juror, so the video filter takes them too.
+    if (type && e.type !== type && !(type === 'video' && e.type === 'youtube')) continue;
     if (party && e.party !== party) continue;
     if (!terms.length) {
       out.push({ ...exhibitSummary(e), hits: [] });

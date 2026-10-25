@@ -113,7 +113,7 @@ export default function ExhibitLocker() {
           label="Exhibit type"
           value={type}
           onChange={setType}
-          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'video', label: 'Video' }, { value: 'youtube', label: 'YouTube' }]}
+          options={[{ value: '', label: 'All' }, { value: 'pdf', label: 'Documents' }, { value: 'image', label: 'Images' }, { value: 'transcript', label: 'Transcripts' }, { value: 'video', label: 'Video' }]}
         />
         <Select value={party} onChange={(e) => setParty(e.target.value)} className="w-auto" aria-label="Introduced by">
           <option value="">Introduced by: anyone</option>
