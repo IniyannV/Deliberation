@@ -19,6 +19,7 @@
     "start": "npm run start -w server",
     "seed": "npm run seed -w server",
     "import-case": "node server/scripts/import-case.js",
+    "pdf:case": "node scripts/generate-case-pdf.js",
     "admin:dev": "concurrently -k -n admin-server,admin-client -c magenta,cyan \"npm run dev -w court-admin-server\" \"npm run dev -w court-admin-client\"",
     "admin:build": "npm run build -w court-admin-client",
     "admin:start": "npm run start -w court-admin-server",
