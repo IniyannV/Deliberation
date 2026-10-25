@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { fmtDateTime } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Select, Switch, cx } from '../../components/ui'
+import { Badge, Button, Card, EmptyState, Field, IconButton, Input, Modal, PageHeader, Select, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { VoteProgress, VoteResult } from './ResultsBars'
 import ChargeDetails from './ChargeDetails'
@@ -16,7 +15,6 @@ const VOID_REASON = {
 }
 
 const DEFAULT_OPTIONS = ['Leaning Guilty', 'Leaning Not Guilty', 'Undecided']
-const VIEW_LABEL = { timeline: 'Timeline', votes: 'Votes', evidence: 'Evidence', message: 'Announcement', idle: 'Welcome screen', blackout: 'Nothing (blacked out)' }
 
 function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
   const emit = useLive((s) => s.emit)
@@ -100,15 +98,13 @@ function OpenVoteCard({ vote, voted, isForeperson, count, burden }) {
   )
 }
 
-function ForepersonPanel({ counts, votes, display }) {
+function ForepersonPanel({ counts, votes }) {
   const emit = useLive((s) => s.emit)
   const [pollOpen, setPollOpen] = useState(false)
   const [question, setQuestion] = useState('Where are you leaning right now?')
   const [options, setOptions] = useState(DEFAULT_OPTIONS)
   const [countId, setCountId] = useState('')
-  const displayOnline = useLive((s) => s.displayOnline)
   const autoProject = useLive((s) => s.autoProject)
-  const setAutoProject = useLive((s) => s.setAutoProject)
   const [deliberatedInPerson, setDeliberatedInPerson] = useState(false)
   const pollIsOpen = votes.some((v) => v.kind === 'poll' && v.status === 'open')
   const ballotIsOpen = votes.some((v) => v.kind === 'ballot' && v.status === 'open')
@@ -134,24 +130,27 @@ function ForepersonPanel({ counts, votes, display }) {
           </span>
           Foreperson Deliberation Controls
         </h2>
-        <p className="mt-0.5 text-sm text-muted">Manage chamber polls, formal ballots, and the jury room projector.</p>
+        <p className="mt-0.5 text-sm text-muted">Manage chamber polls and formal ballots.</p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="flex flex-col gap-4">
         {/* Card 1: Informal Poll */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-ink">Informal Straw Poll</h3>
+        <div className="flex flex-col rounded-2xl border border-line/60 bg-fill/20 p-5 sm:p-6">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2.5 text-lg font-bold text-ink">
+                <Icon name="list" size={19} /> Informal Straw Poll
+              </h3>
               <Badge tone="accent">Non-binding</Badge>
             </div>
-            <p className="text-xs text-muted leading-relaxed">
+            <p className="max-w-2xl text-sm text-muted leading-relaxed">
               Gauge sentiment or identify sticking points across the room.
+              Ask the jury any question with up to six options; results are a check-in only and never count toward a verdict.
             </p>
           </div>
-          <div className="mt-4 pt-3 border-t border-line/30">
+          <div className="mt-5 flex justify-end border-t border-line/30 pt-4">
             <Button
-              className="w-full"
+              className="w-full sm:w-auto"
               icon="plus"
               disabled={pollIsOpen}
               onClick={() => setPollOpen(true)}
@@ -162,16 +161,19 @@ function ForepersonPanel({ counts, votes, display }) {
         </div>
 
         {/* Card 2: Secret Ballot */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-ink">Formal Secret Ballot</h3>
+        <div className="flex flex-col rounded-2xl border border-line/60 bg-fill/20 p-5 sm:p-6">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2.5 text-lg font-bold text-ink">
+                <Icon name="vote" size={19} /> Formal Secret Ballot
+              </h3>
               <Badge tone="warn">Binding</Badge>
             </div>
-            <p className="text-xs text-muted leading-relaxed">
+            <p className="max-w-2xl text-sm text-muted leading-relaxed">
               Official verdict vote on a count. Anonymity is guaranteed.
+              Hold a straw poll or discuss the count in person first, then choose the count below to open the ballot.
             </p>
-            <div className="mt-1 flex flex-col gap-2">
+            <div className="mt-1 flex max-w-xl flex-col gap-3">
               <Select
                 value={countId}
                 onChange={(e) => {
@@ -185,8 +187,8 @@ function ForepersonPanel({ counts, votes, display }) {
               </Select>
 
               {countId && !hasStrawPoll && (
-                <div className="rounded-xl border border-line/50 bg-surface/80 p-2.5 text-xs">
-                  <label className="flex items-start gap-2 cursor-pointer text-muted hover:text-ink">
+                <div className="rounded-xl border border-line/50 bg-surface/80 p-3 text-sm">
+                  <label className="flex items-start gap-2.5 cursor-pointer text-muted hover:text-ink">
                     <input
                       type="checkbox"
                       checked={deliberatedInPerson}
@@ -199,9 +201,9 @@ function ForepersonPanel({ counts, votes, display }) {
               )}
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-line/30">
+          <div className="mt-5 flex justify-end border-t border-line/30 pt-4">
             <Button
-              className="w-full"
+              className="w-full sm:w-auto"
               variant="primary"
               disabled={!canOpenBallot}
               onClick={() => run('ballot:open', { countId, showOnDisplay: autoProject }, () => {
@@ -217,38 +219,6 @@ function ForepersonPanel({ counts, votes, display }) {
                 ? 'Discussion required'
                 : 'Open formal ballot'}
             </Button>
-          </div>
-        </div>
-
-        {/* Card 3: Room Projector (full controls on their own screen) */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line/60 bg-fill/20 p-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 font-bold text-ink">
-                <Icon name="monitor" size={17} /> Room Projector
-              </h3>
-              <Badge tone={display.view === 'blackout' ? 'danger' : displayOnline ? 'ok' : 'warn'}>
-                {display.view === 'blackout' ? 'Blacked out' : displayOnline ? 'Live' : 'Offline'}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted leading-relaxed">
-              Now showing: <span className="font-semibold text-ink">{VIEW_LABEL[display.view] ?? 'Welcome screen'}</span>
-            </p>
-            <label className="mt-1 flex items-center justify-between gap-3 text-xs text-muted">
-              Switch the projector to new polls and ballots
-              <Switch checked={autoProject} onChange={setAutoProject} label="Switch the projector to new polls and ballots" />
-            </label>
-          </div>
-          <div className="mt-4 flex gap-2 pt-3 border-t border-line/30">
-            <Link to="/juror/projector" className="flex-1">
-              <Button className="w-full" icon="monitor">Projector controls</Button>
-            </Link>
-            <IconButton
-              icon={display.view === 'blackout' ? 'eye' : 'eyeOff'}
-              label={display.view === 'blackout' ? 'Resume projector' : 'Blackout projector'}
-              className={display.view === 'blackout' ? 'bg-accent-soft text-accent' : 'bg-fill'}
-              onClick={() => run('display:set', { view: display.view === 'blackout' ? (display.exhibitId ? 'evidence' : 'timeline') : 'blackout' })}
-            />
           </div>
         </div>
       </div>
@@ -282,7 +252,7 @@ function ForepersonPanel({ counts, votes, display }) {
 
 export default function VotingPage() {
   const user = useAuth((s) => s.user)
-  const { votes, votedIn, counts, display, burden } = useLive()
+  const { votes, votedIn, counts, burden } = useLive()
   const isForeperson = user?.role === 'foreperson'
   const open = votes.filter((v) => v.status === 'open')
   const history = votes.filter((v) => v.status !== 'open').sort((a, b) => b.closedAt.localeCompare(a.closedAt))
@@ -291,11 +261,11 @@ export default function VotingPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Polls & ballots"
+        title="Ballots and Charges"
         subtitle="Polls are informal check-ins. Ballots are formal and secret: the server records that you voted, separately from what you chose, and never links the two."
       />
 
-      {isForeperson && <ForepersonPanel counts={counts} votes={votes} display={display} />}
+      {isForeperson && <ForepersonPanel counts={counts} votes={votes} />}
 
       <section className="flex flex-col gap-5" data-tour="voting-open">
         <h2 className="text-xl font-bold">Open now</h2>

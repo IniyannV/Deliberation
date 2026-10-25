@@ -291,7 +291,7 @@ function VoteOptions({ display, project }) {
           v.status === 'open' ? <Badge tone="warn" className="px-2 py-0 text-xs">Open</Badge> : null,
         ))}
       </ul>
-      {!list.length && <p className="px-1 text-sm text-muted">No polls or ballots yet. Open one from <Link to="/juror/voting" className="text-accent hover:underline">Polls &amp; ballots</Link>.</p>}
+      {!list.length && <p className="px-1 text-sm text-muted">No polls or ballots yet. Open one from <Link to="/juror/voting" className="text-accent hover:underline">Ballots and Charges</Link>.</p>}
       <label className="flex items-center justify-between gap-4 rounded-xl bg-fill/50 px-4 py-3">
         <span>
           <span className="block font-semibold">Switch to new polls and ballots</span>

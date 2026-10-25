@@ -34,6 +34,8 @@ export default function JurorHome() {
   )
   const chatResponses = myChat?.messages?.filter((m) => m.from === 'bailiff').length ?? 0
   const bailiffResponses = requestResponses + chatResponses
+  const messageCount =
+    (myRequests ?? []).reduce((acc, r) => acc + (r.messages?.length ?? 0), 0) + (myChat?.messages?.length ?? 0)
 
   const docCount = exhibits.filter((e) => e.type === 'pdf').length
   const photoCount = exhibits.filter((e) => e.type === 'image').length
@@ -104,7 +106,7 @@ export default function JurorHome() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5 sm:gap-4">
         {/* ROW 1: PRIMARY PILLARS (50% / 50% width on large screens) */}
         
-        {/* 1. Polls & Ballots */}
+        {/* 1. Ballots and Charges */}
         <Link
           to="/juror/voting"
           className={cx(
@@ -141,7 +143,7 @@ export default function JurorHome() {
             </div>
 
             <h2 className="mt-1 text-lg sm:text-xl font-bold text-ink group-hover:text-accent transition-colors">
-              Polls &amp; Ballots
+              Ballots and Charges
             </h2>
           </div>
 
@@ -254,7 +256,7 @@ export default function JurorHome() {
                 ) : activeRequests.length > 0 ? (
                   <Badge tone="warn" className="px-2 py-0.5 text-xs">{activeRequests.length} active</Badge>
                 ) : (
-                  <Badge tone="neutral" className="px-2 py-0.5 text-xs">Direct line</Badge>
+                  <Badge tone="neutral" className="px-2 py-0.5 text-xs">{messageCount} message{messageCount === 1 ? '' : 's'}</Badge>
                 )}
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
                   <Icon name="chevronRight" size={15} strokeWidth={2.5} />
