@@ -39,7 +39,7 @@ export default function CaseLayout() {
       <Link to="/cases" className="mb-3 inline-flex items-center gap-1 text-accent hover:underline print:hidden"><Icon name="chevronLeft" size={16} /> Cases</Link>
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4 print:hidden">
         <div>
-          <p className="text-sm font-semibold text-muted tabular-nums">{kase.caseNumber}{kase.court && ` · ${kase.court}`}</p>
+          <p className="text-sm font-semibold text-muted tabular-nums"><span className="font-mono text-accent mr-2">{kase.id}</span>{kase.caseNumber}{kase.court && ` · ${kase.court}`}</p>
           <h1 className="text-[2.125rem] font-bold">{kase.caption}</h1>
         </div>
         <CaseStatus c={kase} />

@@ -76,9 +76,9 @@ export default function CaseJury() {
   }
 
   const rows = [
-    ...jury.seats.map((s) => ({ key: String(s.seat), signIn: s.seat, pin: s, seat: s.seat })),
-    { key: 'bailiff', signIn: jury.bailiff.login, pin: jury.bailiff, who: `Bailiff (${jury.bailiff.name})` },
-    { key: 'display', signIn: 'DISPLAY', pin: jury.display, who: 'Room display (projector)' },
+    ...jury.seats.map((s) => ({ key: String(s.seat), signIn: `${kase.caseNumber}-${s.seat}`, pin: s, seat: s.seat })),
+    { key: 'bailiff', signIn: `${kase.caseNumber}-${jury.bailiff.login}`, pin: jury.bailiff, who: `Bailiff (${jury.bailiff.name})` },
+    { key: 'display', signIn: `${kase.caseNumber}-DISPLAY`, pin: jury.display, who: 'Room display (projector)' },
   ]
   const missing = rows.filter((r) => !r.pin.set).length
   const allSelected = selected.size === rows.length

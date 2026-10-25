@@ -110,13 +110,65 @@ export const deliberationHandlers = {
   /* ── Timeline (shared, or the juror's personal one) ── */
   'timeline:create': {
     roles: [ROLES.JUROR],
-    async handler({ io, user }, p) {
+    async handler({ io, user, role }, p) {
+      if (p?.scope !== 'personal' && role !== 'foreperson') {
+        db.data.timelineProposals ??= [];
+        if (db.data.timelineProposals.length >= 200) throw bad('There are too many pending proposals. Please wait for the foreperson to review them.');
+        const proposal = {
+          id: newId('prop'),
+          ...readEvent(p),
+          seat: user.seat,
+          seatId: user.id,
+          createdAt: nowIso(),
+        };
+        db.data.timelineProposals.push(proposal);
+        await save();
+        io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
+        io.to('forepersons').emit('timeline:proposal:new', proposal);
+        return { proposed: true, proposal };
+      }
       const tl = timelineFor(p, user);
       if (tl.list().length >= 2000) throw bad('This timeline is full');
       const ev = { id: newId('ev'), ...readEvent(p), version: 1, updatedAt: nowIso() };
       tl.list().push(ev);
       await tl.changed(io);
       return { event: ev };
+    },
+  },
+  'timeline:proposal:approve': {
+    roles: [ROLES.FOREPERSON],
+    async handler({ io }, p) {
+      db.data.timelineProposals ??= [];
+      const idx = db.data.timelineProposals.findIndex((prop) => prop.id === p.id);
+      if (idx === -1) throw bad('That proposed event was already reviewed');
+      const prop = db.data.timelineProposals[idx];
+      db.data.timelineProposals.splice(idx, 1);
+
+      if (db.data.timeline.length >= 2000) throw bad('The shared timeline is full');
+      const { id, seat, seatId, createdAt, ...eventData } = prop;
+      const ev = { id: newId('ev'), ...eventData, version: 1, updatedAt: nowIso() };
+      db.data.timeline.push(ev);
+      await save();
+
+      toJurorsAndDisplay(io, 'timeline:changed', db.data.timeline);
+      io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
+      io.to(`user:${seatId}`).emit('timeline:proposal:approved', { id: prop.id, label: prop.label });
+      return { event: ev };
+    },
+  },
+  'timeline:proposal:reject': {
+    roles: [ROLES.FOREPERSON],
+    async handler({ io }, p) {
+      db.data.timelineProposals ??= [];
+      const idx = db.data.timelineProposals.findIndex((prop) => prop.id === p.id);
+      if (idx === -1) throw bad('That proposed event was already reviewed');
+      const prop = db.data.timelineProposals[idx];
+      db.data.timelineProposals.splice(idx, 1);
+      await save();
+
+      io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
+      io.to(`user:${prop.seatId}`).emit('timeline:proposal:rejected', { id: prop.id, label: prop.label });
+      return { ok: true };
     },
   },
   'timeline:update': {

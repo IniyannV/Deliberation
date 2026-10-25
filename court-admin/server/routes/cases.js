@@ -14,7 +14,7 @@ import {
 } from '../lib/shared.js';
 import {
   admittedExhibits, assertUniqueCaseNumber, caseExhibits, caseSummary, caseView, DEFAULT_BURDEN, exhibitFingerprint,
-  findCase, generatePins, newJury, publicExhibit, readCounts, readDetails, readiness, readJury, readSignoff, touch,
+  findCase, generatePins, newCaseId, newJury, publicExhibit, readCounts, readDetails, readiness, readJury, readSignoff, touch,
 } from '../lib/cases.js';
 
 const router = Router();
@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
   const details = readDetails({ burden: DEFAULT_BURDEN, ...req.body });
   assertUniqueCaseNumber(details.caseNumber);
   const c = {
-    id: newId('case'),
+    id: newCaseId(),
     ...details,
     status: 'active',
     counts: [],
@@ -301,7 +301,7 @@ function buildPackage(c, user) {
     format: PACKAGE_FORMAT,
     exportedAt: nowIso(),
     exportedBy: user.name,
-    case: { caption: c.caption, caseNumber: c.caseNumber, court: c.court, burden: c.burden, counts: c.counts },
+    case: { id: c.id, caption: c.caption, caseNumber: c.caseNumber, court: c.court, burden: c.burden, counts: c.counts },
     jury: {
       seatCount: c.jury.seatCount,
       foreperson: c.jury.foreperson,

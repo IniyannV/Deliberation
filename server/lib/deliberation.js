@@ -10,6 +10,7 @@ import { clearVotes, displayVote, listVotes, listVotesForDisplay, publicVote } f
 /** The shared timeline, exhibit notes, transcript links and every poll and ballot. */
 export function clearSharedDeliberation() {
   db.data.timeline = [];
+  db.data.timelineProposals = [];
   db.data.imageNotes = [];
   db.data.transcriptLinks = [];
   clearVotes();
@@ -18,6 +19,7 @@ export function clearSharedDeliberation() {
 /** Push the cleared state to every juror device and the room display. */
 export function broadcastDeliberation() {
   emit(['jurors', 'display'], 'timeline:changed', db.data.timeline);
+  emit('forepersons', 'timeline:proposals:changed', db.data.timelineProposals);
   emit('jurors', 'notes:changed', db.data.imageNotes);
   emit('jurors', 'links:changed', db.data.transcriptLinks);
   emit('jurors', 'votes:reset', { votes: listVotes() });

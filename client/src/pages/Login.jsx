@@ -100,12 +100,12 @@ export default function Login() {
           </summary>
           <div className="px-4 pb-4">
             <ul className="flex flex-col gap-1 text-muted">
-              <li><b className="text-ink">1</b>: foreperson (juror with polls, ballots and display controls)</li>
-              <li><b className="text-ink">2–12</b>: jurors</li>
-              <li><b className="text-ink">B1</b>: bailiff / clerk</li>
-              <li><b className="text-ink">DISPLAY</b>: room projector</li>
+              <li><b className="text-ink">26-CR-0418-1</b>: foreperson (or seat <b className="text-ink">1</b>)</li>
+              <li><b className="text-ink">26-CR-0418-2</b> to <b className="text-ink">12</b>: jurors (or seats <b className="text-ink">2–12</b>)</li>
+              <li><b className="text-ink">26-CR-0418-B1</b>: bailiff / clerk (or <b className="text-ink">B1</b>)</li>
+              <li><b className="text-ink">26-CR-0418-DISPLAY</b>: room projector (or <b className="text-ink">DISPLAY</b>)</li>
             </ul>
-            <p className="mt-2 text-muted">PINs are printed by <code>npm run seed</code> and saved in <code>server/data/demo-credentials.txt</code>. After signing in, choose <b className="text-ink">Guided tour</b> in the sidebar.</p>
+            <p className="mt-2 text-muted">Sign in with your case number prefix (e.g. <code>26-CR-0418-1</code>) and PIN printed by <code>npm run seed</code> or Court Admin PIN sheets. After signing in, choose <b className="text-ink">Guided tour</b> in the sidebar.</p>
           </div>
         </details>
       </div>

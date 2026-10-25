@@ -11,6 +11,7 @@ export const defaultData = () => ({
   imageNotes: [],
   personal: {}, // userId → { highlights, checks, timeline, notebook }: one juror's own marks, private timeline and notes, never shared or logged
   timeline: [],
+  timelineProposals: [], // proposals from jurors pending foreperson moderation
   votes: [], // polls and ballots: metadata only, never counts (see services/voting.js)
   requests: [],
   chats: {}, // seatId → messages: open chat between one juror and the bailiff, apart from any request

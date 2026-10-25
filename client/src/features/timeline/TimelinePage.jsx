@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
@@ -101,6 +102,8 @@ export default function TimelinePage() {
   const timeline = (scope === 'personal' ? personal : shared) ?? []
   const exhibits = useLive((s) => s.exhibits)
   const emit = useLive((s) => s.emit)
+  const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
+  const proposals = useLive((s) => s.timelineProposals ?? [])
   const location = useLocation()
   const navigate = useNavigate()
   const [zoom, setZoom] = useState(1)
@@ -146,8 +149,30 @@ export default function TimelinePage() {
     const to = scope === 'personal' ? 'shared' : 'personal'
     try {
       const { label, at, type, description, attachments } = ev
-      await emit('timeline:create', { label, at, type, description, attachments, scope: to })
-      toast(to === 'personal' ? `Copied “${label}” to your timeline.` : `Copied “${label}” to the shared timeline. Every juror can see it now.`)
+      const res = await emit('timeline:create', { label, at, type, description, attachments, scope: to })
+      if (res?.proposed) {
+        toast(`“${label}” was proposed to the foreperson for moderation.`, { tone: 'accent' })
+      } else {
+        toast(to === 'personal' ? `Copied “${label}” to your timeline.` : `Copied “${label}” to the shared timeline. Every juror can see it now.`)
+      }
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  }
+
+  async function approveProposal(p) {
+    try {
+      await emit('timeline:proposal:approve', { id: p.id })
+      toast(`Approved “${p.label}” and added it to the timeline.`, { tone: 'ok' })
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  }
+
+  async function rejectProposal(p) {
+    try {
+      await emit('timeline:proposal:reject', { id: p.id })
+      toast(`Declined “${p.label}”.`)
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -164,8 +189,51 @@ export default function TimelinePage() {
         subtitle={scope === 'personal'
           ? 'Your own timeline. Only you can see it, on any device you sign in to.'
           : 'A shared timeline for the whole jury. Changes appear on every screen and the room display.'}
-        actions={<Button variant="primary" icon="plus" onClick={() => setEditor({ initial: null })}>Add event</Button>}
+        actions={
+          <Button
+            variant="primary"
+            icon="plus"
+            onClick={() => setEditor({ initial: null })}
+          >
+            {scope === 'personal' || isForeperson ? 'Add event' : 'Propose event'}
+          </Button>
+        }
       />
+
+      {isForeperson && scope === 'shared' && proposals.length > 0 && (
+        <Card className="mb-5 border-accent/40 bg-accent-soft/30 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-accent">
+              <Icon name="bell" size={18} />
+              Proposed events awaiting your moderation ({proposals.length})
+            </h2>
+          </div>
+          <ul className="flex flex-col divide-y divide-line/40">
+            {proposals.map((prop) => (
+              <li key={prop.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cx('h-2.5 w-2.5 rounded-full', TYPE_STYLE[prop.type]?.dot)} />
+                    <span className="font-semibold text-ink">{prop.label}</span>
+                    <Badge size="sm">Juror {prop.seat}</Badge>
+                    <span className="text-xs text-muted">{fmtDateTime(prop.at)}</span>
+                  </div>
+                  {prop.description && <p className="mt-1 text-sm text-muted">{prop.description}</p>}
+                  {prop.attachments?.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted">
+                      <span>{prop.attachments.length} attachment{prop.attachments.length > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <Button size="sm" variant="ghost" onClick={() => rejectProposal(prop)}>Decline</Button>
+                  <Button size="sm" variant="primary" icon="check" onClick={() => approveProposal(prop)}>Approve</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Segmented
         label="Which timeline"

@@ -52,15 +52,15 @@ db.data.case = CASE;
 const credentials = [];
 for (let seat = 1; seat <= 12; seat++) {
   const pin = randomPin();
-  db.data.users.push({ id: `seat-${String(seat).padStart(2, '0')}`, kind: 'juror', seat, isForeperson: seat === FOREPERSON_SEAT, active: true, ...hashPin(pin) });
-  credentials.push({ who: `Juror seat ${seat}${seat === FOREPERSON_SEAT ? ' (foreperson)' : ''}`, signIn: String(seat), pin });
+  db.data.users.push({ id: `seat-${String(seat).padStart(2, '0')}`, caseNumber: CASE.caseNumber, kind: 'juror', seat, isForeperson: seat === FOREPERSON_SEAT, active: true, ...hashPin(pin) });
+  credentials.push({ who: `Juror seat ${seat}${seat === FOREPERSON_SEAT ? ' (foreperson)' : ''}`, signIn: `${CASE.caseNumber}-${seat}`, pin });
 }
 const bailiffPin = randomPin();
-db.data.users.push({ id: 'bailiff-01', kind: 'bailiff', login: 'B1', name: 'Bailiff T. Morrow', active: true, ...hashPin(bailiffPin) });
-credentials.push({ who: 'Bailiff / Clerk', signIn: 'B1', pin: bailiffPin });
+db.data.users.push({ id: 'bailiff-01', caseNumber: CASE.caseNumber, kind: 'bailiff', login: 'B1', name: 'Bailiff T. Morrow', active: true, ...hashPin(bailiffPin) });
+credentials.push({ who: 'Bailiff / Clerk', signIn: `${CASE.caseNumber}-B1`, pin: bailiffPin });
 const displayPin = randomPin();
-db.data.users.push({ id: 'display-01', kind: 'display', login: 'DISPLAY', name: 'Room Display', active: true, ...hashPin(displayPin) });
-credentials.push({ who: 'Room display (projector)', signIn: 'DISPLAY', pin: displayPin });
+db.data.users.push({ id: 'display-01', caseNumber: CASE.caseNumber, kind: 'display', login: 'DISPLAY', name: 'Room Display', active: true, ...hashPin(displayPin) });
+credentials.push({ who: 'Room display (projector)', signIn: `${CASE.caseNumber}-DISPLAY`, pin: displayPin });
 
 const bailiff = db.data.users.find((u) => u.id === 'bailiff-01');
 audit({ actor: 'system', role: 'system', action: 'seed.case_created' });
@@ -101,13 +101,13 @@ await db.write();
 console.log(`\nSeeded "${CASE.caption}" (${CASE.caseNumber})`);
 console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.timeline.length} timeline events · ${db.data.menu.length} menu items\n`);
 console.log('  Sign-in credentials (shown once; PINs are stored only as hashes):\n');
-console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN');
-console.log('  ' + '─'.repeat(50));
-const rows = credentials.map((c) => '  ' + c.who.padEnd(30) + c.signIn.padEnd(12) + c.pin);
+console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(24) + 'PIN');
+console.log('  ' + '─'.repeat(62));
+const rows = credentials.map((c) => '  ' + c.who.padEnd(30) + c.signIn.padEnd(24) + c.pin);
 for (const r of rows) console.log(r);
 console.log('\n  The clerk can reset any juror PIN from /admin/jurors.');
 
 // Demo convenience: the same table, saved where the git-ignored data lives.
 const credFile = path.join(DATA_DIR, 'demo-credentials.txt');
-fs.writeFileSync(credFile, [`Demo sign-ins for "${CASE.caption}" (generated ${nowIso()})`, '', '  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(12) + 'PIN', ...rows, ''].join('\n'));
+fs.writeFileSync(credFile, [`Demo sign-ins for "${CASE.caption}" (generated ${nowIso()})`, '', '  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(24) + 'PIN', ...rows, ''].join('\n'));
 console.log(`  Also saved to ${path.relative(process.cwd(), credFile)}\n`);

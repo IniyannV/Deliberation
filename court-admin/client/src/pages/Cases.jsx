@@ -46,7 +46,7 @@ export default function Cases() {
         <Card>
           <table className="apple-table w-full text-left">
             <thead className="border-b border-line text-sm text-muted">
-              <tr><th className="px-5 py-3">Case</th><th className="py-3">Court</th><th className="py-3 text-right">Counts</th><th className="py-3 text-right">Exhibits</th><th className="py-3 pl-6">Status</th><th className="py-3 pr-5">Last sent</th></tr>
+              <tr><th className="px-5 py-3">Case</th><th className="py-3">Court</th><th className="py-3">Case ID</th><th className="py-3 text-right">Counts</th><th className="py-3 text-right">Exhibits</th><th className="py-3 pl-6">Status</th><th className="py-3 pr-5">Last sent</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {list.map((c) => (
@@ -56,6 +56,7 @@ export default function Cases() {
                     <p className="text-sm text-muted tabular-nums">{c.caseNumber}</p>
                   </td>
                   <td className="py-3 text-muted">{c.court || '–'}</td>
+                  <td className="py-3 font-mono text-sm text-muted">{c.id}</td>
                   <td className="py-3 text-right tabular-nums">{c.countCount}</td>
                   <td className="py-3 text-right tabular-nums">{c.exhibitCount}</td>
                   <td className="py-3 pl-6"><CaseStatus c={c} /></td>

@@ -49,9 +49,27 @@ export function verifyPin(user, pin) {
 export const randomPin = (digits = 6) =>
   String(crypto.randomInt(0, 10 ** digits)).padStart(digits, '0');
 
-/** Jurors sign in with their seat number; staff and the display use a login ID. */
+/** Jurors sign in with case prefix (e.g. 26-CR-0418-1 or 1); staff and display with case prefix or raw login. */
 export function findUserByIdentifier(identifier) {
   const id = String(identifier ?? '').trim();
+  const cases = Array.isArray(db.data.cases) ? db.data.cases : (db.data.case?.caseNumber ? [db.data.case] : []);
+
+  for (const c of cases) {
+    if (!c?.caseNumber) continue;
+    const prefix = c.caseNumber.toLowerCase() + '-';
+    if (id.toLowerCase().startsWith(prefix)) {
+      const rest = id.slice(prefix.length).trim();
+      if (/^\d{1,2}$/.test(rest)) {
+        const seatNum = Number(rest);
+        const match = db.data.users.find((u) => (!u.caseNumber || u.caseNumber.toLowerCase() === c.caseNumber.toLowerCase()) && u.kind === 'juror' && u.seat === seatNum);
+        if (match) return match;
+      }
+      const matchStaff = db.data.users.find((u) => (!u.caseNumber || u.caseNumber.toLowerCase() === c.caseNumber.toLowerCase()) && u.login && u.login.toLowerCase() === rest.toLowerCase());
+      if (matchStaff) return matchStaff;
+    }
+  }
+
+  // Fallback for raw seat number or bare login ID
   if (/^\d{1,2}$/.test(id)) return db.data.users.find((u) => u.kind === 'juror' && u.seat === Number(id));
   return db.data.users.find((u) => u.login && u.login.toLowerCase() === id.toLowerCase());
 }

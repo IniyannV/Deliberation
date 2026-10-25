@@ -64,6 +64,7 @@ const initial = {
   connected: false,
   role: null,
   timeline: [],
+  timelineProposals: [],
   links: [],
   notes: [],
   personal: { highlights: {}, checks: {}, timeline: [], notebook: [] }, // this juror's own highlights, checklist ticks, private timeline and notebook
@@ -182,6 +183,7 @@ export const useLive = create((set, get) => ({
       set({
         role: s.role,
         timeline: s.timeline ?? [],
+        timelineProposals: s.timelineProposals ?? [],
         links: s.links ?? [],
         notes: s.notes ?? [],
         personal: s.personal ?? initial.personal,
@@ -206,6 +208,16 @@ export const useLive = create((set, get) => ({
     })
 
     socket.on('timeline:changed', (timeline) => set({ timeline }))
+    socket.on('timeline:proposals:changed', (timelineProposals) => set({ timelineProposals }))
+    socket.on('timeline:proposal:new', (proposal) => {
+      notify(`Juror ${proposal.seat} proposed a timeline event: “${proposal.label}”`, { chime: true, tone: 'accent' })
+    })
+    socket.on('timeline:proposal:approved', ({ label }) => {
+      notify(`Your proposed event “${label}” was approved by the foreperson and added to the timeline.`, { chime: true, tone: 'ok' })
+    })
+    socket.on('timeline:proposal:rejected', ({ label }) => {
+      notify(`Your proposed event “${label}” was not approved for the shared timeline.`, { tone: 'warn' })
+    })
     socket.on('links:changed', (links) => set({ links }))
     socket.on('notes:changed', (notes) => set({ notes }))
     socket.on('personal:changed', (personal) => set({ personal }))

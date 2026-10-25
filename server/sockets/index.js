@@ -30,6 +30,7 @@ function syncPayload(user, role) {
       ...base,
       burden: db.data.case.burden ?? '',
       timeline: db.data.timeline,
+      timelineProposals: role === 'foreperson' ? (db.data.timelineProposals ?? []) : undefined,
       links: db.data.transcriptLinks,
       notes: db.data.imageNotes,
       personal: { timeline: [], notebook: [], ...(db.data.personal[user.id] ?? { highlights: {}, checks: {} }) },
@@ -57,6 +58,7 @@ export function registerSockets(io) {
     const role = roleOf(user);
     socket.join(`user:${user.id}`);
     if (ROLES.JUROR.includes(role)) socket.join('jurors');
+    if (role === 'foreperson') socket.join('forepersons');
     if (role === 'bailiff') socket.join('bailiffs');
     if (role === 'display') socket.join('display');
 

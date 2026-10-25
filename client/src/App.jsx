@@ -31,12 +31,13 @@ const JUROR_ROLES = ['juror', 'foreperson']
 function JurorShell() {
   const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
   const openToVote = useLive((s) => s.votes.filter((v) => v.status === 'open' && !s.votedIn.includes(v.id)).length)
+  const pendingProposals = useLive((s) => (s.timelineProposals ?? []).length)
   const replies = useLive(unreadRequestReplies)
   const nav = [
     { to: '/juror', label: 'Overview', icon: 'home', end: true },
     { section: 'Evidence' },
     { to: '/juror/evidence', label: 'Exhibit locker', icon: 'folder' },
-    { to: '/juror/timeline', label: 'Timeline', icon: 'timeline' },
+    { to: '/juror/timeline', label: 'Timeline', icon: 'timeline', badge: isForeperson ? pendingProposals : 0 },
     { to: '/juror/notes', label: 'My notes', icon: 'note' },
     { section: 'Deliberation' },
     { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },

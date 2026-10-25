@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
+import { toast } from '../../store/ui'
 import { EVENT_TYPES, fromLocalInput, toLocalInput } from '../../lib/format'
 import { Button, ErrorText, Field, Input, Modal, Select, Textarea, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
@@ -39,6 +41,7 @@ function checkExcerpt(excerpt, transcript) {
 export default function EventEditor({ open, initial, defaultAt, scope = 'shared', onClose, onSaved }) {
   const exhibits = useLive((s) => s.exhibits)
   const emit = useLive((s) => s.emit)
+  const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
   const editing = !!initial?.id
   const [form, setForm] = useState(() => ({
     label: initial?.label ?? '',
@@ -83,7 +86,11 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
       const res = editing
         ? await emit('timeline:update', { ...payload, id: initial.id, version: initial.version })
         : await emit('timeline:create', payload)
-      onSaved?.(res.event)
+      if (res?.proposed) {
+        toast(`Event proposed to foreperson for moderation.`, { tone: 'accent' })
+      } else {
+        onSaved?.(res.event)
+      }
       onClose()
     } catch (err) {
       setError(err.message)
@@ -92,17 +99,36 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
     }
   }
 
+  const modalTitle = editing
+    ? 'Edit event'
+    : scope === 'personal'
+      ? 'Add an event to my timeline'
+      : isForeperson
+        ? 'Add an event to the shared timeline'
+        : 'Propose an event for the timeline'
+
+  const submitLabel = editing
+    ? 'Save changes'
+    : scope === 'personal' || isForeperson
+      ? 'Add event'
+      : 'Submit for review'
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       wide
-      title={editing ? 'Edit event' : scope === 'personal' ? 'Add an event to my timeline' : 'Add an event to the shared timeline'}
+      title={modalTitle}
       footer={<>
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" type="submit" form="event-form" disabled={busy}>{editing ? 'Save changes' : 'Add event'}</Button>
+        <Button variant="primary" type="submit" form="event-form" disabled={busy}>{submitLabel}</Button>
       </>}
     >
+      {!editing && scope !== 'personal' && !isForeperson && (
+        <div className="mb-4 rounded-lg bg-surface-2 p-3 text-sm text-muted">
+          Events added to the shared timeline are moderated by the foreperson before appearing to everyone.
+        </div>
+      )}
       <form id="event-form" onSubmit={save} className="flex flex-col gap-5">
         <div className="grid grid-cols-[1fr_auto] gap-4">
           <Field label="What happened">

@@ -121,7 +121,7 @@ export default function CaseExport() {
           ) : (
             <p className="flex items-center gap-2 rounded-xl bg-fill px-4 py-3 text-muted"><Icon name="info" size={18} /> Finish the checklist to send the case.</p>
           )}
-          <p className="mt-4 text-sm text-muted">Sending again replaces the case on the iPads, and every iPad signs in again. The jury server must be running (<code className="font-mono">npm start</code>).</p>
+          <p className="mt-4 text-sm text-muted">Multiple court cases can be pushed simultaneously. If this same trial was already sent with active deliberations, confirming will update its exhibits and settings. The jury server must be running (<code className="font-mono">npm start</code>).</p>
         </Card>
 
         {ready && (

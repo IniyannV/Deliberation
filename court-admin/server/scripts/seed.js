@@ -59,7 +59,7 @@ account('clerk', 'Deputy Clerk R. Patel', 'clerk');
 /* ── The ready case ── */
 const now = nowIso();
 const ready = {
-  id: newId('case'),
+  id: 'courtcase-1',
   caption: CASE.caption,
   caseNumber: CASE.caseNumber,
   court: CASE.court,
@@ -108,7 +108,7 @@ ready.signoff = signoff(ready, { judge: 'Hon. M. Castellanos', prosecution: 'ADA
 
 /* ── A case still being prepared ── */
 db.data.cases.push({
-  id: newId('case'),
+  id: 'courtcase-2',
   caption: 'People v. Rafael Alvarez',
   caseNumber: '26-CR-0533',
   court: 'Millbrook County Superior Court, Part 1',
@@ -125,7 +125,7 @@ db.data.cases.push({
 
 /* ── A Texas trial, also ready for the jury room ── */
 const texas = {
-  id: newId('case'),
+  id: 'courtcase-3',
   caption: TEXAS_CASE.caption,
   caseNumber: TEXAS_CASE.caseNumber,
   court: TEXAS_CASE.court,
@@ -150,21 +150,21 @@ db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: 
 
 await db.write();
 
-const table = (rows) => rows.map((r) => '  ' + r.who.padEnd(34) + r.signIn.padEnd(12) + r.secret);
+const table = (rows) => rows.map((r) => '  ' + r.who.padEnd(34) + r.signIn.padEnd(24) + r.secret);
 const lines = [
   `Court Admin demo sign-ins (generated ${now})`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Username'.padEnd(12) + 'Password',
+  '  ' + 'Who'.padEnd(34) + 'Username'.padEnd(24) + 'Password',
   ...table(logins),
   '',
   `Jury-room PINs for ${CASE.caseNumber} (they travel in the case package as hashes)`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(12) + 'PIN',
+  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(24) + 'PIN',
   ...table(pins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
   '',
   `Jury-room PINs for ${TEXAS_CASE.caseNumber}`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(12) + 'PIN',
+  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(24) + 'PIN',
   ...table(texasPins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
   '',
 ];

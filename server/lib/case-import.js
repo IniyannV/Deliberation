@@ -112,20 +112,38 @@ async function stageExhibits(file, exhibits, byName, staging) {
   return imported;
 }
 
-/** Deliberation work for the case loaded now, which an import would wipe. */
-export const leftoverWork = () => db.data.timeline.length + db.data.votes.length + db.data.requests.length + db.data.imageNotes.length;
+/** Deliberation work for this specific case (or legacy single case). */
+export const leftoverWorkForCase = (caseNumber) => {
+  if (!caseNumber) return 0;
+  const cn = caseNumber.toLowerCase();
+  const caseUserIds = new Set(
+    db.data.users.filter((u) => u.caseNumber?.toLowerCase() === cn).map((u) => u.id)
+  );
+  const requestsForCase = db.data.requests.filter((r) => r.caseNumber?.toLowerCase() === cn || caseUserIds.has(r.seatId)).length;
+  // If this case is the main loaded case or if case-specific deliberations exist
+  const isCurrentMain = db.data.case?.caseNumber?.toLowerCase() === cn;
+  const mainDelib = isCurrentMain
+    ? db.data.timeline.length + (db.data.timelineProposals?.length ?? 0) + db.data.votes.length + db.data.imageNotes.length
+    : 0;
+  return mainDelib + requestsForCase;
+};
+
+export const leftoverWork = (caseNumber) => {
+  if (caseNumber) return leftoverWorkForCase(caseNumber);
+  return db.data.timeline.length + (db.data.timelineProposals?.length ?? 0) + db.data.votes.length + db.data.requests.length + db.data.imageNotes.length;
+};
 
 /**
- * Check `file` and load it in place of the current trial. Throws an
- * ImportError (code 'leftover' when only `replace` is missing) and leaves
- * everything as it was if a check fails.
+ * Check `file` and load it into the jury server. Supports hosting multiple
+ * cases simultaneously without wiping unrelated cases or requiring replace
+ * unless the exact same case already holds active deliberation work.
  */
 export async function importCase(file, { replace = false, onProgress = () => {} } = {}) {
   const { manifest, byName } = readManifest(file);
   const { case: kase, jury, exhibits, menu = [], supplies = [] } = manifest;
 
-  if (leftoverWork() && !replace) {
-    fail(`this laptop still holds deliberation work for ${db.data.case.caseNumber || 'another case'}. Replace it only once the court is finished with it.`, 'leftover');
+  if (leftoverWorkForCase(kase.caseNumber) && !replace) {
+    fail(`this laptop still holds deliberation work for ${kase.caseNumber}. Replace it only once the court is finished with it.`, 'leftover');
   }
 
   onProgress(`Checking ${exhibits.length} exhibits…`);
@@ -139,33 +157,69 @@ export async function importCase(file, { replace = false, onProgress = () => {} 
     throw err;
   }
 
-  // Every check passed: replace the old trial.
-  let archived = null;
-  if (fs.existsSync(AUDIT_FILE)) {
-    archived = AUDIT_FILE.replace('.jsonl', `.archived-${Date.now()}.jsonl`);
-    fs.renameSync(AUDIT_FILE, archived);
+  // Copy newly imported exhibit files into the persistent UPLOAD_DIR
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  for (const f of fs.readdirSync(staging)) {
+    fs.copyFileSync(path.join(staging, f), path.join(UPLOAD_DIR, f));
   }
-  resetAudit();
-  fs.rmSync(UPLOAD_DIR, { recursive: true, force: true });
-  fs.renameSync(staging, UPLOAD_DIR);
+  fs.rmSync(staging, { recursive: true, force: true });
 
-  const data = defaultData();
-  data.case = { caption: kase.caption, caseNumber: kase.caseNumber, court: kase.court ?? '', burden: kase.burden ?? '', counts: kase.counts };
+  // Update cases list and primary case
+  db.data.cases ??= [];
+  // Remove existing entry for this case if replacing/updating
+  db.data.cases = db.data.cases.filter((c) => c.caseNumber?.toLowerCase() !== kase.caseNumber?.toLowerCase());
+  const caseRecord = {
+    id: manifest.case.id || `courtcase-${db.data.cases.length + 1}`,
+    caption: kase.caption,
+    caseNumber: kase.caseNumber,
+    court: kase.court ?? '',
+    burden: kase.burden ?? '',
+    counts: kase.counts,
+  };
+  db.data.cases.push(caseRecord);
+  db.data.case = caseRecord;
+
+  // Update users for this case
   const pin = (p) => ({ pinHash: p.pinHash, pinSalt: p.pinSalt });
+  db.data.users = db.data.users.filter((u) => u.caseNumber?.toLowerCase() !== kase.caseNumber?.toLowerCase());
   for (const s of jury.seats) {
     const name = text(s.name, 80) ? s.name.trim() : undefined;
-    data.users.push({ id: `seat-${String(s.seat).padStart(2, '0')}`, kind: 'juror', seat: s.seat, name, isForeperson: s.seat === jury.foreperson, active: true, ...pin(s) });
+    dataPushUser({ id: `${kase.caseNumber}-seat-${String(s.seat).padStart(2, '0')}`, caseNumber: kase.caseNumber, kind: 'juror', seat: s.seat, name, isForeperson: s.seat === jury.foreperson, active: true, ...pin(s) });
   }
-  data.users.push({ id: 'bailiff-01', kind: 'bailiff', login: jury.bailiff.login, name: jury.bailiff.name || 'Bailiff', active: true, ...pin(jury.bailiff) });
-  data.users.push({ id: 'display-01', kind: 'display', login: 'DISPLAY', name: 'Room Display', active: true, ...pin(jury.display) });
-  data.exhibits = imported;
-  data.menu = menu.map((m) => ({ id: newId('menu'), name: String(m.name).slice(0, 80), category: m.category || 'Main', dietary: m.dietary || '', available: m.available !== false }));
-  data.supplies = supplies.map((s) => ({ id: newId('sup'), name: String(s.name).slice(0, 80), available: s.available !== false }));
-  // The fictional sample cases arrive with their shared timeline already filled in.
-  data.timeline = demoTimeline(kase.caseNumber, imported);
-  db.data = data;
-  await db.write();
-  audit({ actor: 'system', role: 'system', action: 'case.imported', meta: { itemCount: imported.length } });
+  dataPushUser({ id: `${kase.caseNumber}-bailiff-01`, caseNumber: kase.caseNumber, kind: 'bailiff', login: jury.bailiff.login, name: jury.bailiff.name || 'Bailiff', active: true, ...pin(jury.bailiff) });
+  dataPushUser({ id: `${kase.caseNumber}-display-01`, caseNumber: kase.caseNumber, kind: 'display', login: 'DISPLAY', name: 'Room Display', active: true, ...pin(jury.display) });
 
-  return { manifest, archived, exhibitCount: imported.length, seatCount: jury.seats.length };
+  function dataPushUser(userObj) {
+    db.data.users.push(userObj);
+  }
+
+  // Merge exhibits (replace this case's previous exhibits)
+  db.data.exhibits = db.data.exhibits.filter((e) => e.caseNumber?.toLowerCase() !== kase.caseNumber?.toLowerCase());
+  for (const ex of imported) {
+    ex.caseNumber = kase.caseNumber;
+    db.data.exhibits.push(ex);
+  }
+
+  // Merge menu and supplies if not already present
+  for (const m of menu) {
+    if (!db.data.menu.some((x) => x.name.toLowerCase() === m.name.toLowerCase())) {
+      db.data.menu.push({ id: newId('menu'), name: String(m.name).slice(0, 80), category: m.category || 'Main', dietary: m.dietary || '', available: m.available !== false });
+    }
+  }
+  for (const s of supplies) {
+    if (!db.data.supplies.some((x) => x.name.toLowerCase() === s.name.toLowerCase())) {
+      db.data.supplies.push({ id: newId('sup'), name: String(s.name).slice(0, 80), available: s.available !== false });
+    }
+  }
+
+  // Seed sample demo timeline for this case if provided
+  const demoEvents = demoTimeline(kase.caseNumber, imported);
+  if (demoEvents.length) {
+    db.data.timeline = demoEvents;
+  }
+
+  await db.write();
+  audit({ actor: 'system', role: 'system', action: 'case.imported', meta: { caseNumber: kase.caseNumber, itemCount: imported.length } });
+
+  return { manifest, exhibitCount: imported.length, seatCount: jury.seats.length };
 }

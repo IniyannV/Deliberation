@@ -17,6 +17,18 @@ import { HttpError, bad, compareExhibitNumbers, int, isoDate, newId, nowIso, opt
 
 export const DEFAULT_BURDEN = 'The prosecution must prove every element of a count beyond a reasonable doubt. If it has not proven any one element, you must find the defendant not guilty of that count.';
 
+export function newCaseId() {
+  let max = 0;
+  for (const c of db.data.cases) {
+    const m = String(c?.id ?? '').match(/^courtcase-(\d+)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  }
+  return `courtcase-${max + 1}`;
+}
+
 export const findCase = (id) => {
   const c = db.data.cases.find((x) => x.id === id);
   if (!c) throw new HttpError(404, 'Case not found');
@@ -125,10 +137,10 @@ export function generatePins(c, which) {
   };
   const seat = (n) => {
     const name = c.jury.names?.[n];
-    issue(`${name ? `${name}, juror` : 'Juror'} seat ${n}${n === c.jury.foreperson ? ' (foreperson)' : ''}`, String(n), (h) => { c.jury.seats[n] = h; });
+    issue(`${name ? `${name}, juror` : 'Juror'} seat ${n}${n === c.jury.foreperson ? ' (foreperson)' : ''}`, `${c.caseNumber}-${n}`, (h) => { c.jury.seats[n] = h; });
   };
-  const bailiff = () => issue(`Bailiff (${c.jury.bailiff.name})`, c.jury.bailiff.login, (h) => { c.jury.bailiff = { ...c.jury.bailiff, ...h }; });
-  const display = () => issue('Room display', 'DISPLAY', (h) => { c.jury.display = h; });
+  const bailiff = () => issue(`Bailiff (${c.jury.bailiff.name})`, `${c.caseNumber}-${c.jury.bailiff.login}`, (h) => { c.jury.bailiff = { ...c.jury.bailiff, ...h }; });
+  const display = () => issue('Room display', `${c.caseNumber}-DISPLAY`, (h) => { c.jury.display = h; });
 
   if (which === 'all' || which === 'missing') {
     for (let n = 1; n <= c.jury.seatCount; n++) if (which === 'all' || !c.jury.seats[n]) seat(n);
