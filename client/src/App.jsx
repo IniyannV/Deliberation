@@ -40,7 +40,7 @@ function JurorShell() {
     { to: '/juror/timeline', label: 'Timeline', icon: 'timeline', badge: isForeperson ? pendingProposals : 0 },
     { to: '/juror/notes', label: 'My notes', icon: 'note' },
     { section: 'Deliberation' },
-    { to: '/juror/voting', label: 'Polls & ballots', icon: 'vote', badge: openToVote },
+    { to: '/juror/voting', label: 'Ballots and Charges', icon: 'vote', badge: openToVote },
     ...(isForeperson ? [{ to: '/juror/projector', label: 'Room projector', icon: 'monitor' }] : []),
     { to: '/juror/requests', label: 'Requests', icon: 'bell', badge: replies },
   ]
