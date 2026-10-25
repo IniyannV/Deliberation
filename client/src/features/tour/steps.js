@@ -10,12 +10,11 @@ const JUROR = [
   { route: '/juror/review', target: 'review-exhibit', title: 'Compare with any exhibit', body: 'Pick an exhibit here, or click a linked chip in the transcript to jump straight to it. Drag the divider to resize the panes.' },
   { route: '/juror/timeline', target: 'timeline-board', title: 'Shared and personal timelines', body: 'The shared timeline is edited by every juror and syncs live to the room display. Switch to “My timeline” for a private one only you can see. Drag a card sideways to change its time, double-click empty space to add an event there, and right-click or long-press a card to edit or delete it.' },
   { route: '/juror/timeline', target: 'timeline-controls', title: 'One line or three lanes', body: 'Show one row per kind of event, or everything on a single line. “Compact” squeezes out the extra space between far-apart events.' },
-  { route: '/juror/notes', title: 'Your own notes', body: 'A private notebook, like a word processor: headings, lists, highlights. Only you can read it, and it follows you to any device you sign in on. The speaker button reads a note aloud.' },
+  { route: '/juror/notes', title: 'Your own notes', body: 'A private notebook, like a word processor: headings, lists, highlights. Only you can read it, and it follows you to any device you sign in on.' },
   { route: '/juror/voting', target: 'foreperson-panel', roles: ['foreperson'], title: 'Foreperson controls', body: 'As foreperson you open polls and secret ballots here.' },
   { route: '/juror/projector', target: 'projector-preview', roles: ['foreperson'], title: 'The room projector', body: 'Choose what the wall display shows: the timeline, votes, any exhibit, or an announcement with a break countdown. The preview is exactly what the room sees, and Blackout blanks it in one tap.' },
   { route: '/juror/voting', target: 'voting-open', title: 'Polls and secret ballots', body: 'Polls are informal check-ins. Ballots are formal and secret: the server records that a seat voted separately from the choice and never links the two. Every ballot explains everything that must be proven for a guilty verdict.' },
   { route: '/juror/requests', target: 'request-templates', title: 'Ask the bailiff', body: 'Breaks, meals and supplies. The foreperson can also send a question to the judge. You can message the bailiff about any request.' },
-  { target: 'read-aloud', title: 'Read aloud', body: 'Turn this on to have the device read any page to you, or select text and tap Speak. It uses the device’s own voices, so nothing leaves the room.' },
   { target: 'tour-button', title: 'That’s the tour', body: 'Restart it any time from here. To see the court staff’s side, sign out and sign in as B1 (bailiff), or as DISPLAY for the room projector.' },
 ]
 

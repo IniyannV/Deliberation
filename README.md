@@ -159,7 +159,7 @@ they can't be added, and any already loaded are hidden from jurors and the displ
 
 | Role | Sign in with | Lands on |
 |---|---|---|
-| Juror | `<caseNumber>-<seat>` (e.g. `D-1-DC-26-301874-2` to `12`) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, private notes, requests, read aloud |
+| Juror | `<caseNumber>-<seat>` (e.g. `D-1-DC-26-301874-2` to `12`) + PIN | `/juror`: evidence, side-by-side review, shared and personal timelines, voting, private notes, requests |
 | Foreperson | `<caseNumber>-1` (e.g. `D-1-DC-26-301874-1`) + PIN | same as juror, plus poll/ballot controls, judge questions, the "we have a verdict" notice, room-display control |
 | Room display | `D-1-DC-26-301874-DISPLAY` (or `DISPLAY`) + PIN | `/display`: full-screen projector view (read-only) |
 | Bailiff / Clerk | `D-1-DC-26-301874-B1` (or `B1`) + PIN | `/admin`: request queue and the court's answers, evidence upload, seats & PINs, menu, court controls, audit log |

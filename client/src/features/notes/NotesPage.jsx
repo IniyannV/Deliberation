@@ -3,7 +3,6 @@ import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
 import { timeAgo } from '../../lib/format'
-import { useSpeech } from '../../lib/speech'
 import { Button, Card, EmptyState, Modal, PageHeader, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import { align, blocksIn, highlight, plainText, sanitize, unhighlight } from './richText'
@@ -173,7 +172,6 @@ const Divider = () => <span className="mx-1 h-5 w-px bg-line" aria-hidden />
 
 function NoteEditor({ page, onDelete }) {
   const emit = useLive((s) => s.emit)
-  const { supported: canSpeak, speaking, speak, stop } = useSpeech()
   const editor = useRef(null)
   const range = useRef(null) // the selection in the note, kept while a toolbar control has focus
   const html = useRef(page.html)
@@ -351,13 +349,6 @@ function NoteEditor({ page, onDelete }) {
     else document.execCommand('insertText', false, e.clipboardData.getData('text/plain'))
   }
 
-  function readAloud() {
-    if (speaking) return stop()
-    const sel = document.getSelection()
-    const picked = sel && !sel.isCollapsed && editor.current.contains(sel.anchorNode) ? sel.toString() : ''
-    speak(picked || `${title || 'Untitled note'}. ${editor.current.innerText}`)
-  }
-
   const STATUS = { saved: 'Saved', saving: 'Saving…', editing: 'Editing…', error: 'Couldn’t save. Retrying…' }
 
   return (
@@ -394,14 +385,6 @@ function NoteEditor({ page, onDelete }) {
           <Tool icon="eraser" label="Clear formatting" onClick={clearFormatting} />
         </div>
         <span className="flex shrink-0 items-center gap-0.5 border-l border-line/60 pl-1.5">
-          {canSpeak && (
-            <Tool
-              icon={speaking ? 'stop' : 'volume'}
-              label={speaking ? 'Stop reading' : 'Read aloud (the selection, or the whole note)'}
-              on={speaking}
-              onClick={readAloud}
-            />
-          )}
           <Tool icon="trash" label="Delete note" onClick={onDelete} className="text-danger" />
         </span>
       </div>
