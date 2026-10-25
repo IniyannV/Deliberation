@@ -123,24 +123,24 @@ function hashPin(pin) {
  * number, or a list of those (to print a chosen set of slips at once).
  * Returns the plain PINs, which are shown once and never stored.
  */
-export function generatePins(c, which) {
+export function generatePins(c, which, pinMap = null) {
   if (Array.isArray(which)) {
     if (!which.length || which.length > 20) throw bad('Choose who needs new PINs');
     const seen = new Set();
-    return which.map(String).filter((w) => !seen.has(w) && seen.add(w)).flatMap((w) => generatePins(c, w));
+    return which.map(String).filter((w) => !seen.has(w) && seen.add(w)).flatMap((w) => generatePins(c, w, pinMap));
   }
   const issued = [];
-  const issue = (who, signIn, set) => {
-    const pin = randomPin();
+  const issue = (who, signIn, set, pinKey) => {
+    const pin = (pinMap && pinMap[pinKey]) ? String(pinMap[pinKey]) : randomPin();
     set(hashPin(pin));
     issued.push({ who, signIn, pin });
   };
   const seat = (n) => {
     const name = c.jury.names?.[n];
-    issue(`${name ? `${name}, juror` : 'Juror'} seat ${n}${n === c.jury.foreperson ? ' (foreperson)' : ''}`, `${c.caseNumber}-${n}`, (h) => { c.jury.seats[n] = h; });
+    issue(`${name ? `${name}, juror` : 'Juror'} seat ${n}${n === c.jury.foreperson ? ' (foreperson)' : ''}`, `${c.caseNumber}-${n}`, (h) => { c.jury.seats[n] = h; }, n);
   };
-  const bailiff = () => issue(`Bailiff (${c.jury.bailiff.name})`, `${c.caseNumber}-${c.jury.bailiff.login}`, (h) => { c.jury.bailiff = { ...c.jury.bailiff, ...h }; });
-  const display = () => issue('Room display', `${c.caseNumber}-DISPLAY`, (h) => { c.jury.display = h; });
+  const bailiff = () => issue(`Bailiff (${c.jury.bailiff.name})`, `${c.caseNumber}-${c.jury.bailiff.login}`, (h) => { c.jury.bailiff = { ...c.jury.bailiff, ...h }; }, 'bailiff');
+  const display = () => issue('Room display', `${c.caseNumber}-DISPLAY`, (h) => { c.jury.display = h; }, 'display');
 
   if (which === 'all' || which === 'missing') {
     for (let n = 1; n <= c.jury.seatCount; n++) if (which === 'all' || !c.jury.seats[n]) seat(n);

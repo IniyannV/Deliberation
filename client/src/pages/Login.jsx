@@ -50,13 +50,13 @@ export default function Login() {
             <Icon name="scale" size={38} strokeWidth={1.6} />
           </span>
           <h1 className="text-[2rem] font-bold">Deliberation</h1>
-          <p className="mt-2 text-[1.0625rem] text-muted">Sign in with the seat number and PIN the court clerk gave you.</p>
+          <p className="mt-2 text-[1.0625rem] text-muted">Sign in with the case identifier and PIN from your juror slip.</p>
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           {/* Grouped inset fields, separated by a hairline. */}
           <div key={shake} className={cx('overflow-hidden rounded-2xl bg-surface shadow-card focus-within:shadow-[0_0_0_4px_var(--color-accent-soft),var(--shadow-card)]', shake && 'shake')}>
-            <label className="sr-only" htmlFor="login-id">Seat number or staff ID</label>
+            <label className="sr-only" htmlFor="login-id">Case number and seat or staff ID</label>
             <input
               id="login-id"
               autoFocus
@@ -64,7 +64,7 @@ export default function Login() {
               autoCapitalize="characters"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="Seat number or staff ID"
+              placeholder="Case and seat (e.g. D-1-DC-26-301874-1)"
               className={field}
               required
             />
@@ -100,12 +100,12 @@ export default function Login() {
           </summary>
           <div className="px-4 pb-4">
             <ul className="flex flex-col gap-1 text-muted">
-              <li><b className="text-ink">26-CR-0418-1</b>: foreperson (or seat <b className="text-ink">1</b>)</li>
-              <li><b className="text-ink">26-CR-0418-2</b> to <b className="text-ink">12</b>: jurors (or seats <b className="text-ink">2–12</b>)</li>
-              <li><b className="text-ink">26-CR-0418-B1</b>: bailiff / clerk (or <b className="text-ink">B1</b>)</li>
-              <li><b className="text-ink">26-CR-0418-DISPLAY</b>: room projector (or <b className="text-ink">DISPLAY</b>)</li>
+              <li><b className="text-ink">D-1-DC-26-301874-1</b>: foreperson (Seat 1) &mdash; PIN: <b className="text-ink">863462</b></li>
+              <li><b className="text-ink">D-1-DC-26-301874-2</b> to <b className="text-ink">12</b>: jurors (see <code>README.md</code> for PINs)</li>
+              <li><b className="text-ink">D-1-DC-26-301874-B1</b> (or <b className="text-ink">B1</b>): bailiff / clerk &mdash; PIN: <b className="text-ink">906447</b></li>
+              <li><b className="text-ink">D-1-DC-26-301874-DISPLAY</b> (or <b className="text-ink">DISPLAY</b>): room projector &mdash; PIN: <b className="text-ink">673490</b></li>
             </ul>
-            <p className="mt-2 text-muted">Sign in with your case number prefix (e.g. <code>26-CR-0418-1</code>) and PIN printed by <code>npm run seed</code> or Court Admin PIN sheets. After signing in, choose <b className="text-ink">Guided tour</b> in the sidebar.</p>
+            <p className="mt-2 text-muted">Because multiple trials run concurrently on this system, jurors sign in with their full case prefix (<code>D-1-DC-26-301874-&lt;seat&gt;</code>). After signing in, choose <b className="text-ink">Guided tour</b> in the sidebar.</p>
           </div>
         </details>
       </div>

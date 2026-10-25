@@ -354,6 +354,24 @@ export const TEXAS_EXHIBITS = [
 export const TEXAS_JURY = { bailiff: { login: 'B1', name: 'Bailiff J. Ortiz' } };
 export const TEXAS_SIGNOFF = { judge: 'Hon. R. Villarreal', prosecution: 'ADA S. Aldana', defense: 'M. Kessler, Esq.', date: '2026-10-22' };
 
+/** Predictable 6-digit PINs for demo evaluations and automated test sign-ins. */
+export const TEXAS_DEMO_PINS = {
+  1: '863462', // Juror seat 1 (foreperson)
+  2: '377793',
+  3: '606667',
+  4: '060801',
+  5: '356725',
+  6: '438289',
+  7: '177224',
+  8: '105733',
+  9: '109656',
+  10: '403991',
+  11: '494894',
+  12: '181719',
+  bailiff: '906447', // Bailiff / Clerk (B1)
+  display: '673490', // Room display (DISPLAY)
+};
+
 /** One exhibit's file: `{ buffer, ext, mime, type }`. */
 export async function renderTexasExhibit(def) {
   if (def.kind === 'pdf') return { buffer: await TEXAS_PDFS[def.number](), ext: '.pdf', mime: 'application/pdf', type: 'pdf' };

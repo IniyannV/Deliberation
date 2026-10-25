@@ -2,9 +2,8 @@
  * npm run seed: creates a fictional case for demos.
  * Stop the server first; this replaces server/data/db.json.
  *
- * To load a real case instead, a clerk can run this once to create seats and
- * staff accounts, then remove the demo exhibits and upload real ones from
- * /admin/evidence (or edit CASE in scripts/lib/case-content.js).
+ * Seeds the Texas trial case (The State of Texas v. Cody Ray Brennan)
+ * into the Jury Deliberation server (port 4000) for juror iPads.
  */
 import fs from 'node:fs';
 import net from 'node:net';
@@ -15,8 +14,8 @@ import { hashPin, randomPin } from '../auth.js';
 import { audit, initAudit } from '../services/audit.js';
 import { parseTranscript } from '../lib/exhibits.js';
 import { newId, nowIso } from '../lib/util.js';
-import { CASE, MENU, SUPPLIES } from './lib/case-content.js';
-import { DEMO_EXHIBITS, renderDemoExhibit } from './lib/demo-exhibits.js';
+import { MENU, SUPPLIES } from './lib/case-content.js';
+import { TEXAS_CASE, TEXAS_EXHIBITS, TEXAS_JURY, TEXAS_DEMO_PINS, renderTexasExhibit } from './lib/texas-case.js';
 import { demoTimeline } from './lib/demo-timeline.js';
 
 const FOREPERSON_SEAT = 1;
@@ -46,33 +45,84 @@ fs.rmSync(UPLOAD_DIR, { recursive: true, force: true });
 await initDb();
 initAudit();
 db.data = defaultData();
-db.data.case = CASE;
+
+const caseRecord = {
+  id: 'courtcase-3',
+  caption: TEXAS_CASE.caption,
+  caseNumber: TEXAS_CASE.caseNumber,
+  court: TEXAS_CASE.court,
+  burden: TEXAS_CASE.burden,
+  counts: TEXAS_CASE.counts,
+};
+db.data.case = caseRecord;
+db.data.cases = [caseRecord];
 
 /* ── Accounts ── */
 const credentials = [];
 for (let seat = 1; seat <= 12; seat++) {
-  const pin = randomPin();
-  db.data.users.push({ id: `seat-${String(seat).padStart(2, '0')}`, caseNumber: CASE.caseNumber, kind: 'juror', seat, isForeperson: seat === FOREPERSON_SEAT, active: true, ...hashPin(pin) });
-  credentials.push({ who: `Juror seat ${seat}${seat === FOREPERSON_SEAT ? ' (foreperson)' : ''}`, signIn: `${CASE.caseNumber}-${seat}`, pin });
+  const pin = TEXAS_DEMO_PINS[seat] || randomPin();
+  db.data.users.push({
+    id: `${TEXAS_CASE.caseNumber}-seat-${String(seat).padStart(2, '0')}`,
+    caseNumber: TEXAS_CASE.caseNumber,
+    kind: 'juror',
+    seat,
+    isForeperson: seat === FOREPERSON_SEAT,
+    active: true,
+    ...hashPin(pin),
+  });
+  credentials.push({
+    who: `Juror seat ${seat}${seat === FOREPERSON_SEAT ? ' (foreperson)' : ''}`,
+    signIn: `${TEXAS_CASE.caseNumber}-${seat}`,
+    pin,
+  });
 }
-const bailiffPin = randomPin();
-db.data.users.push({ id: 'bailiff-01', caseNumber: CASE.caseNumber, kind: 'bailiff', login: 'B1', name: 'Bailiff T. Morrow', active: true, ...hashPin(bailiffPin) });
-credentials.push({ who: 'Bailiff / Clerk', signIn: `${CASE.caseNumber}-B1`, pin: bailiffPin });
-const displayPin = randomPin();
-db.data.users.push({ id: 'display-01', caseNumber: CASE.caseNumber, kind: 'display', login: 'DISPLAY', name: 'Room Display', active: true, ...hashPin(displayPin) });
-credentials.push({ who: 'Room display (projector)', signIn: `${CASE.caseNumber}-DISPLAY`, pin: displayPin });
 
-const bailiff = db.data.users.find((u) => u.id === 'bailiff-01');
-audit({ actor: 'system', role: 'system', action: 'seed.case_created' });
+const bailiffLogin = TEXAS_JURY.bailiff?.login || 'B1';
+const bailiffName = TEXAS_JURY.bailiff?.name || 'Bailiff J. Ortiz';
+const bailiffPin = TEXAS_DEMO_PINS.bailiff || randomPin();
+db.data.users.push({
+  id: `${TEXAS_CASE.caseNumber}-bailiff-01`,
+  caseNumber: TEXAS_CASE.caseNumber,
+  kind: 'bailiff',
+  login: bailiffLogin,
+  name: bailiffName,
+  active: true,
+  ...hashPin(bailiffPin),
+});
+credentials.push({
+  who: `Bailiff (${bailiffName})`,
+  signIn: `${TEXAS_CASE.caseNumber}-${bailiffLogin}`,
+  pin: bailiffPin,
+});
+
+const displayPin = TEXAS_DEMO_PINS.display || randomPin();
+db.data.users.push({
+  id: `${TEXAS_CASE.caseNumber}-display-01`,
+  caseNumber: TEXAS_CASE.caseNumber,
+  kind: 'display',
+  login: 'DISPLAY',
+  name: 'Room Display',
+  active: true,
+  ...hashPin(displayPin),
+});
+credentials.push({
+  who: 'Room display (projector)',
+  signIn: `${TEXAS_CASE.caseNumber}-DISPLAY`,
+  pin: displayPin,
+});
+
+const bailiff = db.data.users.find((u) => u.kind === 'bailiff');
+audit({ actor: 'system', role: 'system', action: 'seed.case_created', meta: { caseNumber: TEXAS_CASE.caseNumber } });
 
 /* ── Exhibits ── */
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-for (const def of DEMO_EXHIBITS) {
-  const { buffer, ext, mime, type } = await renderDemoExhibit(def);
+for (const def of TEXAS_EXHIBITS) {
+  const { buffer, ext, mime, type } = await renderTexasExhibit(def);
   const stored = `${newId('file')}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, stored), buffer);
   const exhibit = {
     id: newId('ex'),
+    caseNumber: TEXAS_CASE.caseNumber,
     number: def.number,
     title: def.title,
     party: def.party,
@@ -85,11 +135,17 @@ for (const def of DEMO_EXHIBITS) {
     uploadedAt: nowIso(),
   };
   db.data.exhibits.push(exhibit);
-  audit({ actor: bailiff.id, role: 'bailiff', action: 'exhibit.uploaded', target: exhibit.id, meta: { exhibitNumber: exhibit.number, exhibitType: type } });
+  audit({
+    actor: bailiff.id,
+    role: 'bailiff',
+    action: 'exhibit.uploaded',
+    target: exhibit.id,
+    meta: { exhibitNumber: exhibit.number, exhibitType: type },
+  });
 }
 
 /* ── A shared timeline already filled in, to demo ── */
-db.data.timeline = demoTimeline(CASE.caseNumber, db.data.exhibits);
+db.data.timeline = demoTimeline(TEXAS_CASE.caseNumber, db.data.exhibits);
 
 /* ── Menu and supplies ── */
 db.data.menu = MENU.map((m) => ({ id: newId('menu'), ...m, available: true }));
@@ -98,16 +154,28 @@ db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: 
 await db.write();
 
 /* ── Credentials ── */
-console.log(`\nSeeded "${CASE.caption}" (${CASE.caseNumber})`);
+console.log(`\nSeeded "${TEXAS_CASE.caption}" (${TEXAS_CASE.caseNumber})`);
 console.log(`  ${db.data.exhibits.length} exhibits · ${db.data.timeline.length} timeline events · ${db.data.menu.length} menu items\n`);
 console.log('  Sign-in credentials (shown once; PINs are stored only as hashes):\n');
-console.log('  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(24) + 'PIN');
-console.log('  ' + '─'.repeat(62));
-const rows = credentials.map((c) => '  ' + c.who.padEnd(30) + c.signIn.padEnd(24) + c.pin);
+console.log('  ' + 'Who'.padEnd(32) + 'Sign-in ID'.padEnd(28) + 'PIN');
+console.log('  ' + '─'.repeat(66));
+const rows = credentials.map((c) => '  ' + c.who.padEnd(32) + c.signIn.padEnd(28) + c.pin);
 for (const r of rows) console.log(r);
+console.log('  ' + '─'.repeat(66));
 console.log('\n  The clerk can reset any juror PIN from /admin/jurors.');
 
 // Demo convenience: the same table, saved where the git-ignored data lives.
 const credFile = path.join(DATA_DIR, 'demo-credentials.txt');
-fs.writeFileSync(credFile, [`Demo sign-ins for "${CASE.caption}" (generated ${nowIso()})`, '', '  ' + 'Who'.padEnd(30) + 'Seat / ID'.padEnd(24) + 'PIN', ...rows, ''].join('\n'));
+fs.writeFileSync(
+  credFile,
+  [
+    `Demo sign-ins for "${TEXAS_CASE.caption}" (${TEXAS_CASE.caseNumber}) (generated ${nowIso()})`,
+    '',
+    '  ' + 'Who'.padEnd(32) + 'Sign-in ID'.padEnd(28) + 'PIN',
+    '  ' + '─'.repeat(66),
+    ...rows,
+    '  ' + '─'.repeat(66),
+    '',
+  ].join('\n')
+);
 console.log(`  Also saved to ${path.relative(process.cwd(), credFile)}\n`);

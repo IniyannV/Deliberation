@@ -49,7 +49,11 @@ export function verifyPin(user, pin) {
 export const randomPin = (digits = 6) =>
   String(crypto.randomInt(0, 10 ** digits)).padStart(digits, '0');
 
-/** Jurors sign in with case prefix (e.g. 26-CR-0418-1 or 1); staff and display with case prefix or raw login. */
+/**
+ * Jurors MUST sign in with their full case prefix (e.g. D-1-DC-26-301874-1).
+ * Bare seat numbers (e.g. "1") are rejected because multiple court cases can run simultaneously.
+ * Staff and room display may use their case prefix or unique staff login (e.g. "B1", "DISPLAY").
+ */
 export function findUserByIdentifier(identifier) {
   const id = String(identifier ?? '').trim();
   const cases = Array.isArray(db.data.cases) ? db.data.cases : (db.data.case?.caseNumber ? [db.data.case] : []);
@@ -69,9 +73,9 @@ export function findUserByIdentifier(identifier) {
     }
   }
 
-  // Fallback for raw seat number or bare login ID
-  if (/^\d{1,2}$/.test(id)) return db.data.users.find((u) => u.kind === 'juror' && u.seat === Number(id));
-  return db.data.users.find((u) => u.login && u.login.toLowerCase() === id.toLowerCase());
+  // Bare seat numbers (e.g. "1") are intentionally not accepted because multiple court cases
+  // may be active concurrently. Staff / display can still sign in with their unique staff ID.
+  return db.data.users.find((u) => u.kind !== 'juror' && u.login && u.login.toLowerCase() === id.toLowerCase());
 }
 
 /* Simple lockout: 5 bad PINs for one identifier → 60 s wait. */

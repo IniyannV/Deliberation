@@ -18,7 +18,11 @@ router.post('/login', async (req, res) => {
   if (!user || !roleOf(user) || !verifyPin(user, pin)) {
     noteFailure(identifier.toLowerCase());
     audit({ actor: 'anonymous', role: 'none', action: 'auth.login_failed', meta: { identifier } });
-    throw new HttpError(401, 'That seat number and PIN did not match');
+    if (/^\d{1,2}$/.test(identifier)) {
+      const activeCase = db.data.case?.caseNumber || 'D-1-DC-26-301874';
+      throw new HttpError(401, `Please enter your case number before your seat (e.g. ${activeCase}-${identifier}) because multiple court cases run simultaneously.`);
+    }
+    throw new HttpError(401, 'That sign-in ID and PIN did not match');
   }
   clearFailures(identifier.toLowerCase());
   const token = await createSession(user.id);

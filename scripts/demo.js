@@ -102,40 +102,23 @@ const adminDbExists = fs.existsSync(path.join(ADMIN_DATA, 'db.json'));
 const juryDbExists = fs.existsSync(path.join(SERVER_DATA, 'db.json'));
 
 if (!noSeed || !adminDbExists || !juryDbExists) {
-  console.log(`\n${c.cyan('⚙️  Initializing Court Admin data & preparing clean jury server...')}`);
+  console.log(`\n${c.cyan('⚙️  Initializing Court Admin data & seeding Texas case into Jury App...')}`);
 
-  // Seed Court Admin (accounts, ready case "People v. Dana Whitlock", exhibits, PINs)
-  console.log(`   ${c.dim('• Seeding Court Admin trial case and staff accounts...')}`);
+  // Seed Court Admin (accounts, trial cases, exhibits, PINs)
+  console.log(`   ${c.dim('• Seeding Court Admin trial cases and staff accounts...')}`);
   execFileSync(process.execPath, [path.join(ROOT_DIR, 'court-admin', 'server', 'scripts', 'seed.js')], {
     cwd: ROOT_DIR,
     stdio: 'inherit',
   });
 
-  // Reset Jury Server to empty state ("No case loaded")
-  console.log(`   ${c.dim('• Setting Jury App to empty state ("No case loaded")...')}`);
-  fs.mkdirSync(SERVER_DATA, { recursive: true });
-  fs.rmSync(path.join(SERVER_DATA, 'uploads'), { recursive: true, force: true });
-  fs.mkdirSync(path.join(SERVER_DATA, 'uploads', 'exhibits'), { recursive: true });
-  fs.rmSync(path.join(SERVER_DATA, 'demo-credentials.txt'), { force: true });
-  const emptyJuryDb = {
-    case: { caption: 'No case loaded', caseNumber: '', court: '', counts: [] },
-    users: [],
-    sessions: [],
-    exhibits: [],
-    transcriptLinks: [],
-    imageNotes: [],
-    personal: {},
-    timeline: [],
-    votes: [],
-    requests: [],
-    chats: {},
-    menu: [],
-    supplies: [],
-    display: { view: 'idle', voteId: null, exhibitId: null, message: null },
-  };
-  fs.writeFileSync(path.join(SERVER_DATA, 'db.json'), JSON.stringify(emptyJuryDb, null, 2));
+  // Seed Jury Server with Texas case ("The State of Texas v. Cody Ray Brennan")
+  console.log(`   ${c.dim('• Seeding Jury App with Texas case (The State of Texas v. Cody Ray Brennan)...')}`);
+  execFileSync(process.execPath, [path.join(ROOT_DIR, 'server', 'scripts', 'seed.js')], {
+    cwd: ROOT_DIR,
+    stdio: 'inherit',
+  });
 
-  console.log(`${c.green('✓')} Demo environment initialized.`);
+  console.log(`${c.green('✓')} Demo environment initialized with Texas case on port ${JURY_PORT}.`);
 }
 
 // 2. Client Build check (if not running in dev mode)
@@ -157,7 +140,7 @@ if (!isDev) {
   }
 }
 
-// 3. Load credentials for banner display from Court Admin
+// 3. Load credentials for banner display from Court Admin & Jury Server
 function loadCourtAdminLogins() {
   const txtFile = path.join(ADMIN_DATA, 'demo-credentials.txt');
   const adminLogins = [];
@@ -176,10 +159,31 @@ function loadCourtAdminLogins() {
   return adminLogins;
 }
 
-const adminLogins = loadCourtAdminLogins();
+function loadJuryLogins() {
+  const txtFile = path.join(SERVER_DATA, 'demo-credentials.txt');
+  const juryLogins = [];
+  if (fs.existsSync(txtFile)) {
+    const text = fs.readFileSync(txtFile, 'utf8');
+    for (const line of text.split('\n')) {
+      const match = line.match(/^\s*(.+?)\s{2,}(\S+(?:\s+\([^)]+\))?)\s{2,}(\S+)\s*$/);
+      if (match) {
+        const [, who, signIn, pin] = match;
+        if (who === 'Who' || signIn.startsWith('Seat') || who.startsWith('─') || who.startsWith('Demo sign-ins')) continue;
+        juryLogins.push({ who: who.trim(), signIn: signIn.trim(), pin: pin.trim() });
+      }
+    }
+  }
+  return juryLogins;
+}
 
-const adminUser = adminLogins.find((u) => u.signIn === 'admin') || { signIn: 'admin', password: 'see txt' };
-const clerkUser = adminLogins.find((u) => u.signIn === 'clerk') || { signIn: 'clerk', password: 'see txt' };
+const adminLogins = loadCourtAdminLogins();
+const adminUser = adminLogins.find((u) => u.signIn === 'admin') || { signIn: 'admin', password: 'kestrel-timber-95-upland' };
+const clerkUser = adminLogins.find((u) => u.signIn === 'clerk') || { signIn: 'clerk', password: 'timber-pebble-27-ember' };
+
+const juryLogins = loadJuryLogins();
+const forepersonUser = juryLogins.find((u) => u.who.includes('foreperson')) || { signIn: 'D-1-DC-26-301874-1', pin: '863462' };
+const bailiffUser = juryLogins.find((u) => u.who.includes('Bailiff')) || { signIn: 'B1', pin: '906447' };
+const displayUser = juryLogins.find((u) => u.who.includes('display')) || { signIn: 'DISPLAY', pin: '673490' };
 
 // Network addresses
 function getLanAddresses() {
@@ -295,24 +299,36 @@ ${c.blue('═'.repeat(74))}
   ${c.bold('⚖️   DELIBERATION — OFFLINE JURY SYSTEM')}
 ${c.blue('═'.repeat(74))}
 
-  ${c.bold('Court Admin Portal:')}     ${c.cyan(adminUrl)}
-  ${c.bold('Jury Deliberation App:')}  ${c.cyan(juryUrl)}
+  ${c.bold('Jury Deliberation App (iPads):')} ${c.cyan(juryUrl)}
+  ${c.bold('Court Admin Portal (Office):')}  ${c.cyan(adminUrl)}
+
+${c.dim('─'.repeat(74))}
+  ${c.bold('JUROR IPAD SIGN-IN')} (${c.cyan(juryUrl)}) — ${c.yellow('Texas Case Pre-Seeded')}
+  ${c.dim('The State of Texas v. Cody Ray Brennan · Cause No. D-1-DC-26-301874')}
+${c.dim('─'.repeat(74))}
+
+    ${c.dim('Role'.padEnd(28) + 'Seat / ID'.padEnd(24) + 'PIN')}
+    ${c.dim('─'.repeat(68))}
+    ${'Foreperson (Seat 1)'.padEnd(28)}${'D-1-DC-26-301874-1'.padEnd(24)}${c.yellow(forepersonUser.pin)}
+    ${'Juror Seats 2–12'.padEnd(28)}${'D-1-DC-26-301874-<n>'.padEnd(24)}${c.yellow('See README.md table')}
+    ${'Bailiff / Clerk'.padEnd(28)}${'B1'.padEnd(24)}${c.yellow(bailiffUser.pin)}
+    ${'Room Display (Projector)'.padEnd(28)}${'DISPLAY'.padEnd(24)}${c.yellow(displayUser.pin)}
 
 ${c.dim('─'.repeat(74))}
   ${c.bold('COURT OFFICE SIGN-IN')} (${c.cyan(adminUrl)})
 ${c.dim('─'.repeat(74))}
 
-    ${c.dim('Role'.padEnd(24) + 'Username'.padEnd(12) + 'Password')}
+    ${c.dim('Role'.padEnd(28) + 'Username'.padEnd(24) + 'Password')}
     ${c.dim('─'.repeat(68))}
-    ${'Administrator'.padEnd(24)}${adminUser.signIn.padEnd(12)}${c.yellow(adminUser.password)}
-    ${'Deputy Clerk'.padEnd(24)}${clerkUser.signIn.padEnd(12)}${c.yellow(clerkUser.password)}
+    ${'Administrator'.padEnd(28)}${adminUser.signIn.padEnd(24)}${c.yellow(adminUser.password)}
+    ${'Deputy Clerk'.padEnd(28)}${clerkUser.signIn.padEnd(24)}${c.yellow(clerkUser.password)}
 `);
 
 if (lanIps.length) {
   console.log(`  ${c.bold('On iPad / LAN devices:')}`);
   for (const ip of lanIps) {
-    console.log(`    → Court Admin:  ${c.cyan(`http://${ip}:${ADMIN_PORT}`)}`);
-    console.log(`    → Jury App:     ${c.cyan(`http://${ip}:${JURY_PORT}`)}`);
+    console.log(`    → Jury App (iPads): ${c.cyan(`http://${ip}:${JURY_PORT}`)}`);
+    console.log(`    → Court Admin:      ${c.cyan(`http://${ip}:${ADMIN_PORT}`)}`);
   }
   console.log('');
 }
@@ -327,6 +343,6 @@ if (!noOpen) {
     const opener = process.platform === 'darwin' ? 'open'
       : process.platform === 'win32' ? 'start'
       : 'xdg-open';
-    execSync(`${opener} ${adminUrl}`, { stdio: 'ignore' });
+    execSync(`${opener} ${juryUrl}`, { stdio: 'ignore' });
   } catch {}
 }

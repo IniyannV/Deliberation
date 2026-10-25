@@ -20,7 +20,7 @@ import { exhibitFingerprint, generatePins, newJury } from '../lib/cases.js';
 import { newId, nowIso, parseTranscript, probeVideoFps } from '../lib/shared.js';
 import { CASE, MENU, SUPPLIES } from '../../../server/scripts/lib/case-content.js';
 import { DEMO_EXHIBITS, renderDemoExhibit } from '../../../server/scripts/lib/demo-exhibits.js';
-import { TEXAS_CASE, TEXAS_EXHIBITS, TEXAS_JURY, TEXAS_SIGNOFF, renderTexasExhibit } from '../../../server/scripts/lib/texas-case.js';
+import { TEXAS_CASE, TEXAS_EXHIBITS, TEXAS_JURY, TEXAS_SIGNOFF, TEXAS_DEMO_PINS, renderTexasExhibit } from '../../../server/scripts/lib/texas-case.js';
 
 const serverUp = await new Promise((resolve) => {
   const socket = net.connect(PORT, '127.0.0.1').once('connect', () => { socket.destroy(); resolve(true); }).once('error', () => resolve(false));
@@ -45,16 +45,19 @@ db.data = defaultData();
 audit({ actor: 'system', action: 'seed.demo_created' });
 
 /* ── Accounts ── */
+const DEMO_ADMIN_PASSWORD = 'kestrel-timber-95-upland';
+const DEMO_CLERK_PASSWORD = 'timber-pebble-27-ember';
+
 const logins = [];
-const account = (username, name, role) => {
-  const password = randomPassword();
+const account = (username, name, role, defaultPassword = null) => {
+  const password = defaultPassword || randomPassword();
   const user = { id: newId('usr'), username, name, role, active: true, createdAt: nowIso(), ...hashPassword(password) };
   db.data.users.push(user);
   logins.push({ who: `${name} (${role})`, signIn: username, secret: password });
   return user;
 };
-const admin = account('admin', 'Court Administrator', 'admin');
-account('clerk', 'Deputy Clerk R. Patel', 'clerk');
+const admin = account('admin', 'Court Administrator', 'admin', DEMO_ADMIN_PASSWORD);
+account('clerk', 'Deputy Clerk R. Patel', 'clerk', DEMO_CLERK_PASSWORD);
 
 /* ── The ready case ── */
 const now = nowIso();
@@ -141,7 +144,7 @@ const texas = {
 };
 db.data.cases.push(texas);
 await addExhibits(texas, TEXAS_EXHIBITS, renderTexasExhibit);
-const texasPins = generatePins(texas, 'all');
+const texasPins = generatePins(texas, 'all', TEXAS_DEMO_PINS);
 texas.signoff = signoff(texas, TEXAS_SIGNOFF);
 
 /* ── Menu & supplies ── */
@@ -150,22 +153,28 @@ db.data.supplies = SUPPLIES.map((name) => ({ id: newId('sup'), name, available: 
 
 await db.write();
 
-const table = (rows) => rows.map((r) => '  ' + r.who.padEnd(34) + r.signIn.padEnd(24) + r.secret);
+const table = (rows) => rows.map((r) => '  ' + r.who.padEnd(32) + r.signIn.padEnd(28) + r.secret);
 const lines = [
   `Court Admin demo sign-ins (generated ${now})`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Username'.padEnd(24) + 'Password',
+  '  ' + 'Who'.padEnd(32) + 'Username'.padEnd(28) + 'Password',
+  '  ' + '─'.repeat(66),
   ...table(logins),
+  '  ' + '─'.repeat(66),
   '',
   `Jury-room PINs for ${CASE.caseNumber} (they travel in the case package as hashes)`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(24) + 'PIN',
+  '  ' + 'Who'.padEnd(32) + 'Sign-in ID'.padEnd(28) + 'PIN',
+  '  ' + '─'.repeat(66),
   ...table(pins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
+  '  ' + '─'.repeat(66),
   '',
   `Jury-room PINs for ${TEXAS_CASE.caseNumber}`,
   '',
-  '  ' + 'Who'.padEnd(34) + 'Sign in'.padEnd(24) + 'PIN',
+  '  ' + 'Who'.padEnd(32) + 'Sign-in ID'.padEnd(28) + 'PIN',
+  '  ' + '─'.repeat(66),
   ...table(texasPins.map((p) => ({ who: p.who, signIn: p.signIn, secret: p.pin }))),
+  '  ' + '─'.repeat(66),
   '',
 ];
 const credFile = path.join(DATA_DIR, 'demo-credentials.txt');

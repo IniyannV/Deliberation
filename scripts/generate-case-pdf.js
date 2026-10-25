@@ -18,9 +18,10 @@ const kase = db.case;
 const exhibits = db.exhibits || [];
 
 async function buildOnePagePdf() {
+  const isTexas = kase.caseNumber === 'D-1-DC-26-301874' || kase.caption?.includes('Texas');
   const doc = await PDFDocument.create();
-  doc.setTitle('People v. Dana Whitlock (26-CR-0418) - Jury Bench Sheet & Verdict Form');
-  doc.setAuthor('Millbrook County Superior Court, Part 3');
+  doc.setTitle(`${kase.caption} (${kase.caseNumber}) - Jury Bench Sheet & Verdict Form`);
+  doc.setAuthor(kase.court || 'Court');
   doc.setProducer('Deliberation Legal System');
   doc.setSubject('Official 1-Page Jury Deliberation Sheet, Admitted Exhibits Index and Verdict Form');
 
@@ -56,12 +57,12 @@ async function buildOnePagePdf() {
   }
 
   // --- TOP HEADER ---
-  const courtHeader = kase.court.toUpperCase();
+  const courtHeader = (kase.court || 'DISTRICT COURT').toUpperCase();
   const chW = bold.widthOfTextAtSize(courtHeader, 9.5);
   page.drawText(courtHeader, { x: (W - chW) / 2, y, size: 9.5, font: bold });
   y -= 11;
 
-  const stateHeader = 'STATE OF NEW YORK  -  CRIMINAL TERM';
+  const stateHeader = isTexas ? 'STATE OF TEXAS  -  CRIMINAL TERM' : 'STATE OF NEW YORK  -  CRIMINAL TERM';
   const shW = font.widthOfTextAtSize(stateHeader, 8);
   page.drawText(stateHeader, { x: (W - shW) / 2, y, size: 8, font });
   y -= 10;
@@ -89,14 +90,17 @@ async function buildOnePagePdf() {
   });
 
   // Left Caption
-  page.drawText('THE PEOPLE OF THE STATE OF NEW YORK,', { x: M + 8, y: captionTopY - 12, size: 8.5, font: bold });
+  const partyPlaintiff = isTexas ? 'THE STATE OF TEXAS,' : 'THE PEOPLE OF THE STATE OF NEW YORK,';
+  const partyDefendant = isTexas ? 'CODY RAY BRENNAN,   Defendant.' : 'DANA WHITLOCK,      Defendant.';
+  page.drawText(partyPlaintiff, { x: M + 8, y: captionTopY - 12, size: 8.5, font: bold });
   page.drawText('                    v.', { x: M + 8, y: captionTopY - 22, size: 8, font });
-  page.drawText('DANA WHITLOCK,      Defendant.', { x: M + 8, y: captionTopY - 34, size: 8.5, font: bold });
+  page.drawText(partyDefendant, { x: M + 8, y: captionTopY - 34, size: 8.5, font: bold });
 
   // Right Details
   const rightX = M + colLeftW + 10;
-  page.drawText(`INDICTMENT NO.: ${kase.caseNumber}`, { x: rightX, y: captionTopY - 12, size: 8.5, font: bold });
-  page.drawText('CHARGE: 3-Count Indictment', { x: rightX, y: captionTopY - 22, size: 8, font });
+  const causeLabel = isTexas ? `CAUSE NO.: ${kase.caseNumber}` : `INDICTMENT NO.: ${kase.caseNumber}`;
+  page.drawText(causeLabel, { x: rightX, y: captionTopY - 12, size: 8.5, font: bold });
+  page.drawText(`CHARGE: ${kase.counts?.length || 3}-Count Indictment/Charge`, { x: rightX, y: captionTopY - 22, size: 8, font });
   page.drawText('TRIAL TERM: Final Jury Charge & Verdict', { x: rightX, y: captionTopY - 34, size: 7.5, font: italic });
 
   y = captionTopY - captionH - 8;
@@ -271,7 +275,7 @@ async function buildOnePagePdf() {
 
   page.drawText('UNANIMOUS VERDICT CERTIFICATION:', { x: M + 8, y: y - 11, size: 7.5, font: bold });
   page.drawText(
-    'We, the Jury in People v. Dana Whitlock (Indictment No. 26-CR-0418), do hereby certify upon our oaths that we have deliberated and unanimously agreed upon the verdict recorded in the checkboxes above.',
+    `We, the Jury in ${kase.caption} (${causeLabel}), do hereby certify upon our oaths that we have deliberated and unanimously agreed upon the verdict recorded in the checkboxes above.`,
     { x: M + 8, y: y - 21, size: 7, font }
   );
 
@@ -295,7 +299,7 @@ async function buildOnePagePdf() {
   });
 
   // Footer
-  const footerText = `MILLBROOK COUNTY SUPERIOR COURT  ·  CASE NO. ${kase.caseNumber}  ·  OFFICIAL 1-PAGE BENCH SHEET`;
+  const footerText = `${kase.court.toUpperCase()}  ·  CASE NO. ${kase.caseNumber}  ·  OFFICIAL 1-PAGE BENCH SHEET`;
   const ftW = font.widthOfTextAtSize(footerText, 6.5);
   page.drawText(footerText, {
     x: (W - ftW) / 2,
@@ -306,7 +310,8 @@ async function buildOnePagePdf() {
   });
 
   const pdfBytes = await doc.save({ useObjectStreams: false });
-  const outPath = path.join(rootDir, 'People_v_Whitlock_Case_26-CR-0418_Jury_Packet.pdf');
+  const filename = isTexas ? 'Texas_v_Brennan_Case_D-1-DC-26-301874_Jury_Packet.pdf' : 'People_v_Whitlock_Case_26-CR-0418_Jury_Packet.pdf';
+  const outPath = path.join(rootDir, filename);
   fs.writeFileSync(outPath, Buffer.from(pdfBytes));
   console.log(`Generated exactly 1-page PDF: ${outPath} (${doc.getPageCount()} page)`);
   return outPath;
