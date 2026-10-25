@@ -93,6 +93,11 @@ export default function AppShell({ nav }) {
   const page = useRef(null)
   const { dx, onPointerDown } = useDrawerDrag(drawer, setDrawer)
 
+  const closeSidebar = () => {
+    setDrawer(false)
+    setSidebarCollapsed(true)
+  }
+
   // The chat window belongs to this sign-in; don't carry it over to the next.
   useEffect(() => () => useUi.getState().closeChat(), [])
 
@@ -168,7 +173,7 @@ export default function AppShell({ nav }) {
               icon="sidebar"
               label="Hide sidebar"
               className="-mr-1.5 -mt-4 self-start text-accent"
-              onClick={() => (drawer ? setDrawer(false) : setSidebarCollapsed(true))}
+              onClick={closeSidebar}
             />
           </div>
 
@@ -185,7 +190,7 @@ export default function AppShell({ nav }) {
                       to={item.to}
                       end={item.end}
                       // Opening a page puts the sidebar away to give it the room (not mid-tour, which points at the sidebar).
-                      onClick={() => { if (!useTour.getState().active) setSidebarCollapsed(true) }}
+                      onClick={() => { if (!useTour.getState().active) closeSidebar() }}
                       className={({ isActive }) =>
                         cx(
                           'pressable pressable-soft group flex items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem]',
@@ -208,7 +213,7 @@ export default function AppShell({ nav }) {
                 <button
                   type="button"
                   data-tour="tour-button"
-                  onClick={() => { setOffer(false); setDrawer(false); startTour(user?.role) }}
+                  onClick={() => { setOffer(false); closeSidebar(); startTour(user?.role) }}
                   className="pressable pressable-soft flex w-full items-center gap-3 rounded-[0.625rem] px-3 py-[0.45rem] text-ink hover:bg-fill"
                 >
                   <Icon name="compass" size={20} strokeWidth={2} className="text-accent" /> Guided tour
