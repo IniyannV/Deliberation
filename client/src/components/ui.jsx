@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Icon } from './icons'
 import { useUi } from '../store/ui'
 import { useCompactTitle } from './titleBar'
@@ -250,6 +251,7 @@ const TOAST_ICON = { error: ['alert', 'text-danger'], warn: ['alert', 'text-warn
 /** Notification-style banners centered at the top as frosted glass pills. */
 export function Toaster() {
   const { toasts, dismiss } = useUi()
+  const navigate = useNavigate()
   return (
     <div aria-live="polite" className="pointer-events-none fixed top-5 left-1/2 z-50 flex w-auto max-w-[calc(100vw-2.5rem)] -translate-x-1/2 flex-col gap-2.5 items-center">
       {toasts.map((t) => {
@@ -257,10 +259,25 @@ export function Toaster() {
         return (
           <div
             key={t.id}
-            className={cx('material pointer-events-auto flex items-center gap-3 rounded-full py-2 pr-2.5 pl-4 text-ink shadow-[var(--shadow-float)] border border-line/40 text-sm font-medium', t.leaving ? 'toast-out' : 'toast-in')}
+            className={cx('material pointer-events-auto flex flex-wrap items-center gap-3 py-2 pr-2.5 pl-4 text-ink shadow-[var(--shadow-float)] border border-line/40 text-sm font-medium', t.actions ? 'rounded-3xl' : 'rounded-full', t.leaving ? 'toast-out' : 'toast-in')}
           >
             <Icon name={icon} size={18} className={cx('shrink-0', color)} />
-            <p className="flex-1">{t.message}</p>
+            <p className={cx('flex-1', t.actions && 'min-w-56 max-w-sm')}>{t.message}</p>
+            {t.actions && (
+              <div className="flex items-center gap-1.5">
+                {t.actions.map((a) => (
+                  <Button
+                    key={a.label}
+                    size="sm"
+                    variant={a.variant ?? 'ghost'}
+                    icon={a.icon}
+                    onClick={() => { dismiss(t.id); if (a.to) navigate(a.to, { state: a.state }); a.onClick?.() }}
+                  >
+                    {a.label}
+                  </Button>
+                ))}
+              </div>
+            )}
             <IconButton icon="x" label="Dismiss" size={14} className="bg-fill p-1" onClick={() => dismiss(t.id)} />
           </div>
         )

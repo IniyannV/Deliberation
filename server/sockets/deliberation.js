@@ -101,6 +101,62 @@ function findEvent(list, id, version) {
   return ev;
 }
 
+/*
+ * The foreperson has the final say on the shared timeline: when any other
+ * juror adds, edits, moves or deletes a shared event, it waits here as a
+ * proposal until the foreperson approves or declines it.
+ */
+const needsApproval = (p, role) => p?.scope !== 'personal' && role !== 'foreperson';
+
+// Enough for the juror's own device to say what was decided.
+const decided = ({ id, action = 'create', label, at, was }) => ({ id, action, label, at, was });
+
+const proposalsChanged = (io) => io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
+
+async function propose(io, user, fields) {
+  db.data.timelineProposals ??= [];
+  // A juror's newer change to the same event replaces their earlier one that's still waiting.
+  const prior = fields.eventId
+    ? db.data.timelineProposals.findIndex((x) => x.seatId === user.id && x.eventId === fields.eventId && x.action === fields.action)
+    : -1;
+  if (prior === -1 && db.data.timelineProposals.length >= 200) throw bad('There are too many pending proposals. Please wait for the foreperson to review them.');
+  const proposal = { id: newId('prop'), ...fields, seat: user.seat, seatId: user.id, createdAt: nowIso() };
+  if (prior === -1) db.data.timelineProposals.push(proposal);
+  else db.data.timelineProposals[prior] = proposal;
+  await save();
+  proposalsChanged(io);
+  io.to('forepersons').emit('timeline:proposal:new', proposal);
+  return { proposed: true, proposal };
+}
+
+/** Changes still waiting for an event that's gone have nothing left to change. */
+function dropProposalsFor(eventId) {
+  db.data.timelineProposals = (db.data.timelineProposals ?? []).filter((x) => x.eventId !== eventId);
+}
+
+/** Apply an approved proposal to the shared timeline. Proposals saved before edits existed are all adds. */
+function applyProposal(prop) {
+  const action = prop.action ?? 'create';
+  if (action === 'create') {
+    if (db.data.timeline.length >= 2000) throw bad('The shared timeline is full');
+    const { label, at, type, description, attachments } = prop;
+    const ev = { id: newId('ev'), label, at, type, description, attachments, version: 1, updatedAt: nowIso() };
+    db.data.timeline.push(ev);
+    return ev;
+  }
+  const ev = db.data.timeline.find((e) => e.id === prop.eventId);
+  if (!ev) return null; // removed since: nothing left to change
+  if (action === 'delete') {
+    db.data.timeline = db.data.timeline.filter((e) => e.id !== ev.id);
+    dropProposalsFor(ev.id);
+    return null;
+  }
+  const changes = action === 'move'
+    ? { at: prop.at }
+    : { label: prop.label, at: prop.at, type: prop.type, description: prop.description, attachments: prop.attachments };
+  return Object.assign(ev, changes, { version: ev.version + 1, updatedAt: nowIso() });
+}
+
 async function votesChanged(io, vote) {
   io.to('jurors').emit('vote:changed', publicVote(vote));
   io.to('display').emit('vote:changed', displayVote(vote));
@@ -111,22 +167,7 @@ export const deliberationHandlers = {
   'timeline:create': {
     roles: [ROLES.JUROR],
     async handler({ io, user, role }, p) {
-      if (p?.scope !== 'personal' && role !== 'foreperson') {
-        db.data.timelineProposals ??= [];
-        if (db.data.timelineProposals.length >= 200) throw bad('There are too many pending proposals. Please wait for the foreperson to review them.');
-        const proposal = {
-          id: newId('prop'),
-          ...readEvent(p),
-          seat: user.seat,
-          seatId: user.id,
-          createdAt: nowIso(),
-        };
-        db.data.timelineProposals.push(proposal);
-        await save();
-        io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
-        io.to('forepersons').emit('timeline:proposal:new', proposal);
-        return { proposed: true, proposal };
-      }
+      if (needsApproval(p, role)) return propose(io, user, { action: 'create', ...readEvent(p) });
       const tl = timelineFor(p, user);
       if (tl.list().length >= 2000) throw bad('This timeline is full');
       const ev = { id: newId('ev'), ...readEvent(p), version: 1, updatedAt: nowIso() };
@@ -139,20 +180,15 @@ export const deliberationHandlers = {
     roles: [ROLES.FOREPERSON],
     async handler({ io }, p) {
       db.data.timelineProposals ??= [];
-      const idx = db.data.timelineProposals.findIndex((prop) => prop.id === p.id);
-      if (idx === -1) throw bad('That proposed event was already reviewed');
-      const prop = db.data.timelineProposals[idx];
-      db.data.timelineProposals.splice(idx, 1);
-
-      if (db.data.timeline.length >= 2000) throw bad('The shared timeline is full');
-      const { id, seat, seatId, createdAt, ...eventData } = prop;
-      const ev = { id: newId('ev'), ...eventData, version: 1, updatedAt: nowIso() };
-      db.data.timeline.push(ev);
+      const prop = db.data.timelineProposals.find((x) => x.id === p.id);
+      if (!prop) throw bad('That proposal was already reviewed');
+      const ev = applyProposal(prop);
+      db.data.timelineProposals = db.data.timelineProposals.filter((x) => x.id !== prop.id);
       await save();
 
       toJurorsAndDisplay(io, 'timeline:changed', db.data.timeline);
-      io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
-      io.to(`user:${seatId}`).emit('timeline:proposal:approved', { id: prop.id, label: prop.label });
+      proposalsChanged(io);
+      io.to(`user:${prop.seatId}`).emit('timeline:proposal:approved', decided(prop));
       return { event: ev };
     },
   },
@@ -160,23 +196,23 @@ export const deliberationHandlers = {
     roles: [ROLES.FOREPERSON],
     async handler({ io }, p) {
       db.data.timelineProposals ??= [];
-      const idx = db.data.timelineProposals.findIndex((prop) => prop.id === p.id);
-      if (idx === -1) throw bad('That proposed event was already reviewed');
-      const prop = db.data.timelineProposals[idx];
-      db.data.timelineProposals.splice(idx, 1);
+      const prop = db.data.timelineProposals.find((x) => x.id === p.id);
+      if (!prop) throw bad('That proposal was already reviewed');
+      db.data.timelineProposals = db.data.timelineProposals.filter((x) => x.id !== prop.id);
       await save();
 
-      io.to('forepersons').emit('timeline:proposals:changed', db.data.timelineProposals);
-      io.to(`user:${prop.seatId}`).emit('timeline:proposal:rejected', { id: prop.id, label: prop.label });
+      proposalsChanged(io);
+      io.to(`user:${prop.seatId}`).emit('timeline:proposal:rejected', decided(prop));
       return { ok: true };
     },
   },
   'timeline:update': {
     roles: [ROLES.JUROR],
-    async handler({ io, socket, user }, p) {
+    async handler({ io, socket, user, role }, p) {
       const tl = timelineFor(p, user);
       try {
         const ev = findEvent(tl.list(), p.id, p.version);
+        if (needsApproval(p, role)) return propose(io, user, { action: 'update', eventId: ev.id, ...readEvent(p), was: { label: ev.label, at: ev.at } });
         Object.assign(ev, readEvent(p), { version: ev.version + 1, updatedAt: nowIso() });
         await tl.changed(io);
         return { event: ev };
@@ -188,10 +224,13 @@ export const deliberationHandlers = {
   },
   'timeline:move': {
     roles: [ROLES.JUROR],
-    async handler({ io, socket, user }, p) {
+    async handler({ io, socket, user, role }, p) {
       const tl = timelineFor(p, user);
       try {
         const ev = findEvent(tl.list(), p.id, p.version);
+        if (needsApproval(p, role)) {
+          return propose(io, user, { action: 'move', eventId: ev.id, label: ev.label, type: ev.type, at: isoDateTime(p.at), was: { at: ev.at } });
+        }
         Object.assign(ev, { at: isoDateTime(p.at), version: ev.version + 1, updatedAt: nowIso() });
         await tl.changed(io);
         return { event: ev };
@@ -203,11 +242,14 @@ export const deliberationHandlers = {
   },
   'timeline:delete': {
     roles: [ROLES.JUROR],
-    async handler({ io, user }, p) {
+    async handler({ io, user, role }, p) {
       const tl = timelineFor(p, user);
-      findEvent(tl.list(), p.id);
+      const ev = findEvent(tl.list(), p.id);
+      if (needsApproval(p, role)) return propose(io, user, { action: 'delete', eventId: ev.id, label: ev.label, type: ev.type, at: ev.at });
       tl.set(tl.list().filter((e) => e.id !== p.id));
+      if (p?.scope !== 'personal') dropProposalsFor(ev.id);
       await tl.changed(io);
+      if (p?.scope !== 'personal') proposalsChanged(io);
     },
   },
 

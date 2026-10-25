@@ -71,9 +71,11 @@ export const useUi = create((set, get) => ({
   },
 
   toasts: [],
-  toast(message, { tone = 'info', timeout = 5000 } = {}) {
+  // `actions` are buttons ({ label, onClick, to, variant, icon }); `key` keeps one toast per thing.
+  toast(message, { tone = 'info', timeout = 5000, actions, key } = {}) {
+    if (key && get().toasts.some((t) => t.key === key && !t.leaving)) return
     const id = ++toastId
-    set({ toasts: [...get().toasts, { id, message, tone }] })
+    set({ toasts: [...get().toasts, { id, message, tone, actions, key }] })
     if (timeout) setTimeout(() => get().dismiss(id), timeout)
   },
   // Mark the toast as leaving so it can animate out, then remove it.
@@ -82,6 +84,9 @@ export const useUi = create((set, get) => ({
     if (!t || t.leaving) return
     set({ toasts: get().toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x)) })
     setTimeout(() => set({ toasts: get().toasts.filter((x) => x.id !== id) }), 200)
+  },
+  dismissWhere(test) {
+    for (const t of get().toasts) if (test(t)) get().dismiss(t.id)
   },
 }))
 

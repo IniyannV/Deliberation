@@ -81,13 +81,13 @@ function selectedSpans(root) {
  *  - links / onOpenExhibit: show "→ P-3" chips that jump to an exhibit
  *  - selection / onSelect: click a line number to select; shift-click for a range
  *  - onLink(line): show a "link exhibit" button on hover
- *  - focusLine: scroll to and briefly mark a line
+ *  - focusLine / focusTo: scroll to and mark a line, or the range of lines up to focusTo
  * Jurors can also select text (press and hold on an iPad) and highlight it.
  * Highlights are private to each juror and follow them across devices.
  */
 export default function TranscriptView({
   exhibit, query = '', links = [], exhibitsById = {}, onOpenExhibit, onUnlink,
-  selection, onSelect, onLink, focusLine, large = false,
+  selection, onSelect, onLink, focusLine, focusTo, large = false,
 }) {
   const terms = useMemo(() => query.toLowerCase().split(/\s+/).filter(Boolean), [query])
   const refs = useRef({})
@@ -158,6 +158,7 @@ export default function TranscriptView({
   }, [links, exhibit.id])
 
   const inSel = (n) => selection && n >= selection.from && n <= selection.to
+  const inFocus = (n) => focusLine && n >= focusLine && n <= Math.max(focusLine, focusTo ?? focusLine)
   const spans = bar ? Object.entries(bar.spans) : []
   const canAdd = spans.some(([n, s]) => !covers(highlights[n] ?? [], s))
   const canRemove = spans.some(([n, s]) => overlaps(highlights[n] ?? [], s))
@@ -173,7 +174,7 @@ export default function TranscriptView({
               ref={(el) => { refs.current[l.n] = el }}
               className={cx(
                 'group flex gap-3 rounded-md px-2 py-1.5',
-                inSel(l.n) ? 'bg-accent-soft' : focusLine === l.n ? 'bg-warn-soft' : hit ? 'bg-surface-2' : 'hover:bg-surface-2/60',
+                inSel(l.n) ? 'bg-accent-soft' : inFocus(l.n) ? 'bg-warn-soft' : hit ? 'bg-surface-2' : 'hover:bg-surface-2/60',
               )}
             >
               {onSelect ? (

@@ -50,3 +50,11 @@ export const REQUEST_LABEL = { break: 'Break', meal: 'Meal order', supplies: 'Su
 /** Notes the foreperson sends for the whole jury; every juror can read them. */
 export const JURY_TYPES = ['judge_question', 'verdict']
 export const STATUS_LABEL = { pending: 'Pending', acknowledged: 'Acknowledged', fulfilled: 'Fulfilled' }
+
+/** What a juror's proposed change to the shared timeline would do: "add “Alarm goes off”". */
+export function proposalText(p) {
+  if (p.action === 'update') return `edit “${p.was?.label ?? p.label}”`
+  if (p.action === 'move') return `move “${p.label}” to ${fmtDateTime(p.at)}`
+  if (p.action === 'delete') return `delete “${p.label}”`
+  return `add “${p.label}”`
+}

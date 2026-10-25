@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { io } from 'socket.io-client'
 import { api } from '../lib/api'
+import { proposalText } from '../lib/format'
 import { chime } from '../lib/sound'
 import { load, store } from '../lib/storage'
 import { toast, useUi } from './ui'
@@ -208,15 +209,31 @@ export const useLive = create((set, get) => ({
     })
 
     socket.on('timeline:changed', (timeline) => set({ timeline }))
-    socket.on('timeline:proposals:changed', (timelineProposals) => set({ timelineProposals }))
+    socket.on('timeline:proposals:changed', (timelineProposals) => {
+      set({ timelineProposals })
+      // Reviewed already (on the Timeline page or another device): its notification has nothing left to ask.
+      const pending = new Set(timelineProposals.map((p) => `proposal:${p.id}`))
+      useUi.getState().dismissWhere((t) => t.key?.startsWith('proposal:') && !pending.has(t.key))
+    })
+    // The foreperson has the final say on the shared timeline, so the notification stays until they answer it.
     socket.on('timeline:proposal:new', (proposal) => {
-      notify(`Juror ${proposal.seat} proposed a timeline event: “${proposal.label}”`, { chime: true, tone: 'accent' })
+      notify(`Shared timeline: Juror ${proposal.seat} wants to ${proposalText(proposal)}.`, {
+        chime: true,
+        tone: 'accent',
+        timeout: 0,
+        key: `proposal:${proposal.id}`,
+        actions: [
+          { label: 'Review', to: '/juror/timeline', state: { scope: 'shared' } },
+          { label: 'Decline', onClick: () => get().rejectProposal(proposal) },
+          { label: 'Approve', variant: 'primary', icon: 'check', onClick: () => get().approveProposal(proposal) },
+        ],
+      })
     })
-    socket.on('timeline:proposal:approved', ({ label }) => {
-      notify(`Your proposed event “${label}” was approved by the foreperson and added to the timeline.`, { chime: true, tone: 'ok' })
+    socket.on('timeline:proposal:approved', (p) => {
+      notify(`The foreperson approved your request to ${proposalText(p)}. The shared timeline is updated.`, { chime: true, tone: 'ok' })
     })
-    socket.on('timeline:proposal:rejected', ({ label }) => {
-      notify(`Your proposed event “${label}” was not approved for the shared timeline.`, { tone: 'warn' })
+    socket.on('timeline:proposal:rejected', (p) => {
+      notify(`The foreperson declined your request to ${proposalText(p)}.`, { tone: 'warn' })
     })
     socket.on('links:changed', (links) => set({ links }))
     socket.on('notes:changed', (notes) => set({ notes }))
@@ -318,6 +335,24 @@ export const useLive = create((set, get) => ({
         resolve(res)
       })
     })
+  },
+
+  /** Foreperson: add a juror's proposed event to the shared timeline, or turn it down. */
+  async approveProposal(p) {
+    try {
+      await get().emit('timeline:proposal:approve', { id: p.id })
+      toast(`Approved the request to ${proposalText(p)}.`, { tone: 'ok' })
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
+  },
+  async rejectProposal(p) {
+    try {
+      await get().emit('timeline:proposal:reject', { id: p.id })
+      toast(`Declined the request to ${proposalText(p)}.`)
+    } catch (err) {
+      toast(err.message, { tone: 'error' })
+    }
   },
 
   async loadExhibits() {

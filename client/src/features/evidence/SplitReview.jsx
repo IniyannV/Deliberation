@@ -71,6 +71,7 @@ export default function SplitReview() {
     const next = new URLSearchParams(params)
     if (v) next.set(k, v); else next.delete(k)
     if (k === 'ex') next.delete('rline')
+    if (k === 't') { next.delete('line'); next.delete('to') }
     setParams(next, { replace: true })
   }
 
@@ -247,6 +248,7 @@ export default function SplitReview() {
                     onSelect={onSelect}
                     onLink={(n) => { setLinkLine(n); setLinkTarget(rightId ?? '') }}
                     focusLine={Number(params.get('line')) || undefined}
+                    focusTo={Number(params.get('to')) || undefined}
                   />
                 </div>
               ) : left ? (

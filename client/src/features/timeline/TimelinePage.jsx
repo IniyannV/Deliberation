@@ -4,7 +4,7 @@ import { useAuth } from '../../store/auth'
 import { useLive } from '../../store/live'
 import { toast } from '../../store/ui'
 import { load, store } from '../../lib/storage'
-import { EVENT_TYPES, fmtDateTime } from '../../lib/format'
+import { EVENT_TYPES, fmtDateTime, proposalText } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, IconButton, Modal, PageHeader, Segmented, cx } from '../../components/ui'
 import { Icon } from '../../components/icons'
 import Timeline, { TYPE_STYLE } from './Timeline'
@@ -40,7 +40,7 @@ function EventDetail({ ev, exhibitsById, scope, onEdit, onDelete, onCopy, onClos
               {e.attachments.map((a, i) => {
                 const ex = exhibitsById[a.kind === 'exhibit' ? a.exhibitId : a.transcriptId]
                 if (!ex) return <li key={i}><Badge>Removed exhibit</Badge></li>
-                const href = a.kind === 'exhibit' ? `/juror/evidence/${ex.id}` : `/juror/review?t=${ex.id}&line=${a.fromLine}`
+                const href = a.kind === 'exhibit' ? `/juror/evidence/${ex.id}` : `/juror/review?t=${ex.id}&line=${a.fromLine}&to=${a.toLine ?? a.fromLine}`
                 return (
                   <li key={i}>
                     <Link to={href} className="pressable inline-flex items-center gap-2 rounded-full bg-fill px-3.5 py-1.5 font-medium text-accent hover:bg-fill-strong">
@@ -104,6 +104,8 @@ export default function TimelinePage() {
   const emit = useLive((s) => s.emit)
   const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
   const proposals = useLive((s) => s.timelineProposals ?? [])
+  const approveProposal = useLive((s) => s.approveProposal)
+  const rejectProposal = useLive((s) => s.rejectProposal)
   const location = useLocation()
   const navigate = useNavigate()
   const [zoom, setZoom] = useState(1)
@@ -118,17 +120,24 @@ export default function TimelinePage() {
   // New events default to the latest time on this timeline (or the shared one, while this is empty).
   const latest = (timeline.length ? timeline : shared).reduce((m, e) => (e.at > m ? e.at : m), '')
 
-  // A draft handed over from side-by-side review ("Add to timeline").
+  // A draft handed over from side-by-side review ("Add to timeline"), or "Review" on a proposal notification.
   useEffect(() => {
     if (location.state?.draft) {
       setEditor({ initial: location.state.draft })
       navigate(location.pathname, { replace: true, state: null })
+    } else if (location.state?.scope) {
+      changeScope(location.state.scope)
+      navigate(location.pathname, { replace: true, state: null })
     }
   }, [location.state, location.pathname, navigate])
 
+  // Other jurors' moves and deletes on the shared timeline wait for the foreperson's approval.
+  const moderated = scope === 'shared' && !isForeperson
+
   async function move(ev, at) {
     try {
-      await emit('timeline:move', { id: ev.id, version: ev.version, at, scope })
+      const res = await emit('timeline:move', { id: ev.id, version: ev.version, at, scope })
+      if (res?.proposed) toast(`Asked the foreperson to move “${ev.label}” to ${fmtDateTime(at)}. It stays where it is until they approve.`, { tone: 'accent' })
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -136,8 +145,9 @@ export default function TimelinePage() {
 
   async function remove() {
     try {
-      await emit('timeline:delete', { id: deleting.id, scope })
-      if (selectedId === deleting.id) setSelectedId(null)
+      const res = await emit('timeline:delete', { id: deleting.id, scope })
+      if (res?.proposed) toast(`Asked the foreperson to delete “${deleting.label}”.`, { tone: 'accent' })
+      else if (selectedId === deleting.id) setSelectedId(null)
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -155,24 +165,6 @@ export default function TimelinePage() {
       } else {
         toast(to === 'personal' ? `Copied “${label}” to your timeline.` : `Copied “${label}” to the shared timeline. Every juror can see it now.`)
       }
-    } catch (err) {
-      toast(err.message, { tone: 'error' })
-    }
-  }
-
-  async function approveProposal(p) {
-    try {
-      await emit('timeline:proposal:approve', { id: p.id })
-      toast(`Approved “${p.label}” and added it to the timeline.`, { tone: 'ok' })
-    } catch (err) {
-      toast(err.message, { tone: 'error' })
-    }
-  }
-
-  async function rejectProposal(p) {
-    try {
-      await emit('timeline:proposal:reject', { id: p.id })
-      toast(`Declined “${p.label}”.`)
     } catch (err) {
       toast(err.message, { tone: 'error' })
     }
@@ -205,7 +197,7 @@ export default function TimelinePage() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold text-accent">
               <Icon name="bell" size={18} />
-              Proposed events awaiting your moderation ({proposals.length})
+              Proposed changes awaiting your approval ({proposals.length})
             </h2>
           </div>
           <ul className="flex flex-col divide-y divide-line/40">
@@ -214,11 +206,17 @@ export default function TimelinePage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cx('h-2.5 w-2.5 rounded-full', TYPE_STYLE[prop.type]?.dot)} />
-                    <span className="font-semibold text-ink">{prop.label}</span>
-                    <Badge size="sm">Juror {prop.seat}</Badge>
-                    <span className="text-xs text-muted">{fmtDateTime(prop.at)}</span>
+                    <span className="font-semibold text-ink">Juror {prop.seat} wants to {proposalText(prop)}</span>
                   </div>
-                  {prop.description && <p className="mt-1 text-sm text-muted">{prop.description}</p>}
+                  {prop.action === 'update' && (
+                    <p className="mt-1 text-sm text-muted">
+                      New version: <b className="text-ink">{prop.label}</b> · {fmtDateTime(prop.at)}
+                      {prop.was?.at && prop.was.at !== prop.at && <> (was {fmtDateTime(prop.was.at)})</>}
+                    </p>
+                  )}
+                  {prop.action === 'move' && prop.was?.at && <p className="mt-1 text-sm text-muted">Currently {fmtDateTime(prop.was.at)}</p>}
+                  {(prop.action ?? 'create') === 'create' && <p className="mt-1 text-sm text-muted">{fmtDateTime(prop.at)}</p>}
+                  {prop.action !== 'move' && prop.action !== 'delete' && prop.description && <p className="mt-1 text-sm text-muted">{prop.description}</p>}
                   {prop.attachments?.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted">
                       <span>{prop.attachments.length} attachment{prop.attachments.length > 1 ? 's' : ''}</span>
@@ -321,13 +319,15 @@ export default function TimelinePage() {
         title="Delete this event?"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleting(null)}>Keep it</Button>
-          <Button variant="danger" onClick={remove}>{scope === 'personal' ? 'Delete' : 'Delete for everyone'}</Button>
+          <Button variant="danger" onClick={remove}>{scope === 'personal' ? 'Delete' : moderated ? 'Ask to delete' : 'Delete for everyone'}</Button>
         </>}
       >
         <p>
           {scope === 'personal'
             ? `“${deleting?.label}” will be removed from your timeline.`
-            : `“${deleting?.label}” will be removed from the timeline on every juror’s screen.`}
+            : moderated
+              ? `The foreperson will be asked to approve removing “${deleting?.label}” from the shared timeline.`
+              : `“${deleting?.label}” will be removed from the timeline on every juror’s screen.`}
         </p>
       </Modal>
     </div>

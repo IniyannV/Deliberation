@@ -43,6 +43,8 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
   const emit = useLive((s) => s.emit)
   const isForeperson = useAuth((s) => s.user?.role === 'foreperson')
   const editing = !!initial?.id
+  // Other jurors' changes to the shared timeline wait for the foreperson.
+  const moderated = scope !== 'personal' && !isForeperson
   const [form, setForm] = useState(() => ({
     label: initial?.label ?? '',
     at: toLocalInput(initial?.at ?? defaultAt ?? new Date().toISOString()),
@@ -87,7 +89,7 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
         ? await emit('timeline:update', { ...payload, id: initial.id, version: initial.version })
         : await emit('timeline:create', payload)
       if (res?.proposed) {
-        toast(`Event proposed to foreperson for moderation.`, { tone: 'accent' })
+        toast(editing ? 'Your changes were sent to the foreperson for approval.' : 'Event proposed to foreperson for moderation.', { tone: 'accent' })
       } else {
         onSaved?.(res.event)
       }
@@ -100,18 +102,14 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
   }
 
   const modalTitle = editing
-    ? 'Edit event'
+    ? moderated ? 'Propose changes to this event' : 'Edit event'
     : scope === 'personal'
       ? 'Add an event to my timeline'
       : isForeperson
         ? 'Add an event to the shared timeline'
         : 'Propose an event for the timeline'
 
-  const submitLabel = editing
-    ? 'Save changes'
-    : scope === 'personal' || isForeperson
-      ? 'Add event'
-      : 'Submit for review'
+  const submitLabel = moderated ? 'Submit for review' : editing ? 'Save changes' : 'Add event'
 
   return (
     <Modal
@@ -124,9 +122,11 @@ export default function EventEditor({ open, initial, defaultAt, scope = 'shared'
         <Button variant="primary" type="submit" form="event-form" disabled={busy}>{submitLabel}</Button>
       </>}
     >
-      {!editing && scope !== 'personal' && !isForeperson && (
+      {moderated && (
         <div className="mb-4 rounded-lg bg-surface-2 p-3 text-sm text-muted">
-          Events added to the shared timeline are moderated by the foreperson before appearing to everyone.
+          {editing
+            ? 'Changes to the shared timeline are moderated by the foreperson. The event stays as it is until they approve.'
+            : 'Events added to the shared timeline are moderated by the foreperson before appearing to everyone.'}
         </div>
       )}
       <form id="event-form" onSubmit={save} className="flex flex-col gap-5">
