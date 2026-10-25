@@ -106,58 +106,7 @@ export default function JurorHome() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5 sm:gap-4">
         {/* ROW 1: PRIMARY PILLARS (50% / 50% width on large screens) */}
         
-        {/* 1. Ballots and Charges */}
-        <Link
-          to="/juror/voting"
-          className={cx(
-            'group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border transition-all duration-200 lg:col-span-3 min-h-[155px]',
-            toVote > 0
-              ? 'border-accent/60 ring-2 ring-accent/30'
-              : 'border-line/40 hover:border-line'
-          )}
-        >
-          <div>
-            <div className="mb-3.5 flex items-start justify-between gap-2.5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_8px_rgb(255_159_10/0.3)]">
-                <Icon name="vote" size={22} strokeWidth={2.2} />
-              </span>
-              <div className="flex items-center gap-1.5">
-                {toVote > 0 ? (
-                  <Badge tone="warn" className="px-2 py-0.5 text-xs">Vote pending</Badge>
-                ) : (
-                  <Badge tone="neutral" className="px-2 py-0.5 text-xs">{counts.length} counts</Badge>
-                )}
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
-                  <Icon name="chevronRight" size={15} strokeWidth={2.5} />
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-ink tabular-nums">
-                {toVote > 0 ? toVote : votes.length}
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                {toVote > 0 ? 'vote pending' : 'votes on record'}
-              </span>
-            </div>
-
-            <h2 className="mt-1 text-lg sm:text-xl font-bold text-ink group-hover:text-accent transition-colors">
-              Ballots and Charges
-            </h2>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
-            <span className="text-muted truncate">
-              {counts.length > 0 ? `${counts.length} statutory count${counts.length === 1 ? '' : 's'} under deliberation` : 'Verdict voting'}
-            </span>
-            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
-              {toVote > 0 ? 'Cast vote now' : 'View ballots'} →
-            </span>
-          </div>
-        </Link>
-
-        {/* 2. Exhibit Locker */}
+        {/* 1. Exhibit Locker */}
         <Link
           to="/juror/evidence"
           className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 lg:col-span-3 min-h-[155px]"
@@ -199,9 +148,51 @@ export default function JurorHome() {
           </div>
         </Link>
 
+        {/* 2. My Notes */}
+        <Link
+          to="/juror/notes"
+          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 lg:col-span-3 min-h-[155px]"
+        >
+          <div>
+            <div className="mb-3.5 flex items-start justify-between gap-2.5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-b from-[#34c759] to-[#248a3d] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_8px_rgb(52_199_89/0.3)]">
+                <Icon name="note" size={22} strokeWidth={2.2} />
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
+                  <Icon name="chevronRight" size={15} strokeWidth={2.5} />
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-ink tabular-nums">
+                {notebook.length}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                {notebook.length === 1 ? 'note' : 'notes'}
+              </span>
+            </div>
+
+            <h2 className="mt-1 text-lg sm:text-xl font-bold text-ink group-hover:text-accent transition-colors">
+              My Notes
+            </h2>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted truncate">
+              {lastNote ? `Last edited: ${lastNote.title || 'Untitled note'}` : 'Private to you'}
+            </span>
+            <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
+              Write →
+            </span>
+          </div>
+        </Link>
+
         {/* ROW 2: WORKSPACE & SERVICE TOOLS (33% each on large screens) */}
 
-        {/* 3. Case Timeline */}
+
+        {/* 3. Timeline */}
         <Link
           to="/juror/timeline"
           className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-2 lg:col-span-2 min-h-[150px]"
@@ -226,7 +217,7 @@ export default function JurorHome() {
             </div>
 
             <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
-              Case Timeline
+              Timeline
             </h2>
           </div>
 
@@ -240,7 +231,7 @@ export default function JurorHome() {
           </div>
         </Link>
 
-        {/* 4. Ask the Bailiff */}
+        {/* 4. Requests */}
         <Link
           to="/juror/requests"
           className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[150px]"
@@ -276,7 +267,7 @@ export default function JurorHome() {
             </div>
 
             <h2 className="mt-1 flex items-center gap-2 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
-              Ask the Bailiff
+              Requests
               <CountBadge count={fromBailiff} />
             </h2>
           </div>
@@ -297,17 +288,27 @@ export default function JurorHome() {
           </div>
         </Link>
 
-        {/* 5. My Notes */}
+        {/* 5. Ballots and Charges */}
         <Link
-          to="/juror/notes"
-          className="group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border border-line/40 hover:border-line transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[150px]"
+          to="/juror/voting"
+          className={cx(
+            'group pressable pressable-soft flex flex-col justify-between rounded-2xl bg-surface p-5 shadow-card hover:shadow-lift border transition-all duration-200 sm:col-span-1 lg:col-span-2 min-h-[150px]',
+            toVote > 0
+              ? 'border-accent/60 ring-2 ring-accent/30'
+              : 'border-line/40 hover:border-line'
+          )}
         >
           <div>
             <div className="mb-3 flex items-start justify-between gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#34c759] to-[#248a3d] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_8px_rgb(52_199_89/0.3)]">
-                <Icon name="note" size={20} strokeWidth={2.2} />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-b from-[#ff9f0a] to-[#ff7a00] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.4),0_2px_8px_rgb(255_159_10/0.3)]">
+                <Icon name="vote" size={20} strokeWidth={2.2} />
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
+                {toVote > 0 ? (
+                  <Badge tone="warn" className="px-2 py-0.5 text-xs">Vote pending</Badge>
+                ) : (
+                  <Badge tone="neutral" className="px-2 py-0.5 text-xs">{counts.length} counts</Badge>
+                )}
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill/50 text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-ink">
                   <Icon name="chevronRight" size={15} strokeWidth={2.5} />
                 </span>
@@ -316,24 +317,24 @@ export default function JurorHome() {
 
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold tracking-tight text-ink tabular-nums">
-                {notebook.length}
+                {toVote > 0 ? toVote : votes.length}
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {notebook.length === 1 ? 'note' : 'notes'}
+                {toVote > 0 ? 'vote pending' : 'votes on record'}
               </span>
             </div>
 
             <h2 className="mt-1 text-base sm:text-lg font-bold text-ink group-hover:text-accent transition-colors">
-              My Notes
+              Ballots and Charges
             </h2>
           </div>
 
           <div className="mt-4 pt-3 border-t border-line/40 flex items-center justify-between text-xs font-semibold">
             <span className="text-muted truncate">
-              {lastNote ? `Last edited: ${lastNote.title || 'Untitled note'}` : 'Private to you'}
+              {counts.length > 0 ? `${counts.length} statutory count${counts.length === 1 ? '' : 's'} under deliberation` : 'Verdict voting'}
             </span>
             <span className="text-accent inline-flex items-center gap-0.5 group-hover:underline shrink-0 ml-1">
-              Write →
+              {toVote > 0 ? 'Cast vote now' : 'View ballots'} →
             </span>
           </div>
         </Link>
