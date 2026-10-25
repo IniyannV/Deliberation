@@ -55,8 +55,8 @@ Access URL: **`http://localhost:4000`** (or `http://<LAN-IP>:4000` on iPads)
 | **Juror Seat 10** | `D-1-DC-26-301874-10` | **`403991`** | `/juror`: Full juror deliberation suite |
 | **Juror Seat 11** | `D-1-DC-26-301874-11` | **`494894`** | `/juror`: Full juror deliberation suite |
 | **Juror Seat 12** | `D-1-DC-26-301874-12` | **`181719`** | `/juror`: Full juror deliberation suite |
-| **Bailiff / Clerk** | `D-1-DC-26-301874-B1` (or `B1`) | **`906447`** | `/admin`: Request queue & official answers, exhibit management, juror seat PIN resets & alternate seating, meal catalog, court controls, audit log |
-| **Room Display** | `D-1-DC-26-301874-DISPLAY` (or `DISPLAY`) | **`673490`** | `/display`: Read-only full-screen projector view for wall display (synced timeline, active exhibit, final vote results) |
+| **Bailiff / Clerk** | `D-1-DC-26-301874-B1` | **`906447`** | `/admin`: Request queue & official answers, exhibit management, juror seat PIN resets & alternate seating, meal catalog, court controls, audit log |
+| **Room Display** | `D-1-DC-26-301874-DISPLAY` | **`673490`** | `/display`: Read-only full-screen projector view for wall display (synced timeline, active exhibit, final vote results) |
 
 ### 2. Court Admin Office Portal (Port 4100)
 
