@@ -40,7 +40,10 @@ export default function Login() {
           <ErrorText>{error}</ErrorText>
           <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
         </form>
-        <p className="mt-6 text-center text-sm text-muted">No account? Ask a Court Admin administrator.</p>
+        <p className="mt-6 text-center text-sm text-muted">
+          <a className="font-semibold text-accent underline" href="https://github.com/IniyannV/Deliberation#demo-credentials--passwords" target="_blank" rel="noreferrer">View demo usernames and passwords in the README</a>
+        </p>
+        <p className="mt-2 text-center text-sm text-muted">No account? Ask a Court Admin administrator.</p>
       </Card>
     </div>
   )

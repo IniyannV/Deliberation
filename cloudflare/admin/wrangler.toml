@@ -4,6 +4,10 @@ compatibility_date = "2026-10-25"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+[[routes]]
+pattern = "deliberation-admin.soumilvoona.me"
+custom_domain = true
+
 [assets]
 directory = "../../court-admin/client/dist"
 binding = "ASSETS"

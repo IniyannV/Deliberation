@@ -99,6 +99,9 @@ export default function Login() {
             <Icon name="chevronRight" size={16} className="text-muted transition-transform duration-200 group-open:rotate-90" />
           </summary>
           <div className="px-4 pb-4">
+            <p className="mb-2 text-muted">
+              See the complete <a className="font-semibold text-accent underline" href="https://github.com/IniyannV/Deliberation#demo-credentials--passwords" target="_blank" rel="noreferrer">usernames and PINs in the README</a>.
+            </p>
             <ul className="flex flex-col gap-1 text-muted">
               <li><b className="text-ink">D-1-DC-26-301874-1</b>: foreperson (Seat 1) &mdash; PIN: <b className="text-ink">863462</b></li>
               <li><b className="text-ink">D-1-DC-26-301874-2</b> to <b className="text-ink">12</b>: jurors (see <code>README.md</code> for PINs)</li>

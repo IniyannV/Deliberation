@@ -39,6 +39,12 @@ Workers Assets bindings. They use D1 for relational metadata, R2 for exhibits,
 and a case-scoped Durable Object for the small WebSocket transport. The local
 Express/Socket.IO/lowdb path remains the supported offline demo.
 
+### Live websites
+
+- [Jury Deliberation](https://deliberation-jury.soumilvoona.me)
+- [Court Admin](https://deliberation-admin.soumilvoona.me)
+- [Demo usernames and passwords](#demo-credentials--passwords)
+
 ### First-time Cloudflare setup
 
 Create the shared production resources and put the returned D1 ID in **both**
