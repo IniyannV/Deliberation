@@ -1,0 +1,31 @@
+name = "deliberation-admin"
+main = "worker.js"
+compatibility_date = "2026-10-25"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = "../../court-admin/client/dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "deliberation"
+database_id = "b7e7279a-ae94-4f03-8640-848f7ea8fe61"
+migrations_dir = "../../cloudflare/migrations"
+
+[[r2_buckets]]
+binding = "EXHIBITS"
+bucket_name = "deliberation-exhibits"
+
+[[services]]
+binding = "JURY"
+service = "deliberation-jury"
+environment = "production"
+
+[exports.AdminContainer]
+type = "durable-object"
+state = "deleted"
+
+[observability]
+enabled = true

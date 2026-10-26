@@ -1,0 +1,34 @@
+name = "deliberation-jury"
+main = "worker.js"
+compatibility_date = "2026-10-25"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = "../../client/dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "deliberation"
+database_id = "b7e7279a-ae94-4f03-8640-848f7ea8fe61"
+migrations_dir = "../../cloudflare/migrations"
+
+[[r2_buckets]]
+binding = "EXHIBITS"
+bucket_name = "deliberation-exhibits"
+
+[[durable_objects.bindings]]
+name = "CASE_ROOM"
+class_name = "CaseRoom"
+
+[exports.CaseRoom]
+type = "durable-object"
+storage = "sqlite"
+
+[exports.JuryContainer]
+type = "durable-object"
+state = "deleted"
+
+[observability]
+enabled = true

@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Tasks for migrating Deliberation from Express/Socket.IO/lowdb containers to native Cloudflare Workers while preserving the local demo.",
+  "tasks": [
+    {
+      "type": "setupBaseline",
+      "id": "001-setup-behavior-baseline",
+      "description": "Freeze current HTTP, authentication, exhibit, vote, audit, demo, and realtime behavior before migration.",
+      "reason": "The assessment identifies parity and realtime correctness as release blockers.",
+      "requirements": "Capture executable contract and smoke evidence for both Node servers, npm run demo and demo:reset, API payloads, cookie behavior, local exhibit reads, vote/request/audit flows, and Socket.IO event behavior. Include an infra-decision table for local versus Worker-compatible dependencies. Snapshot the repository source before modifications.",
+      "snapshotFolder": ".",
+      "dependencies": [],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "002-shared-domain-d1-local-adapter",
+      "description": "Introduce shared domain contracts with D1 persistence and a lowdb compatibility adapter.",
+      "reason": "D1 cannot safely replace whole-file lowdb mutations without an explicit schema, transaction, and adapter boundary.",
+      "requirements": "Inventory and map the existing lowdb collections and route payloads into normalized D1 migrations for cases, users/roles, jurors, exhibits, notes, timeline, requests, votes/results, and audit events. Add async repository interfaces, D1 repositories, and a local lowdb repository used by the existing Express servers. Preserve npm run demo, demo:reset, seed/import commands, and local data semantics. Define indexes, transactions, conflict handling, and idempotency for vote submission, request transitions, and audit writes.",
+      "dependencies": [
+        "001-setup-behavior-baseline"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "003-native-jury-worker",
+      "description": "Replace the Jury Container-forwarding Worker with a native Worker backed by shared domain services and D1.",
+      "reason": "The current Jury deployment imports @cloudflare/containers and forwards requests to an Express container.",
+      "requirements": "Route the existing Jury /api contracts and static assets through a native Worker without Express, @cloudflare/containers, Docker startup, or Node-only fs/http/os/path imports. Use D1 repositories and explicit migrations/seeding rather than request-time startup seeding. Preserve same-origin client behavior, auth semantics, case/deliberation/vote/request/audit APIs, and local Node adapter behavior. Configure preview/local bindings and retain a separate explicit local demo path.",
+      "dependencies": [
+        "002-shared-domain-d1-local-adapter"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "004-r2-exhibit-storage",
+      "description": "Move exhibit uploads and authorized reads from local files to R2 with D1 metadata.",
+      "reason": "The assessment found multer/local filesystem exhibit storage, which is not available in native Workers.",
+      "requirements": "Define stable R2 keys and D1 metadata for case, exhibit id, filename, content type, size, checksum, visibility, uploader, and timestamps. Stream multipart uploads with authenticated size/type limits, return authorized reads or short-lived access, preserve PDF.js behavior, and reconcile R2 objects when D1 writes fail. Add import modes for R2 and local filesystem so existing demo/import workflows remain usable.",
+      "dependencies": [
+        "003-native-jury-worker"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "005-durable-object-realtime",
+      "description": "Replace Socket.IO rooms and events with an authorized Durable Object WebSocket protocol.",
+      "reason": "Realtime behavior is high risk because Socket.IO currently supplies rooms, framing, acknowledgements, reconnects, and ordering.",
+      "requirements": "Define and implement a case/deliberation-scoped WebSocket protocol covering authentication, room membership, event framing, acknowledgements, ordering, reconnect/replay behavior, presence, hibernation, and multi-tab handling. Use the Durable Object for connection state and ordered fan-out while D1 remains authoritative. Update client/src/store/live.js and affected server realtime/socket modules without leaking case data across rooms. Keep a local adapter protocol for npm run demo.",
+      "dependencies": [
+        "003-native-jury-worker"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "006-native-court-admin-worker",
+      "description": "Replace the Court Admin Container-forwarding Worker and establish secure admin-to-jury trust.",
+      "reason": "The current admin deployment is also a container-wrapped Express process and hard-codes JURY_SERVER_URL.",
+      "requirements": "Migrate Court Admin routes for auth/users/catalog/cases/exhibits/audit to native Worker handlers using shared D1/R2/domain contracts. Preserve same-origin /api behavior and the local Express/lowdb adapter. Replace hard-coded JURY_SERVER_URL with a service binding or signed internal request. Define signed/encrypted session cookies, secure attributes, expiry/rotation, CSRF and origin checks, and least-privilege bindings. Remove production Container bindings and container-specific seed-at-start behavior.",
+      "skills": [
+        {
+          "name": "cloudflare-native-workers-migration",
+          "location": "builtin"
+        }
+      ],
+      "dependencies": [
+        "004-r2-exhibit-storage",
+        "005-durable-object-realtime"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "security",
+      "id": "007-security-and-free-tier-gates",
+      "description": "Validate security controls, dependency exposure, and Cloudflare Free-compatible operating limits.",
+      "reason": "The public Worker boundary expands security risk and the target explicitly requires Free-compatible services without Containers.",
+      "requirements": "Check session/cookie and CSRF/origin controls, admin-to-jury authorization, upload validation, audit integrity, brute-force protections, secret handling, CORS, and case isolation. Re-scan dependencies without mixing unrelated upgrades. Verify current D1, R2, Durable Object, Worker CPU/request, WebSocket, object-size, and egress limits against expected usage. Record evidence and block cutover on unresolved security or quota gaps.",
+      "dependencies": [
+        "006-native-court-admin-worker"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "integrationTest",
+      "id": "008-integration-parity-validation",
+      "description": "Build integration tests for migrated services and run post-migration verification.",
+      "reason": "The migration requires evidence for local compatibility, D1 concurrency, R2 behavior, WebSockets, and native Worker routing before cutover.",
+      "requirements": "Run the frozen baseline against the local adapter and Worker-compatible bindings. Verify npm run demo and demo:reset, HTTP/auth/API parity, concurrent vote and request transitions, audit writes, R2 upload/read/failed-write cleanup, WebSocket authorization/order/reconnect/multi-tab behavior, static/PDF assets, both Worker routes, and absence of Node-only imports. Include a free-tier limit report and explicit remaining-gap disposition.",
+      "dependencies": [
+        "001-setup-behavior-baseline",
+        "002-shared-domain-d1-local-adapter",
+        "003-native-jury-worker",
+        "004-r2-exhibit-storage",
+        "005-durable-object-realtime",
+        "006-native-court-admin-worker",
+        "007-security-and-free-tier-gates"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    }
+  ],
+  "metadata": {
+    "planName": "cloudflare-native-workers-migration",
+    "projectName": "Deliberation",
+    "language": "javascript",
+    "createdAt": "2026-10-25T20:41:43.703-05:00",
+    "version": "1.0"
+  }
+}

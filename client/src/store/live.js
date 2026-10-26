@@ -13,6 +13,42 @@ import { toast, useUi } from './ui'
 
 let socket = null
 
+// The LAN server uses Socket.IO. Cloudflare Workers use the small JSON
+// protocol implemented by CaseRoom instead; keeping this adapter here avoids
+// changing the rest of the store's event handling.
+class WorkerSocket {
+  constructor() { this.listeners = new Map(); this.connected = false; this.ws = null }
+  on(name, fn) { const list = this.listeners.get(name) || []; list.push(fn); this.listeners.set(name, list); return this }
+  fire(name, value) { for (const fn of this.listeners.get(name) || []) fn(value) }
+  connect() {
+    if (this.ws && this.ws.readyState < 2) return
+    const caseId = new URLSearchParams(location.search).get('caseId') || 'default'
+    this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?caseId=${encodeURIComponent(caseId)}`)
+    this.ws.onopen = () => { this.connected = true; this.fire('connect') }
+    this.ws.onclose = () => { const was = this.connected; this.connected = false; this.fire('disconnect', was ? 'transport close' : 'io server disconnect') }
+    this.ws.onerror = () => this.fire('connect_error', new Error('unauthorized'))
+    this.ws.onmessage = ({ data }) => {
+      let event; try { event = JSON.parse(data) } catch { return }
+      if (event.replyTo && this.pending?.has(event.replyTo)) {
+        this.pending.get(event.replyTo)(null, event); this.pending.delete(event.replyTo); return
+      }
+      this.fire(event.type, event.payload ?? event)
+    }
+    this.pending = new Map()
+  }
+  timeout() { return this }
+  emit(type, payload, callback) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return callback?.(new Error('not connected'))
+    const id = crypto.randomUUID()
+    if (callback) this.pending.set(id, callback)
+    this.ws.send(JSON.stringify({ type, payload, requestId: id }))
+    if (callback) setTimeout(() => { if (this.pending.delete(id)) callback(null, {}) }, 8000)
+    return this
+  }
+  removeAllListeners() { this.listeners.clear(); return this }
+  disconnect() { this.ws?.close(); this.ws = null; this.connected = false }
+}
+
 const isJuror = (role) => role === 'juror' || role === 'foreperson'
 
 /*
@@ -149,7 +185,7 @@ export const useLive = create((set, get) => ({
       chatSeenAt: load(`chatSeenAt:${user.id}`, null),
       chatReadAt: load(`chatReadAt:${user.id}`, {}),
     })
-    socket = io({ withCredentials: true })
+    socket = import.meta.env.VITE_REALTIME === 'websocket' ? new WorkerSocket() : io({ withCredentials: true })
 
     // A pop-up (and for the bailiff, a chime) for something that just arrived,
     // unless do not disturb is on.

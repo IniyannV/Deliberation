@@ -16,6 +16,17 @@
     "demo:dev": "node scripts/demo.js --dev",
     "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
+    "cloudflare:build": "VITE_REALTIME=websocket npm run build && npm run admin:build",
+    "cloudflare:deploy": "npm run cloudflare:build && npm run cloudflare:deploy:jury && npm run cloudflare:deploy:admin",
+    "cloudflare:d1:migrate:local": "wrangler d1 migrations apply deliberation --local --config cloudflare/jury/wrangler.toml",
+    "cloudflare:d1:migrate:local:admin": "wrangler d1 migrations apply deliberation --local --config cloudflare/admin/wrangler.toml",
+    "cloudflare:d1:migrate:remote": "wrangler d1 migrations apply deliberation --remote --config cloudflare/jury/wrangler.toml",
+    "cloudflare:d1:seed:local": "wrangler d1 execute deliberation --local --file cloudflare/seed.local.sql --config cloudflare/jury/wrangler.toml",
+    "cloudflare:d1:seed:local:admin": "wrangler d1 execute deliberation --local --file cloudflare/seed.local.sql --config cloudflare/admin/wrangler.toml",
+    "cloudflare:deploy:jury": "wrangler deploy --config cloudflare/jury/wrangler.toml",
+    "cloudflare:deploy:admin": "wrangler deploy --config cloudflare/admin/wrangler.toml",
+    "cloudflare:preview": "npm run demo -- --no-open",
+    "cloudflare:smoke": "node scripts/cloudflare-smoke.mjs",
     "start": "npm run start -w server",
     "seed": "npm run seed -w server",
     "import-case": "node server/scripts/import-case.js",
@@ -27,6 +38,7 @@
     "admin:create-user": "npm run create-user -w court-admin-server --"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "wrangler": "^4.152.0"
   }
 }
