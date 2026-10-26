@@ -16,6 +16,14 @@ devices that can reach the internet.
 
 ---
 
+## Online demos
+
+- [Jury Deliberation](https://deliberation-jury.soumilvoona.me)
+- [Court Admin](https://deliberation-admin.soumilvoona.me)
+- [Demo usernames and passwords](#demo-credentials--passwords)
+
+---
+
 ## Quick start
 
 Requires Node 20+. Install dependencies once:
@@ -30,12 +38,6 @@ npm run demo
 - Seeds the Court Admin office portal (`http://localhost:4100`) with administrative accounts and ready trials.
 - Starts both servers and prints direct URLs and sign-in credentials in the terminal.
 - Opens your browser directly to the **Jury App (`http://localhost:4000`)** ready to sign in!
-
-## Online demos
-
-- [Jury Deliberation](https://deliberation-jury.soumilvoona.me)
-- [Court Admin](https://deliberation-admin.soumilvoona.me)
-- [Demo usernames and passwords](#demo-credentials--passwords)
 
 ---
 
