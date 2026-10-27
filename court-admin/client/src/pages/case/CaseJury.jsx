@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { api, isDemoAdminDomain } from '../../lib/api'
+import { getDemoPinsForCase } from '../../lib/demoPins'
 import { toast } from '../../store/ui'
 import { fmtDateTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, Select } from '../../components/ui'
@@ -119,7 +120,35 @@ export default function CaseJury() {
     return next
   })
   const selectedWithPins = rows.filter((r) => selected.has(r.key) && r.pin.set).length
-  const printSelected = () => (selectedWithPins ? setConfirmSelected(true) : generate(rows.filter((r) => selected.has(r.key)).map((r) => r.key)))
+  const [revealedPins, setRevealedPins] = useState(() => ({})) // { [key]: boolean }
+  const demoPinMap = getDemoPinsForCase(kase.caseNumber)
+
+  const printSelected = () => {
+    if (isDemoDomain) {
+      const targetRows = rows.filter((r) => selected.has(r.key))
+      const pinsToDisplay = targetRows.map((r) => ({
+        who: r.seat ? `Juror seat ${r.seat}${r.seat === jury.foreperson ? ' (foreperson)' : ''}` : r.who,
+        signIn: r.signIn,
+        pin: demoPinMap[r.key] || '123456',
+      }))
+      setSheet(pinsToDisplay)
+      return
+    }
+    return selectedWithPins ? setConfirmSelected(true) : generate(rows.filter((r) => selected.has(r.key)).map((r) => r.key))
+  }
+
+  const viewAllPins = () => {
+    const pinsToDisplay = rows.map((r) => ({
+      who: r.seat ? `Juror seat ${r.seat}${r.seat === jury.foreperson ? ' (foreperson)' : ''}` : r.who,
+      signIn: r.signIn,
+      pin: demoPinMap[r.key] || '123456',
+    }))
+    setSheet(pinsToDisplay)
+  }
+
+  const toggleRevealPin = (key) => {
+    setRevealedPins((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
@@ -152,43 +181,63 @@ export default function CaseJury() {
 
       <div className="flex min-w-0 flex-col gap-4">
         {isDemoDomain && (
-          <div className="rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
-            <b>Public demo domain:</b> modifications and PIN regeneration are not allowed.
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-fill px-4 py-3 text-sm">
+            <span className="text-muted">
+              <b>Public demo domain:</b> regenerating PINs is not allowed, but you can view previously generated PINs.
+            </span>
+            <Button size="sm" variant="primary" icon="eye" onClick={viewAllPins}>
+              View all PINs
+            </Button>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="primary"
-            icon="key"
-            onClick={() => generate('missing')}
-            disabled={isDemoDomain || !missing}
-            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
-          >
-            Generate missing PINs{missing ? ` (${missing})` : ''}
-          </Button>
-          <Button
-            icon="printer"
-            onClick={printSelected}
-            disabled={isDemoDomain || !selected.size}
-            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
-          >
-            Print selected{selected.size ? ` (${selected.size})` : ''}
-          </Button>
-          <Button
-            icon="refresh"
-            onClick={() => setConfirmAll(true)}
-            disabled={isDemoDomain}
-            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
-          >
-            Replace all PINs
-          </Button>
+          {isDemoDomain ? (
+            <>
+              <Button
+                variant="primary"
+                icon="eye"
+                onClick={printSelected}
+                disabled={!selected.size}
+              >
+                View selected PINs{selected.size ? ` (${selected.size})` : ''}
+              </Button>
+              <Button
+                icon="eye"
+                onClick={viewAllPins}
+              >
+                View all PINs
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="primary"
+                icon="key"
+                onClick={() => generate('missing')}
+                disabled={!missing}
+              >
+                Generate missing PINs{missing ? ` (${missing})` : ''}
+              </Button>
+              <Button
+                icon="printer"
+                onClick={printSelected}
+                disabled={!selected.size}
+              >
+                Print selected{selected.size ? ` (${selected.size})` : ''}
+              </Button>
+              <Button
+                icon="refresh"
+                onClick={() => setConfirmAll(true)}
+              >
+                Replace all PINs
+              </Button>
+            </>
+          )}
           {namesDirty && (
             <Button
               variant="primary"
               className="ml-auto"
               onClick={() => saveNames()}
-              disabled={isDemoDomain}
-              title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
             >
               Save names
             </Button>
@@ -214,17 +263,41 @@ export default function CaseJury() {
                   <td className="py-2.5">
                     {r.seat ? <Input value={names[r.seat] ?? ''} onChange={(e) => setNames({ ...names, [r.seat]: e.target.value })} maxLength={80} placeholder={`Juror seat ${r.seat}`} aria-label={`Seat ${r.seat} juror’s name`} className="min-w-32 py-1.5" /> : r.who}
                   </td>
-                  <td className="py-2.5 whitespace-nowrap"><PinBadge p={r.pin} /></td>
+                  <td className="py-2.5 whitespace-nowrap">
+                    {isDemoDomain && revealedPins[r.key] ? (
+                      <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold tracking-wider text-ok">
+                        {demoPinMap[r.key] || '123456'}
+                        <button
+                          type="button"
+                          className="ml-1 text-xs text-muted hover:text-accent font-sans font-normal"
+                          onClick={() => toggleRevealPin(r.key)}
+                        >
+                          hide
+                        </button>
+                      </span>
+                    ) : (
+                      <PinBadge p={r.pin} />
+                    )}
+                  </td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => generate(r.key)}
-                      disabled={isDemoDomain}
-                      title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
-                    >
-                      {r.pin.set ? 'New PIN' : 'Generate'}
-                    </Button>
+                    {isDemoDomain ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleRevealPin(r.key)}
+                        title="View previously generated PIN for this seat"
+                      >
+                        {revealedPins[r.key] ? 'Hide PIN' : 'View PIN'}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => generate(r.key)}
+                      >
+                        {r.pin.set ? 'New PIN' : 'Generate'}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

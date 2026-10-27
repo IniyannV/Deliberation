@@ -174,15 +174,8 @@ export default function CaseEvidence() {
   }
 
   const admitted = exhibits.filter((e) => e.status === 'admitted').length
-  const isDemoDomain = isDemoAdminDomain()
-
   return (
     <div className="flex flex-col gap-6">
-      {isDemoDomain && (
-        <div className="rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
-          <b>Public demo domain:</b> uploading, editing, or deleting exhibits is not allowed.
-        </div>
-      )}
       {kase.signoff?.valid && (
         <p className="flex items-start gap-2 rounded-xl bg-warn-soft px-4 py-3 text-warn">
           <Icon name="alert" size={20} className="mt-0.5 shrink-0" />
@@ -199,8 +192,6 @@ export default function CaseEvidence() {
               variant="primary"
               icon="plus"
               onClick={() => setAdding(true)}
-              disabled={isDemoDomain}
-              title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
             >
               Add exhibit
             </Button>
@@ -230,38 +221,29 @@ export default function CaseEvidence() {
                       <IconButton
                         icon="edit"
                         label={`Edit ${e.number}`}
-                        disabled={isDemoDomain}
-                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Edit ${e.number}`}
                         onClick={() => setEditing({ ...e })}
                       />
                       <IconButton
                         icon="upload"
                         label={`Replace ${e.number}’s file`}
-                        disabled={isDemoDomain || !!replacing}
-                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Replace ${e.number}’s file`}
+                        disabled={!!replacing}
                         onClick={() => { replaceTarget.current = e; replaceInput.current.click() }}
                       />
                       {e.status === 'admitted'
                         ? <IconButton
                             icon="eyeOff"
                             label={`Withdraw ${e.number}`}
-                            disabled={isDemoDomain}
-                            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Withdraw ${e.number}`}
                             onClick={() => patch(e, { status: 'withdrawn' }, `${e.number} withdrawn. It won’t be exported.`)}
                           />
                         : <IconButton
                             icon="refresh"
                             label={`Restore ${e.number}`}
-                            disabled={isDemoDomain}
-                            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Restore ${e.number}`}
                             onClick={() => patch(e, { status: 'admitted' }, `${e.number} restored.`)}
                           />}
                       <IconButton
                         icon="trash"
                         label={`Delete ${e.number}`}
                         className="hover:text-danger"
-                        disabled={isDemoDomain}
-                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Delete ${e.number}`}
                         onClick={() => setRemoving(e)}
                       />
                     </td>

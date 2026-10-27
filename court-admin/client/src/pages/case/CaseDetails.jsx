@@ -69,8 +69,7 @@ export default function CaseDetails() {
             <Button
               type="submit"
               variant="primary"
-              disabled={isDemoAdminDomain() || busy || !dirty}
-              title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+              disabled={busy || !dirty}
             >
               Save details
             </Button>
@@ -93,8 +92,6 @@ export default function CaseDetails() {
               <Button
                 icon="refresh"
                 onClick={() => setStatus('active')}
-                disabled={isDemoAdminDomain()}
-                title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
               >
                 Reopen case
               </Button>
@@ -116,8 +113,6 @@ export default function CaseDetails() {
               <Button
                 icon="archive"
                 onClick={() => setStatus('archived')}
-                disabled={isDemoAdminDomain()}
-                title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
               >
                 Archive case
               </Button>

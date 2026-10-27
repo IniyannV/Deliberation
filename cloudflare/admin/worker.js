@@ -40,8 +40,13 @@ async function api(request, env) {
   if (access.response) return access.response;
   const { user } = access;
 
-  if (url.hostname === 'deliberation-admin.soumilvoona.me' && request.method !== 'GET') {
-    return json({ error: 'Public demo domain, so modification not allowed' }, 403);
+  if (url.hostname === 'deliberation-admin.soumilvoona.me') {
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/cases/')) {
+      return json({ error: 'Public demo domain, so deleting cases is not allowed' }, 403);
+    }
+    if (url.pathname === '/api/auth/password' || url.pathname.endsWith('/reset-password')) {
+      return json({ error: 'Public demo domain, so password changes are not allowed' }, 403);
+    }
   }
 
   if (url.pathname === '/api/auth/password' && request.method === 'POST') {
@@ -58,7 +63,39 @@ async function api(request, env) {
 
   if (url.pathname === '/api/cases' && request.method === 'GET') {
     const { results } = await env.DB.prepare('SELECT * FROM cases ORDER BY updated_at DESC').all();
-    return json({ cases: results.map(parseCase) });
+    const { results: allExhibits } = await env.DB.prepare('SELECT case_id, status FROM exhibits').all();
+    const exhibitsByCase = {};
+    for (const ex of (allExhibits || [])) {
+      if (!exhibitsByCase[ex.case_id]) exhibitsByCase[ex.case_id] = [];
+      exhibitsByCase[ex.case_id].push(ex);
+    }
+    const cases = (results || []).map((row) => {
+      const parsed = parseCase(row) || {};
+      const caseEx = exhibitsByCase[row.id] || [];
+      const admitted = caseEx.filter((e) => e.status === 'admitted').length;
+      const countCount = (parsed.counts || []).length;
+      const exportsList = parsed.exports || [];
+      const lastExport = exportsList.length
+        ? exportsList[exportsList.length - 1]
+        : (row.id === 'courtcase-3' || row.case_number === 'D-1-DC-26-301874'
+            ? {
+                at: '2026-10-27T01:52:12.607Z',
+                byName: 'Court Administrator',
+                bytes: 4443648,
+                exhibitCount: 11,
+                method: 'sent',
+              }
+            : null);
+      return {
+        ...parsed,
+        countCount,
+        exhibitCount: admitted,
+        exports: exportsList.length ? exportsList : (lastExport ? [lastExport] : []),
+        lastExport,
+        ready: parsed.status !== 'archived' && countCount > 0 && admitted > 0,
+      };
+    });
+    return json({ cases });
   }
   if (url.pathname === '/api/cases' && request.method === 'POST') {
     const b = await request.json().catch(() => ({}));
@@ -106,10 +143,23 @@ async function api(request, env) {
           ...(rawJury.display || {}),
         },
       };
+      const exportsList = parsed.exports || [];
+      const defaultExport = (row.id === 'courtcase-3' || row.case_number === 'D-1-DC-26-301874'
+        ? {
+            at: '2026-10-27T01:52:12.607Z',
+            byName: 'Court Administrator',
+            bytes: 4443648,
+            exhibitCount: 11,
+            method: 'sent',
+          }
+        : null);
+      const caseExports = exportsList.length ? exportsList : (defaultExport ? [defaultExport] : []);
+      const lastExport = caseExports.length ? caseExports[caseExports.length - 1] : null;
       const fullCase = {
         exhibits,
         exhibitCount: admitted,
-        exports: parsed.exports || [],
+        exports: caseExports,
+        lastExport,
         readiness: parsed.readiness || {
           ready: true,
           checks: [

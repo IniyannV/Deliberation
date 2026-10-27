@@ -58,29 +58,19 @@ export default function CaseCharges() {
     }
   }
 
-  const isDemoDomain = isDemoAdminDomain()
-
   return (
     <div>
-      {isDemoDomain && (
-        <div className="mb-4 rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
-          <b>Public demo domain:</b> modifications to charges are not allowed.
-        </div>
-      )}
       <div className="sticky top-0 z-10 -mx-2 mb-4 flex flex-wrap items-center gap-3 bg-bg/90 px-2 py-2 backdrop-blur">
         <Button
           variant="primary"
           onClick={save}
-          disabled={isDemoDomain || busy || !dirty}
-          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          disabled={busy || !dirty}
         >
           Save charges
         </Button>
         <Button
           icon="plus"
           onClick={() => setCounts([...counts, blankCount(counts.length + 1)])}
-          disabled={isDemoDomain}
-          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
         >
           Add count
         </Button>

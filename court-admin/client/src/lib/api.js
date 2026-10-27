@@ -8,10 +8,17 @@ export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
 
 export async function api(path, { method = 'GET', body, form } = {}) {
   const m = method.toUpperCase()
-  if (isDemoAdminDomain() && m !== 'GET' && !path.startsWith('/auth/login') && !path.startsWith('/auth/logout') && !path.startsWith('/auth/me')) {
-    const err = new Error('Public demo domain, so modification not allowed')
-    err.status = 403
-    throw err
+  if (isDemoAdminDomain()) {
+    if (m === 'DELETE' && path.startsWith('/cases/')) {
+      const err = new Error('Public demo domain, so deleting cases is not allowed')
+      err.status = 403
+      throw err
+    }
+    if (path.includes('/reset-password') || path.startsWith('/auth/password')) {
+      const err = new Error('Public demo domain, so changing passwords is not allowed')
+      err.status = 403
+      throw err
+    }
   }
   const res = await fetch(`/api${path}`, {
     method,
@@ -34,9 +41,6 @@ export async function api(path, { method = 'GET', body, form } = {}) {
  * while, so the clerk sees how far along the upload is.
  */
 export function uploadWithProgress(path, form, onProgress) {
-  if (isDemoAdminDomain()) {
-    return Promise.reject(new Error('Public demo domain, so modification not allowed'))
-  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `/api${path}`)

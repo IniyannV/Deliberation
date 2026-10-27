@@ -58,8 +58,7 @@ export default function Catalog() {
           <Button
             variant="primary"
             onClick={save}
-            disabled={isDemoDomain || busy}
-            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+            disabled={busy}
           >
             Save changes
           </Button>

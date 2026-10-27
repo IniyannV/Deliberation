@@ -57,8 +57,6 @@ function Signoff({ kase, setCase }) {
           size="sm"
           className="self-start"
           onClick={() => setEditing(true)}
-          disabled={isDemoAdminDomain()}
-          title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
         >
           Record again
         </Button>
@@ -79,8 +77,7 @@ function Signoff({ kase, setCase }) {
         type="submit"
         variant="primary"
         className="self-start"
-        disabled={isDemoAdminDomain() || !kase.exhibitCount}
-        title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+        disabled={!kase.exhibitCount}
       >
         Record sign-off
       </Button>
@@ -139,8 +136,7 @@ export default function CaseExport() {
               size="lg"
               icon="send"
               onClick={() => send()}
-              disabled={isDemoAdminDomain() || sending}
-              title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+              disabled={sending}
             >
               {sending ? 'Sending…' : `Send ${kase.caseNumber} to jury iPads`}
             </Button>

@@ -7,6 +7,9 @@ import { Icon } from '../components/icons'
 
 export function CaseStatus({ c }) {
   if (c.status === 'archived') return <Badge>Archived</Badge>
+  if (c.lastExport?.method === 'sent' || c.exports?.some((x) => x.method === 'sent')) {
+    return <Badge tone="ok"><Icon name="check" size={13} strokeWidth={2.5} /> Sent to jury</Badge>
+  }
   if (c.ready) return <Badge tone="ok"><Icon name="check" size={13} strokeWidth={2.5} /> Ready to send</Badge>
   return <Badge tone="warn">In preparation</Badge>
 }
@@ -39,8 +42,6 @@ export default function Cases() {
             variant="primary"
             icon="plus"
             onClick={() => setCreating(true)}
-            disabled={isDemoDomain}
-            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
           >
             New case
           </Button>
