@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api } from '../lib/api'
+import { api, isDemoAdminDomain } from '../lib/api'
 import { useAuth } from '../store/auth'
 import { toast } from '../store/ui'
 import { Button, Card, ErrorText, Field, Input, PageHeader } from '../components/ui'
@@ -33,7 +33,15 @@ export default function Account() {
           <Field label="New password" hint="At least 10 characters. A few unrelated words make a strong one.">{(id) => <Input id={id} type="password" value={form.next} onChange={set('next')} autoComplete="new-password" required minLength={10} />}</Field>
           <Field label="New password again">{(id) => <Input id={id} type="password" value={form.again} onChange={set('again')} autoComplete="new-password" required />}</Field>
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" variant="primary" className="self-start">Change password</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            className="self-start"
+            disabled={isDemoAdminDomain()}
+            title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Change password
+          </Button>
         </form>
       </Card>
     </div>

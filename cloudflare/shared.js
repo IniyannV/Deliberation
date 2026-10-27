@@ -39,10 +39,13 @@ export function publicUser(user) {
     id: user.id,
     kind: user.kind || user.role,
     role: user.role,
+    isForeperson: user.role === 'foreperson',
     seat: user.seat == null ? null : Number(user.seat),
+    username: user.username || user.login || null,
     login: user.login || user.username || null,
     name: user.name || (user.seat ? `Juror ${user.seat}` : null),
     caseNumber: user.case_number || user.caseNumber || null,
+    active: user.active !== 0 && user.active !== false,
   };
 }
 
@@ -91,7 +94,8 @@ export function clearSession(response) {
 export async function caseForUser(env, user) {
   const row = user?.case_number
     ? await env.DB.prepare('SELECT * FROM cases WHERE case_number=? LIMIT 1').bind(user.case_number).first()
-    : await env.DB.prepare('SELECT * FROM cases ORDER BY created_at DESC LIMIT 1').first();
+    : (await env.DB.prepare("SELECT * FROM cases WHERE status='active' ORDER BY (case_number='D-1-DC-26-301874') DESC, created_at DESC LIMIT 1").first())
+      || (await env.DB.prepare('SELECT * FROM cases ORDER BY created_at DESC LIMIT 1').first());
   return row ? parseCase(row) : null;
 }
 

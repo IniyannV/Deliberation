@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, isDemoAdminDomain } from '../../lib/api'
 import { toast } from '../../store/ui'
 import { Button, Card, EmptyState, ErrorText, Field, IconButton, Input, Modal, Select, Textarea } from '../../components/ui'
 import { TEXAS_OFFENSES, TEXAS_OFFENSE_GROUPS, offenseOf } from '../../lib/texasOffenses'
@@ -58,11 +58,32 @@ export default function CaseCharges() {
     }
   }
 
+  const isDemoDomain = isDemoAdminDomain()
+
   return (
     <div>
+      {isDemoDomain && (
+        <div className="mb-4 rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
+          <b>Public demo domain:</b> modifications to charges are not allowed.
+        </div>
+      )}
       <div className="sticky top-0 z-10 -mx-2 mb-4 flex flex-wrap items-center gap-3 bg-bg/90 px-2 py-2 backdrop-blur">
-        <Button variant="primary" onClick={save} disabled={busy || !dirty}>Save charges</Button>
-        <Button icon="plus" onClick={() => setCounts([...counts, blankCount(counts.length + 1)])}>Add count</Button>
+        <Button
+          variant="primary"
+          onClick={save}
+          disabled={isDemoDomain || busy || !dirty}
+          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+        >
+          Save charges
+        </Button>
+        <Button
+          icon="plus"
+          onClick={() => setCounts([...counts, blankCount(counts.length + 1)])}
+          disabled={isDemoDomain}
+          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+        >
+          Add count
+        </Button>
         {dirty && <span className="text-sm text-warn">Unsaved changes</span>}
         <p className="ml-auto text-sm text-muted">Copy each count from the judge’s written instructions.</p>
       </div>

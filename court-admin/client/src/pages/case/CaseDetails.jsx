@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, isDemoAdminDomain } from '../../lib/api'
 import { useAuth } from '../../store/auth'
 import { toast } from '../../store/ui'
 import { fmtDateTime } from '../../lib/format'
@@ -66,7 +66,14 @@ export default function CaseDetails() {
           </Field>
           <ErrorText>{error}</ErrorText>
           <div className="flex items-center gap-3">
-            <Button type="submit" variant="primary" disabled={busy || !dirty}>Save details</Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isDemoAdminDomain() || busy || !dirty}
+              title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+            >
+              Save details
+            </Button>
             {dirty && <span className="text-sm text-warn">Unsaved changes</span>}
           </div>
         </form>
@@ -83,20 +90,44 @@ export default function CaseDetails() {
           {kase.status === 'archived' ? (
             <>
               <p className="text-sm text-muted">This case is archived. Reopen it to make changes count toward an export.</p>
-              <Button icon="refresh" onClick={() => setStatus('active')}>Reopen case</Button>
-              {isAdmin && <Button variant="danger" icon="trash" onClick={() => setDeleting(true)}>Delete case</Button>}
+              <Button
+                icon="refresh"
+                onClick={() => setStatus('active')}
+                disabled={isDemoAdminDomain()}
+                title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+              >
+                Reopen case
+              </Button>
+              {isAdmin && (
+                <Button
+                  variant="danger"
+                  icon="trash"
+                  onClick={() => setDeleting(true)}
+                  disabled={isDemoAdminDomain()}
+                  title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+                >
+                  Delete case
+                </Button>
+              )}
             </>
           ) : (
             <>
               <p className="text-sm text-muted">Archive a case once the trial is over. Archived cases can’t be exported.</p>
-              <Button icon="archive" onClick={() => setStatus('archived')}>Archive case</Button>
+              <Button
+                icon="archive"
+                onClick={() => setStatus('archived')}
+                disabled={isDemoAdminDomain()}
+                title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+              >
+                Archive case
+              </Button>
             </>
           )}
         </Card>
       </div>
 
       <Modal open={deleting} onClose={() => setDeleting(false)} title={`Delete ${kase.caseNumber}?`} footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button variant="danger" onClick={remove}>Delete permanently</Button></>}>
-        <p>This permanently deletes the case, its {kase.exhibits.length} exhibit{kase.exhibits.length === 1 ? '' : 's'} and their files from this server. Packages already exported are not affected. The deletion is recorded in the audit log.</p>
+        <p>This permanently deletes the case, its {(kase.exhibits ?? []).length} exhibit{(kase.exhibits ?? []).length === 1 ? '' : 's'} and their files from this server. Packages already exported are not affected. The deletion is recorded in the audit log.</p>
       </Modal>
     </div>
   )

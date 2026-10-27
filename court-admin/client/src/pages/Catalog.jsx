@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, isDemoAdminDomain } from '../lib/api'
 import { toast } from '../store/ui'
 import { Button, Card, IconButton, Input, PageHeader } from '../components/ui'
 
@@ -47,9 +47,24 @@ export default function Catalog() {
     }
   }
 
+  const isDemoDomain = isDemoAdminDomain()
+
   return (
     <div>
-      <PageHeader title="Menu & supplies" subtitle="What jurors can choose from when they ask for a meal or supplies. One list for every case; each package carries a copy, and the bailiff can still adjust it on the jury laptop." actions={<Button variant="primary" onClick={save} disabled={busy}>Save changes</Button>} />
+      <PageHeader
+        title="Menu & supplies"
+        subtitle="What jurors can choose from when they ask for a meal or supplies. One list for every case; each package carries a copy, and the bailiff can still adjust it on the jury laptop."
+        actions={
+          <Button
+            variant="primary"
+            onClick={save}
+            disabled={isDemoDomain || busy}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Save changes
+          </Button>
+        }
+      />
       <Card className="mb-6 p-6">
         <h2 className="mb-4 text-xl font-bold">Meal menu</h2>
         <ItemRows items={menu} setItems={setMenu} withCategory />

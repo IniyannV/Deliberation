@@ -1,9 +1,18 @@
 // Thin fetch wrapper. Every request goes to this same origin (the Court Admin server).
 
+export const DEMO_ADMIN_HOST = 'deliberation-admin.soumilvoona.me'
+export const isDemoAdminDomain = () => typeof window !== 'undefined' && window.location.hostname === DEMO_ADMIN_HOST
+
 let onUnauthorized = () => {}
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
 
 export async function api(path, { method = 'GET', body, form } = {}) {
+  const m = method.toUpperCase()
+  if (isDemoAdminDomain() && m !== 'GET' && !path.startsWith('/auth/login') && !path.startsWith('/auth/logout') && !path.startsWith('/auth/me')) {
+    const err = new Error('Public demo domain, so modification not allowed')
+    err.status = 403
+    throw err
+  }
   const res = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
@@ -25,6 +34,9 @@ export async function api(path, { method = 'GET', body, form } = {}) {
  * while, so the clerk sees how far along the upload is.
  */
 export function uploadWithProgress(path, form, onProgress) {
+  if (isDemoAdminDomain()) {
+    return Promise.reject(new Error('Public demo domain, so modification not allowed'))
+  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `/api${path}`)

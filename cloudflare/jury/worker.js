@@ -19,10 +19,18 @@ async function auth(request, env, pathname) {
     const body = await request.json().catch(() => ({}));
     const identifier = String(body.identifier || '').trim();
     const pin = String(body.pin || '');
+    if (/^\d{1,2}$/.test(identifier)) {
+      const activeCase = (await caseForUser(env))?.caseNumber || 'D-1-DC-26-301874';
+      return json({ error: `Please enter your case number before your seat (e.g. ${activeCase}-${identifier}) because multiple court cases run simultaneously.` }, 401);
+    }
     const user = await env.DB.prepare(
-      `SELECT * FROM users WHERE (login=? OR username=? OR
-       (role IN ('juror','foreperson') AND case_number || '-' || seat=?)) AND active=1 LIMIT 1`,
-    ).bind(identifier, identifier.toLowerCase(), identifier).first();
+      `SELECT * FROM users WHERE (
+         lower(login) = lower(?) OR
+         lower(username) = lower(?) OR
+         lower(case_number || '-' || seat) = lower(?) OR
+         lower(case_number || '-' || login) = lower(?)
+       ) AND active=1 LIMIT 1`,
+    ).bind(identifier, identifier, identifier, identifier).first();
     if (!user || !(await verifySecret(pin, user.password_hash))) {
       return json({ error: 'That sign-in ID and PIN did not match' }, 401);
     }
@@ -92,6 +100,59 @@ async function api(request, env) {
     await audit(env, user.id, 'exhibit.uploaded', id, { key });
     return json({ exhibit: rowExhibit(await env.DB.prepare('SELECT * FROM exhibits WHERE id=?').bind(id).first()) }, 201);
   }
+
+  // Bailiff station endpoints
+  if (url.pathname === '/api/admin/overview' && request.method === 'GET') {
+    if (user.role !== 'bailiff') return json({ error: 'Not permitted' }, 403);
+    const caseRow = await caseForUser(env, user);
+    const exCount = await env.DB.prepare('SELECT count(*) as count FROM exhibits WHERE case_id=?').bind(caseRow?.id || '').first();
+    return json({
+      case: caseRow,
+      pendingRequests: 0,
+      exhibits: exCount?.count || 0,
+      presence: {},
+      onlineExhibits: false,
+    });
+  }
+  if (url.pathname === '/api/admin/seats' && request.method === 'GET') {
+    if (user.role !== 'bailiff') return json({ error: 'Not permitted' }, 403);
+    const caseRow = await caseForUser(env, user);
+    const { results } = await env.DB.prepare(
+      'SELECT id, seat, role, active FROM users WHERE (kind="juror" OR role IN ("juror","foreperson")) AND case_number=? ORDER BY seat',
+    ).bind(caseRow?.caseNumber || 'D-1-DC-26-301874').all();
+    return json({ seats: results.map((r) => ({ id: r.id, seat: r.seat, isForeperson: r.role === 'foreperson', active: r.active !== 0 })) });
+  }
+  const resetPinMatch = url.pathname.match(/^\/api\/admin\/seats\/([^/]+)\/reset-pin$/);
+  if (resetPinMatch && request.method === 'POST') {
+    if (user.role !== 'bailiff') return json({ error: 'Not permitted' }, 403);
+    const seatId = resetPinMatch[1];
+    const target = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(seatId).first();
+    if (!target) return json({ error: 'Seat not found' }, 404);
+    const pin = String(Math.floor(Math.random() * 900000 + 100000));
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(pin, seatId).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(seatId).run();
+    await audit(env, user.id, 'seat.pin_reset', seatId, { seat: target.seat });
+    return json({ seat: { id: target.id, seat: target.seat, isForeperson: target.role === 'foreperson', active: target.active !== 0 }, pin });
+  }
+  const seatPatchMatch = url.pathname.match(/^\/api\/admin\/seats\/([^/]+)$/);
+  if (seatPatchMatch && request.method === 'PATCH') {
+    if (user.role !== 'bailiff') return json({ error: 'Not permitted' }, 403);
+    const seatId = seatPatchMatch[1];
+    const target = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(seatId).first();
+    if (!target) return json({ error: 'Seat not found' }, 404);
+    const b = await request.json().catch(() => ({}));
+    if (b.isForeperson === true) {
+      await env.DB.prepare('UPDATE users SET role="juror" WHERE role="foreperson" AND case_number=?').bind(target.case_number).run();
+      await env.DB.prepare('UPDATE users SET role="foreperson" WHERE id=?').bind(seatId).run();
+    }
+    if (typeof b.active === 'boolean') {
+      await env.DB.prepare('UPDATE users SET active=? WHERE id=?').bind(b.active ? 1 : 0, seatId).run();
+      if (!b.active) await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(seatId).run();
+    }
+    const updated = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(seatId).first();
+    return json({ seat: { id: updated.id, seat: updated.seat, isForeperson: updated.role === 'foreperson', active: updated.active !== 0 } });
+  }
+
   return json({ error: 'not_found' }, 404);
 }
 

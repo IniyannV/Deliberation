@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, isDemoAdminDomain } from '../lib/api'
 import { useAuth } from '../store/auth'
 import { toast } from '../store/ui'
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader, Select, cx } from '../components/ui'
@@ -39,12 +39,24 @@ export default function Users() {
     role: (u) => (u.role === 'admin' ? `${u.name} becomes a clerk and can no longer manage accounts.` : `${u.name} becomes an admin and can manage accounts.`),
   }
 
+  const isDemoDomain = isDemoAdminDomain()
+
   return (
     <div>
       <PageHeader
         title="Accounts"
         subtitle="Everyone who can sign in to Court Admin. Clerks prepare and export cases; admins can also manage accounts. Each person’s actions are recorded under their name."
-        actions={<Button variant="primary" icon="plus" onClick={() => setAdding(true)}>Add account</Button>}
+        actions={
+          <Button
+            variant="primary"
+            icon="plus"
+            onClick={() => setAdding(true)}
+            disabled={isDemoDomain}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Add account
+          </Button>
+        }
       />
       <Card>
         <table className="apple-table w-full text-left">
@@ -61,11 +73,49 @@ export default function Users() {
                   <td className="py-3">{u.role === 'admin' ? <Badge tone="accent">Admin</Badge> : <Badge>Clerk</Badge>}</td>
                   <td className="py-3">{u.active ? <Badge tone="ok">Active</Badge> : <Badge>Deactivated</Badge>}</td>
                   <td className="py-3 pr-4 text-right whitespace-nowrap">
-                    {!self && <Button size="sm" variant="ghost" onClick={() => setConfirm({ user: u, action: 'role' })}>{u.role === 'admin' ? 'Make clerk' : 'Make admin'}</Button>}
-                    <Button size="sm" variant="ghost" onClick={() => setConfirm({ user: u, action: 'reset' })}>Reset password</Button>
+                    {!self && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirm({ user: u, action: 'role' })}
+                        disabled={isDemoDomain}
+                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+                      >
+                        {u.role === 'admin' ? 'Make clerk' : 'Make admin'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirm({ user: u, action: 'reset' })}
+                      disabled={isDemoDomain}
+                      title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+                    >
+                      Reset password
+                    </Button>
                     {!self && (u.active
-                      ? <Button size="sm" variant="ghost" onClick={() => setConfirm({ user: u, action: 'deactivate' })}>Deactivate</Button>
-                      : <Button size="sm" variant="ghost" onClick={() => setConfirm({ user: u, action: 'activate' })}>Reactivate</Button>)}
+                      ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirm({ user: u, action: 'deactivate' })}
+                          disabled={isDemoDomain}
+                          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+                        >
+                          Deactivate
+                        </Button>
+                      )
+                      : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirm({ user: u, action: 'activate' })}
+                          disabled={isDemoDomain}
+                          title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+                        >
+                          Reactivate
+                        </Button>
+                      ))}
                   </td>
                 </tr>
               )

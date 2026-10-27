@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, isDemoAdminDomain } from '../lib/api'
 import { fmtDateTime, timeAgo } from '../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorText, Field, Input, Modal, PageHeader, Segmented, Spinner } from '../components/ui'
 import { Icon } from '../components/icons'
@@ -27,12 +27,24 @@ export default function Cases() {
       .filter((c) => !term || `${c.caseNumber} ${c.caption} ${c.court}`.toLowerCase().includes(term))
   }, [cases, q, show])
 
+  const isDemoDomain = isDemoAdminDomain()
+
   return (
     <div>
       <PageHeader
         title="Cases"
         subtitle="Prepare each trial for deliberation: its charges, admitted exhibits and jury PINs. Export a ready case to a file and import it on the jury laptop."
-        actions={<Button variant="primary" icon="plus" onClick={() => setCreating(true)}>New case</Button>}
+        actions={
+          <Button
+            variant="primary"
+            icon="plus"
+            onClick={() => setCreating(true)}
+            disabled={isDemoDomain}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            New case
+          </Button>
+        }
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-80 max-w-full">

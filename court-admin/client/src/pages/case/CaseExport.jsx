@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, isDemoAdminDomain } from '../../lib/api'
 import { toast } from '../../store/ui'
 import { fmtBytes, fmtCalendarDate, fmtDateTime, today } from '../../lib/format'
 import { Button, Card, ErrorText, Field, Input, Modal } from '../../components/ui'
 import { Icon } from '../../components/icons'
 
 function Checklist({ readiness }) {
+  const checks = readiness?.checks ?? []
   return (
     <ul className="divide-y divide-line">
-      {readiness.checks.map((c) => (
+      {checks.map((c) => (
         <li key={c.key} className="flex items-start gap-3 px-5 py-3">
           <Icon name={c.ok ? 'checkCircle' : 'alert'} size={20} className={c.ok ? 'mt-0.5 text-ok' : 'mt-0.5 text-warn'} />
           <div>
@@ -52,7 +53,15 @@ function Signoff({ kase, setCase }) {
           <dt className="text-muted">Defense</dt><dd>{s.defense}</dd>
           <dt className="text-muted">Recorded by</dt><dd>{s.recordedByName}, {fmtDateTime(s.recordedAt)}</dd>
         </dl>
-        <Button size="sm" className="self-start" onClick={() => setEditing(true)}>Record again</Button>
+        <Button
+          size="sm"
+          className="self-start"
+          onClick={() => setEditing(true)}
+          disabled={isDemoAdminDomain()}
+          title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+        >
+          Record again
+        </Button>
       </div>
     )
   }
@@ -66,14 +75,22 @@ function Signoff({ kase, setCase }) {
       <Field label="Defense counsel">{(id) => <Input id={id} value={form.defense} onChange={set('defense')} required maxLength={120} />}</Field>
       <Field label="Date approved">{(id) => <Input id={id} type="date" value={form.date} onChange={set('date')} required />}</Field>
       <ErrorText>{error}</ErrorText>
-      <Button type="submit" variant="primary" className="self-start" disabled={!kase.exhibitCount}>Record sign-off</Button>
+      <Button
+        type="submit"
+        variant="primary"
+        className="self-start"
+        disabled={isDemoAdminDomain() || !kase.exhibitCount}
+        title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+      >
+        Record sign-off
+      </Button>
     </form>
   )
 }
 
 export default function CaseExport() {
   const { kase, setCase } = useOutletContext()
-  const { ready } = kase.readiness
+  const ready = !!kase.readiness?.ready
   const [sending, setSending] = useState(false)
   const [replace, setReplace] = useState(null) // the jury server's message when it still holds another trial
 
@@ -117,7 +134,16 @@ export default function CaseExport() {
           <h2 className="mb-2 text-xl font-bold">Send to the jury iPads</h2>
           <p className="mb-4 text-muted">Loads the case, its charges, the {kase.exhibitCount} admitted exhibits, the jury PINs (as hashes only) and the menu into the jury server on this machine. Jurors see it on their iPads as soon as they sign in with the PINs on the printed sheet.</p>
           {ready ? (
-            <Button variant="primary" size="lg" icon="send" onClick={() => send()} disabled={sending}>{sending ? 'Sending…' : `Send ${kase.caseNumber} to jury iPads`}</Button>
+            <Button
+              variant="primary"
+              size="lg"
+              icon="send"
+              onClick={() => send()}
+              disabled={isDemoAdminDomain() || sending}
+              title={isDemoAdminDomain() ? 'Public demo domain, so modification not allowed' : undefined}
+            >
+              {sending ? 'Sending…' : `Send ${kase.caseNumber} to jury iPads`}
+            </Button>
           ) : (
             <p className="flex items-center gap-2 rounded-xl bg-fill px-4 py-3 text-muted"><Icon name="info" size={18} /> Finish the checklist to send the case.</p>
           )}

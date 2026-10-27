@@ -33,7 +33,7 @@ export default function CaseLayout() {
   if (error) return <EmptyState icon="alert" title="Case not found">{error} <Link to="/cases" className="text-accent">Back to cases</Link></EmptyState>
   if (!kase) return <Spinner />
 
-  const failing = kase.readiness.checks.filter((c) => !c.ok).length
+  const failing = (kase.readiness?.checks ?? []).filter((c) => !c.ok).length
   return (
     <div>
       <Link to="/cases" className="mb-3 inline-flex items-center gap-1 text-accent hover:underline print:hidden"><Icon name="chevronLeft" size={16} /> Cases</Link>

@@ -1,9 +1,9 @@
 const juryBase = process.env.JURY_WORKER_URL || process.env.WORKER_URL || 'http://127.0.0.1:8787';
 const adminBase = process.env.ADMIN_WORKER_URL || 'http://127.0.0.1:8788';
-const identifier = process.env.WORKER_IDENTIFIER || 'juror1';
-const pin = process.env.WORKER_PIN || '1234';
+const identifier = process.env.WORKER_IDENTIFIER || 'D-1-DC-26-301874-1';
+const pin = process.env.WORKER_PIN || '863462';
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-const adminPassword = process.env.ADMIN_PASSWORD || 'admin-password';
+const adminPassword = process.env.ADMIN_PASSWORD || 'kestrel-timber-95-upland';
 if (!juryBase || !adminBase) {
   console.error('Set JURY_WORKER_URL and ADMIN_WORKER_URL when using non-default ports.');
   process.exit(2);

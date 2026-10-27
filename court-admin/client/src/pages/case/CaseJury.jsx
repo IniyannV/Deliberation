@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, isDemoAdminDomain } from '../../lib/api'
 import { toast } from '../../store/ui'
 import { fmtDateTime, timeAgo } from '../../lib/format'
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, Select } from '../../components/ui'
@@ -8,16 +8,34 @@ import PinSheet from './PinSheet'
 
 // Short enough to keep the table narrow; the full time is in the tooltip.
 const monthDay = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
-const setWhen = (v) => (Date.now() - new Date(v).getTime() < 86_400_000 ? timeAgo(v) : monthDay.format(new Date(v)))
+const setWhen = (v) => {
+  if (!v) return 'recently'
+  const t = new Date(v).getTime()
+  if (Number.isNaN(t)) return 'recently'
+  return Date.now() - t < 86_400_000 ? timeAgo(v) : monthDay.format(new Date(v))
+}
 
-const PinBadge = ({ p }) => (p.set ? <span title={`Set ${fmtDateTime(p.setAt)}`}><Badge tone="ok" className="font-normal">Set {setWhen(p.setAt)}</Badge></span> : <Badge tone="warn">No PIN</Badge>)
+const PinBadge = ({ p }) => (p?.set ? <span title={p.setAt ? `Set ${fmtDateTime(p.setAt)}` : 'PIN set'}><Badge tone="ok" className="font-normal">Set {setWhen(p.setAt)}</Badge></span> : <Badge tone="warn">No PIN</Badge>)
 
-const namesOf = (jury) => Object.fromEntries(jury.seats.map((s) => [s.seat, s.name ?? '']))
+const namesOf = (jury) => Object.fromEntries((jury?.seats ?? []).map((s) => [s.seat, s.name ?? '']))
 
 export default function CaseJury() {
+  const isDemoDomain = isDemoAdminDomain()
   const { kase, setCase } = useOutletContext()
-  const { jury } = kase
-  const [form, setForm] = useState({ seatCount: jury.seatCount, foreperson: jury.foreperson, bailiffLogin: jury.bailiff.login, bailiffName: jury.bailiff.name })
+  const jury = {
+    seatCount: 12,
+    foreperson: 1,
+    seats: [],
+    bailiff: { login: 'B1', name: 'Bailiff' },
+    display: {},
+    ...(kase.jury ?? {}),
+  }
+  const [form, setForm] = useState({
+    seatCount: jury.seatCount ?? 12,
+    foreperson: jury.foreperson ?? 1,
+    bailiffLogin: jury.bailiff?.login ?? 'B1',
+    bailiffName: jury.bailiff?.name ?? 'Bailiff',
+  })
   const [names, setNames] = useState(() => namesOf(jury))
   const [error, setError] = useState('')
   const [sheet, setSheet] = useState(null)
@@ -35,6 +53,10 @@ export default function CaseJury() {
 
   async function save(e) {
     e.preventDefault()
+    if (isDemoDomain) {
+      toast('Public demo domain, so modification not allowed', { tone: 'warn' })
+      return
+    }
     setError('')
     try {
       const { case: c } = await api(`/cases/${kase.id}/jury`, { method: 'PATCH', body: form })
@@ -47,6 +69,10 @@ export default function CaseJury() {
   }
 
   async function saveNames({ quiet = false } = {}) {
+    if (isDemoDomain) {
+      if (!quiet) toast('Public demo domain, so modification not allowed', { tone: 'warn' })
+      return false
+    }
     try {
       const { case: c } = await api(`/cases/${kase.id}/jury`, { method: 'PATCH', body: { names } })
       synced(c)
@@ -60,6 +86,10 @@ export default function CaseJury() {
 
   // `which`: 'all', 'missing', one seat/role, or a list of them for a bulk print.
   async function generate(which) {
+    if (isDemoDomain) {
+      toast('Public demo domain, so modification not allowed', { tone: 'warn' })
+      return
+    }
     setConfirmAll(false)
     setConfirmSelected(false)
     // Slips print the names, so unsaved ones are saved first.
@@ -76,9 +106,9 @@ export default function CaseJury() {
   }
 
   const rows = [
-    ...jury.seats.map((s) => ({ key: String(s.seat), signIn: `${kase.caseNumber}-${s.seat}`, pin: s, seat: s.seat })),
-    { key: 'bailiff', signIn: `${kase.caseNumber}-${jury.bailiff.login}`, pin: jury.bailiff, who: `Bailiff (${jury.bailiff.name})` },
-    { key: 'display', signIn: `${kase.caseNumber}-DISPLAY`, pin: jury.display, who: 'Room display (projector)' },
+    ...(jury.seats ?? []).map((s) => ({ key: String(s.seat), signIn: `${kase.caseNumber}-${s.seat}`, pin: s, seat: s.seat })),
+    { key: 'bailiff', signIn: `${kase.caseNumber}-${jury.bailiff?.login ?? 'B1'}`, pin: jury.bailiff ?? { set: false }, who: `Bailiff (${jury.bailiff?.name ?? 'Bailiff'})` },
+    { key: 'display', signIn: `${kase.caseNumber}-DISPLAY`, pin: jury.display ?? { set: false }, who: 'Room display (projector)' },
   ]
   const missing = rows.filter((r) => !r.pin.set).length
   const allSelected = selected.size === rows.length
@@ -107,17 +137,62 @@ export default function CaseJury() {
           <Field label="Bailiff’s sign-in ID" hint="Letters and numbers, e.g. B1. Not just a number: those are juror seats.">{(id) => <Input id={id} value={form.bailiffLogin} onChange={(e) => setForm({ ...form, bailiffLogin: e.target.value })} maxLength={16} required />}</Field>
           <Field label="Bailiff’s name">{(id) => <Input id={id} value={form.bailiffName} onChange={(e) => setForm({ ...form, bailiffName: e.target.value })} maxLength={80} required />}</Field>
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" variant="primary" disabled={!dirty} className="self-start">Save</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={isDemoDomain || !dirty}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+            className="self-start"
+          >
+            Save
+          </Button>
           <p className="text-sm text-muted">Alternates aren’t listed here. If one is seated, the bailiff gives them the seat (and a new PIN) on the jury laptop.</p>
         </form>
       </Card>
 
       <div className="flex min-w-0 flex-col gap-4">
+        {isDemoDomain && (
+          <div className="rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
+            <b>Public demo domain:</b> modifications and PIN regeneration are not allowed.
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="primary" icon="key" onClick={() => generate('missing')} disabled={!missing}>Generate missing PINs{missing ? ` (${missing})` : ''}</Button>
-          <Button icon="printer" onClick={printSelected} disabled={!selected.size}>Print selected{selected.size ? ` (${selected.size})` : ''}</Button>
-          <Button icon="refresh" onClick={() => setConfirmAll(true)}>Replace all PINs</Button>
-          {namesDirty && <Button variant="primary" className="ml-auto" onClick={() => saveNames()}>Save names</Button>}
+          <Button
+            variant="primary"
+            icon="key"
+            onClick={() => generate('missing')}
+            disabled={isDemoDomain || !missing}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Generate missing PINs{missing ? ` (${missing})` : ''}
+          </Button>
+          <Button
+            icon="printer"
+            onClick={printSelected}
+            disabled={isDemoDomain || !selected.size}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Print selected{selected.size ? ` (${selected.size})` : ''}
+          </Button>
+          <Button
+            icon="refresh"
+            onClick={() => setConfirmAll(true)}
+            disabled={isDemoDomain}
+            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+          >
+            Replace all PINs
+          </Button>
+          {namesDirty && (
+            <Button
+              variant="primary"
+              className="ml-auto"
+              onClick={() => saveNames()}
+              disabled={isDemoDomain}
+              title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+            >
+              Save names
+            </Button>
+          )}
         </div>
         <p className="text-sm text-muted">Tick the slips you need and choose <b>Print selected</b> to print them on one sheet. PINs are shown once and stored only as secure hashes, so printing gives the ticked seats new PINs. Names are optional; they print on the slips and greet each juror on their iPad.</p>
         <Card className="overflow-x-auto">
@@ -140,7 +215,17 @@ export default function CaseJury() {
                     {r.seat ? <Input value={names[r.seat] ?? ''} onChange={(e) => setNames({ ...names, [r.seat]: e.target.value })} maxLength={80} placeholder={`Juror seat ${r.seat}`} aria-label={`Seat ${r.seat} juror’s name`} className="min-w-32 py-1.5" /> : r.who}
                   </td>
                   <td className="py-2.5 whitespace-nowrap"><PinBadge p={r.pin} /></td>
-                  <td className="py-2.5 text-right whitespace-nowrap"><Button size="sm" variant="ghost" onClick={() => generate(r.key)}>{r.pin.set ? 'New PIN' : 'Generate'}</Button></td>
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => generate(r.key)}
+                      disabled={isDemoDomain}
+                      title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+                    >
+                      {r.pin.set ? 'New PIN' : 'Generate'}
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>

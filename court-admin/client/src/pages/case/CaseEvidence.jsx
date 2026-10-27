@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { api, exhibitFileUrl, uploadWithProgress } from '../../lib/api'
+import { api, exhibitFileUrl, isDemoAdminDomain, uploadWithProgress } from '../../lib/api'
 import { toast } from '../../store/ui'
 import { PARTY_LABEL, TYPE_ICON, TYPE_LABEL, fmtBytes, fmtCalendarDate, today } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorText, Field, IconButton, Input, Modal, Select, Spinner, Textarea, cx } from '../../components/ui'
@@ -122,7 +122,8 @@ export default function CaseEvidence() {
   const [editing, setEditing] = useState(null)
   const [removing, setRemoving] = useState(null)
   const [replacing, setReplacing] = useState(null) // { exhibit, progress }
-  const [adding, setAdding] = useState(kase.exhibits.length === 0)
+  const exhibits = kase.exhibits ?? []
+  const [adding, setAdding] = useState(exhibits.length === 0)
   const replaceInput = useRef(null)
   const replaceTarget = useRef(null)
 
@@ -172,32 +173,48 @@ export default function CaseEvidence() {
     }
   }
 
-  const admitted = kase.exhibits.filter((e) => e.status === 'admitted').length
+  const admitted = exhibits.filter((e) => e.status === 'admitted').length
+  const isDemoDomain = isDemoAdminDomain()
 
   return (
     <div className="flex flex-col gap-6">
+      {isDemoDomain && (
+        <div className="rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
+          <b>Public demo domain:</b> uploading, editing, or deleting exhibits is not allowed.
+        </div>
+      )}
       {kase.signoff?.valid && (
         <p className="flex items-start gap-2 rounded-xl bg-warn-soft px-4 py-3 text-warn">
           <Icon name="alert" size={20} className="mt-0.5 shrink-0" />
           The exhibit list has been signed off. Any change here (adding, editing, withdrawing or replacing an exhibit) clears the sign-off, and it must be recorded again before the case is sent to the jury iPads.
         </p>
       )}
-      {adding && <UploadCard kase={kase} setCase={setCase} onClose={kase.exhibits.length ? () => setAdding(false) : null} />}
+      {adding && <UploadCard kase={kase} setCase={setCase} onClose={exhibits.length ? () => setAdding(false) : null} />}
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">Exhibits <span className="font-normal text-muted">({admitted} admitted{kase.exhibits.length > admitted ? `, ${kase.exhibits.length - admitted} withdrawn` : ''})</span></h2>
-          {!adding && <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>Add exhibit</Button>}
+          <h2 className="text-xl font-bold">Exhibits <span className="font-normal text-muted">({admitted} admitted{exhibits.length > admitted ? `, ${exhibits.length - admitted} withdrawn` : ''})</span></h2>
+          {!adding && (
+            <Button
+              variant="primary"
+              icon="plus"
+              onClick={() => setAdding(true)}
+              disabled={isDemoDomain}
+              title={isDemoDomain ? 'Public demo domain, so modification not allowed' : undefined}
+            >
+              Add exhibit
+            </Button>
+          )}
         </div>
         {replacing && <Card className="mb-3 p-4"><p className="mb-2 text-sm font-semibold">Replacing the file for {replacing.exhibit.number}…</p><Progress value={replacing.progress} /></Card>}
-        {kase.exhibits.length ? (
+        {exhibits.length ? (
           <Card>
             <table className="apple-table w-full text-left">
               <thead className="border-b border-line text-sm text-muted">
                 <tr><th className="py-3">No.</th><th className="py-3">Title</th><th className="py-3">Type</th><th className="py-3">Party</th><th className="py-3">Admitted</th><th className="py-3">Status</th><th /></tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {kase.exhibits.map((e) => (
+                {exhibits.map((e) => (
                   <tr key={e.id} className={cx(e.status === 'withdrawn' && 'opacity-60')}>
                     <td className="py-3 whitespace-nowrap"><Badge tone="accent">{e.number}</Badge></td>
                     <td className="py-3">
@@ -210,12 +227,43 @@ export default function CaseEvidence() {
                     <td className="py-3">{e.status === 'admitted' ? <Badge tone="ok">Admitted</Badge> : <Badge>Withdrawn</Badge>}</td>
                     <td className="py-3 text-right whitespace-nowrap">
                       <IconButton icon="eye" label={`Preview ${e.number}`} onClick={() => setPreview(e)} />
-                      <IconButton icon="edit" label={`Edit ${e.number}`} onClick={() => setEditing({ ...e })} />
-                      <IconButton icon="upload" label={`Replace ${e.number}’s file`} disabled={!!replacing} onClick={() => { replaceTarget.current = e; replaceInput.current.click() }} />
+                      <IconButton
+                        icon="edit"
+                        label={`Edit ${e.number}`}
+                        disabled={isDemoDomain}
+                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Edit ${e.number}`}
+                        onClick={() => setEditing({ ...e })}
+                      />
+                      <IconButton
+                        icon="upload"
+                        label={`Replace ${e.number}’s file`}
+                        disabled={isDemoDomain || !!replacing}
+                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Replace ${e.number}’s file`}
+                        onClick={() => { replaceTarget.current = e; replaceInput.current.click() }}
+                      />
                       {e.status === 'admitted'
-                        ? <IconButton icon="eyeOff" label={`Withdraw ${e.number}`} onClick={() => patch(e, { status: 'withdrawn' }, `${e.number} withdrawn. It won’t be exported.`)} />
-                        : <IconButton icon="refresh" label={`Restore ${e.number}`} onClick={() => patch(e, { status: 'admitted' }, `${e.number} restored.`)} />}
-                      <IconButton icon="trash" label={`Delete ${e.number}`} className="hover:text-danger" onClick={() => setRemoving(e)} />
+                        ? <IconButton
+                            icon="eyeOff"
+                            label={`Withdraw ${e.number}`}
+                            disabled={isDemoDomain}
+                            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Withdraw ${e.number}`}
+                            onClick={() => patch(e, { status: 'withdrawn' }, `${e.number} withdrawn. It won’t be exported.`)}
+                          />
+                        : <IconButton
+                            icon="refresh"
+                            label={`Restore ${e.number}`}
+                            disabled={isDemoDomain}
+                            title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Restore ${e.number}`}
+                            onClick={() => patch(e, { status: 'admitted' }, `${e.number} restored.`)}
+                          />}
+                      <IconButton
+                        icon="trash"
+                        label={`Delete ${e.number}`}
+                        className="hover:text-danger"
+                        disabled={isDemoDomain}
+                        title={isDemoDomain ? 'Public demo domain, so modification not allowed' : `Delete ${e.number}`}
+                        onClick={() => setRemoving(e)}
+                      />
                     </td>
                   </tr>
                 ))}

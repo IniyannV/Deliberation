@@ -14,8 +14,12 @@ async function auth(request, env, path) {
   if (path === '/api/auth/login' && request.method === 'POST') {
     const b = await request.json().catch(() => ({}));
     const username = String(b.username || '').trim().toLowerCase();
-    const user = await env.DB.prepare('SELECT * FROM users WHERE lower(username)=? AND active=1 LIMIT 1').bind(username).first();
-    if (!user || !(await verifySecret(String(b.password || ''), user.password_hash))) return json({ error: 'That username and password did not match' }, 401);
+    const user = await env.DB.prepare(
+      'SELECT * FROM users WHERE (lower(username)=? OR lower(login)=?) AND active=1 LIMIT 1',
+    ).bind(username, username).first();
+    if (!user || !(await verifySecret(String(b.password || ''), user.password_hash))) {
+      return json({ error: 'That username and password did not match' }, 401);
+    }
     const token = await createSession(env, user.id);
     return withSession(json({ user: publicUser(user) }), token);
   }
@@ -36,6 +40,22 @@ async function api(request, env) {
   if (access.response) return access.response;
   const { user } = access;
 
+  if (url.hostname === 'deliberation-admin.soumilvoona.me' && request.method !== 'GET') {
+    return json({ error: 'Public demo domain, so modification not allowed' }, 403);
+  }
+
+  if (url.pathname === '/api/auth/password' && request.method === 'POST') {
+    const b = await request.json().catch(() => ({}));
+    if (!(await verifySecret(String(b.current || ''), user.password_hash))) {
+      return json({ error: 'Your current password is not right' }, 400);
+    }
+    const next = String(b.next || '');
+    if (next.length < 10) return json({ error: 'Use a password of at least 10 characters' }, 400);
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(next, user.id).run();
+    await audit(env, user.id, 'user.password_changed', user.id);
+    return json({ ok: true });
+  }
+
   if (url.pathname === '/api/cases' && request.method === 'GET') {
     const { results } = await env.DB.prepare('SELECT * FROM cases ORDER BY updated_at DESC').all();
     return json({ cases: results.map(parseCase) });
@@ -54,7 +74,58 @@ async function api(request, env) {
     const id = caseMatch[1];
     const row = await env.DB.prepare('SELECT * FROM cases WHERE id=?').bind(id).first();
     if (!row) return json({ error: 'Case not found' }, 404);
-    if (request.method === 'GET') return json({ case: parseCase(row) });
+    if (request.method === 'GET') {
+      const parsed = parseCase(row) || {};
+      const { results: exRows } = await env.DB.prepare('SELECT * FROM exhibits WHERE case_id=? ORDER BY created_at ASC').bind(id).all();
+      const exhibits = (exRows || []).map(exhibit);
+      const admitted = exhibits.filter((e) => e.status === 'admitted').length;
+      const now = new Date().toISOString();
+      const rawJury = parsed.jury || {};
+      const seatCount = rawJury.seatCount || 12;
+      const seats = Array.isArray(rawJury.seats) && rawJury.seats.length
+        ? rawJury.seats.map((s) => ({ ...s, set: s.set ?? true, setAt: s.setAt || now }))
+        : Array.from({ length: seatCount }, (_, i) => ({
+            seat: i + 1,
+            name: rawJury.names?.[i + 1] || '',
+            set: true,
+            setAt: now,
+          }));
+      const jury = {
+        seatCount,
+        foreperson: rawJury.foreperson || 1,
+        seats,
+        bailiff: {
+          login: rawJury.bailiff?.login || 'B1',
+          name: rawJury.bailiff?.name || 'Bailiff',
+          set: true,
+          setAt: rawJury.bailiff?.setAt || now,
+        },
+        display: {
+          set: true,
+          setAt: rawJury.display?.setAt || now,
+          ...(rawJury.display || {}),
+        },
+      };
+      const fullCase = {
+        exhibits,
+        exhibitCount: admitted,
+        exports: parsed.exports || [],
+        readiness: parsed.readiness || {
+          ready: true,
+          checks: [
+            { key: 'details', label: 'Caption, case number and court', ok: true },
+            { key: 'counts', label: 'At least one count, each with its elements', ok: (parsed.counts || []).length > 0 },
+            { key: 'exhibits', label: 'At least one admitted exhibit', ok: admitted > 0 },
+            { key: 'pins', label: 'PINs for every seat, the bailiff and the room display', ok: true },
+            { key: 'signoff', label: 'Exhibit list approved by the judge and both counsel', ok: true },
+            { key: 'active', label: 'Case is not archived', ok: parsed.status !== 'archived' },
+          ],
+        },
+        ...parsed,
+        jury,
+      };
+      return json({ case: fullCase });
+    }
     if (request.method === 'PATCH') {
       const b = await request.json().catch(() => ({}));
       const data = { ...parseCase(row), ...b, id };
@@ -89,10 +160,71 @@ async function api(request, env) {
     }
     return json({ exhibit: exhibit(row) });
   }
+
+  // Court Admin accounts management
   if (url.pathname === '/api/users' && request.method === 'GET') {
-    const { results } = await env.DB.prepare('SELECT * FROM users ORDER BY username').all();
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM users WHERE role IN ("admin", "clerk") ORDER BY username',
+    ).all();
     return json({ users: results.map(publicUser) });
   }
+  if (url.pathname === '/api/users' && request.method === 'POST') {
+    if (user.role !== 'admin') return json({ error: 'Not permitted for your role' }, 403);
+    const b = await request.json().catch(() => ({}));
+    const username = String(b.username || '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]+$/.test(username)) return json({ error: 'Usernames use letters, numbers, dots, dashes and underscores' }, 400);
+    const existing = await env.DB.prepare('SELECT id FROM users WHERE lower(username)=?').bind(username).first();
+    if (existing) return json({ error: `${username} is already taken` }, 400);
+    const password = `${['maple', 'river', 'cedar', 'timber', 'amber', 'pebble'][Math.floor(Math.random() * 6)]}-${['creek', 'ridge', 'stone', 'branch', 'brook'][Math.floor(Math.random() * 5)]}-${Math.floor(Math.random() * 90 + 10)}-${['upland', 'hollow', 'pine', 'frost', 'summit'][Math.floor(Math.random() * 5)]}`;
+    const id = crypto.randomUUID();
+    const role = b.role === 'admin' ? 'admin' : 'clerk';
+    const name = String(b.name || '').trim() || username;
+    await env.DB.prepare(
+      `INSERT INTO users (id, username, login, role, kind, name, password_hash, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+    ).bind(id, username, username, role, role, name, password).run();
+    await audit(env, user.id, 'user.created', id, { username, role });
+    const created = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(id).first();
+    return json({ user: publicUser(created), password }, 201);
+  }
+  const userPatchMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
+  if (userPatchMatch && request.method === 'PATCH') {
+    if (user.role !== 'admin') return json({ error: 'Not permitted for your role' }, 403);
+    const targetId = userPatchMatch[1];
+    const target = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(targetId).first();
+    if (!target) return json({ error: 'Account not found' }, 404);
+    const b = await request.json().catch(() => ({}));
+    const self = target.id === user.id;
+    let nextRole = target.role;
+    let nextActive = target.active;
+    let nextName = target.name;
+    if (b.role !== undefined) {
+      if (self && b.role !== target.role) return json({ error: 'You can’t change your own role' }, 400);
+      nextRole = b.role === 'admin' ? 'admin' : 'clerk';
+    }
+    if (b.active !== undefined) {
+      if (self && !b.active) return json({ error: 'You can’t deactivate your own account' }, 400);
+      nextActive = b.active ? 1 : 0;
+    }
+    if (b.name !== undefined) nextName = String(b.name).trim();
+    await env.DB.prepare('UPDATE users SET name=?, role=?, kind=?, active=? WHERE id=?')
+      .bind(nextName, nextRole, nextRole, nextActive, targetId).run();
+    const updated = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(targetId).first();
+    return json({ user: publicUser(updated) });
+  }
+  const resetMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/reset-password$/);
+  if (resetMatch && request.method === 'POST') {
+    if (user.role !== 'admin') return json({ error: 'Not permitted for your role' }, 403);
+    const targetId = resetMatch[1];
+    const target = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(targetId).first();
+    if (!target) return json({ error: 'Account not found' }, 404);
+    const password = `${['maple', 'river', 'cedar', 'timber', 'amber', 'pebble'][Math.floor(Math.random() * 6)]}-${['creek', 'ridge', 'stone', 'branch', 'brook'][Math.floor(Math.random() * 5)]}-${Math.floor(Math.random() * 90 + 10)}-${['upland', 'hollow', 'pine', 'frost', 'summit'][Math.floor(Math.random() * 5)]}`;
+    await env.DB.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(password, targetId).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(targetId).run();
+    await audit(env, user.id, 'user.password_reset', targetId);
+    return json({ user: publicUser(target), password });
+  }
+
   if (url.pathname === '/api/audit') {
     const { results } = await env.DB.prepare('SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 500').all();
     return json({ events: results });
